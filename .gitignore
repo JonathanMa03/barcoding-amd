@@ -288,3 +288,5 @@ __pycache__/
 !*.jpg
 !*.jpeg
 !*.svg
+
+data/
