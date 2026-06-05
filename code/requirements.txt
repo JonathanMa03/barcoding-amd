@@ -1,6 +1,0 @@
-# Sample
-python 
-numpy
-pandas
-NumPyro
-yfinance
