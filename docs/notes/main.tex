@@ -525,10 +525,179 @@ Important observations include:
 The paper demonstrates the potential value of hybrid CNN--Transformer architectures for retinal OCT analysis and segmentation tasks.
 
 % =================================================================================
+\newpage
 \part{Project Directions}
+
+\section{Classical Statistical Approach for Quantifying Barcoding}
+
+\subsection*{Motivation}
+
+The observed barcoding phenomenon appears as a vertically oriented transmission artifact within OCT scans. Since the pattern is directional, repetitive, and localized beneath regions of RPE degeneration, it can be treated as a texture-analysis problem rather than an object-detection problem.
+The primary objective is to convert a visual pattern into a reproducible quantitative biomarker that can later be incorporated into statistical models of disease progression.
+
+\subsection*{Overall Pipeline}
+
+The proposed workflow is \[\text{OCT Scan}\rightarrow\text{Region of Interest}\rightarrow\text{Feature Extraction}\rightarrow\text{Barcode Score}\]
+
+where the region of interest consists of the sub-RPE/choroidal region in which the transmission artifact is observed.
+
+\subsection*{Step 1: Region Selection}
+
+The first step is to isolate the anatomical region where the barcode pattern occurs.
+
+Possible approaches include:
+
+\begin{itemize}
+    \item Manual annotation
+    \item Semi-automatic segmentation
+    \item Automated retinal layer segmentation
+\end{itemize}
+
+Restricting analysis to the relevant region reduces noise from unrelated retinal structures.
+
+\subsection*{Step 2: Fourier-Based Barcode Index}
+
+For each OCT scan, construct a horizontal transmission profile\[T(x)=\int_{\text{ROI}}I(x,z)\,dz.\]
+The Fourier transform\[F(f)=\mathcal{F}\{T(x)\}\]measures spatial frequency content. Periodic stripe patterns should produce elevated spectral energy at characteristic frequencies.
+A Fourier barcode index can be defined as\[B_F=\sum_{f\in\mathcal F}|F(f)|^2,\]
+
+where $\mathcal F$ corresponds to frequencies associated with stripe spacing. Small values indicate weak periodic structure and large values indicate strong stripe organization.
+\subsection*{Step 3: Gabor Filter Response}
+
+Apply a bank of vertically oriented Gabor filters. A Gabor filter is
+\[g(x,y)=\exp\left(-\frac{x'^2+\gamma^2y'^2}{2\sigma^2}\right)\cos(2\pi fx').\]
+
+The filter response is
+\[R(x,y)=(I*g)(x,y).\]
+
+Compute
+\[B_G=\frac1N\sum_{x,y}|R(x,y)|.\]
+
+This quantity measures how strongly the image resembles an oriented stripe pattern.
+
+\subsection*{Step 4: Directionality via Structure Tensor}
+The local structure tensor is
+\[S=G_\sigma *\begin{bmatrix}I_x^2 & I_xI_y \\I_xI_y & I_y^2\end{bmatrix}.\]
+
+Let $\lambda_1 \ge \lambda_2$ be the eigenvalues. Define anisotropy as
+\[A=\frac{\lambda_1-\lambda_2}{\lambda_1+\lambda_2}.\]
+
+Interpretation: $A\approx0$: isotropic texture, $A\approx1$: highly directional pattern.
+Strong vertical transmission artifacts should exhibit elevated anisotropy.
+
+\subsection*{Composite Barcode Score}
+
+The final score can combine multiple measurements:
+\[S_i=w_1B_\text{Fourier}+w_2B_\text{Gabor}+w_3A+w_4C,\]
+
+where $A$ = anisotropy score and $C$ = local contrast measure.
+The weights can be estimated statistically or chosen based on clinical interpretation.
+This is easy to interpret and works well with rsmaller datasets. It is reliant on imaging physics and produces a continuous biomarker for downstream analysis.
+
+\section{Deep Learning Approach for Quantifying Barcoding}
+
+\subsection*{Motivation}
+
+Classical image-processing methods require manual feature engineering.
+Deep learning instead learns image representations directly from OCT scans.
+Rather than specifying stripe characteristics explicitly, the network discovers image features most useful for quantifying barcoding.
+
+\subsection*{Overall Pipeline}
+
+The proposed workflow is \[\text{OCT Scan}\rightarrow\text{CNN Encoder}\rightarrow\text{Deep Features}\rightarrow\text{Barcode Severity Score}.\]
+
+The output may be a continuous barcode severity score, a segmentation mask, or a heatmap identifying barcode regions.
+
+\subsection*{Encoder Network}
+
+A ResNet-style encoder may be used. Convolutional layers compute \[Y(i,j)=\sum_m\sum_nK(m,n)X(i+m,j+n).\]
+Where early layers learn edges, gradients, and local texture, and deeper layers learn retinal structures, transmission adnormalities, and disease related patterns.
+
+\subsection*{Regression-Based Severity Scoring}
+
+The final network output is $\hat S_i=f_\theta(X_i),$ where $X_i$ is the OCT image, $\hat S_i$ is predicted barcode severity.
+Training minimizes\[L=\frac1n\sum_i(S_i-\hat S_i)^2,\]
+where $S_i$ represents clinician-assigned severity labels.
+
+\subsection*{Segmentation-Based Approach}
+
+An alternative approach is to train a U-Net with an output $M(x,y)\in [0,1]$ representing the probability that pixel $(x,y)$ belongs to a barcode-like region.
+
+We'll use Dice loss:\[L_{\text{Dice}}=1-\frac{2|M\cap G|}{|M|+|G|},\] where $G$ denotes the expert annotation. The overall barcode score may then be
+\[S_i=\int M(x,y)\,dx\,dy.\]
+
+\subsection*{Self-Attention Extensions}
+
+Because OCT anatomy is highly structured, attention mechanisms may improve performance.
+Self-attention computes \[\text{Attention}(Q,K,V)=\text{softmax}\left(\frac{QK^\top}{\sqrt d}\right)V.\]
+This gives us larger receptive fields, better use of anatomical concepts, and improved identification of subtle artifacts.
+
+
+\subsection*{Interpretability}
+
+Grad-CAM can identify image regions driving predictions. Importance weights are \[\alpha_k=\frac1Z\sum_i\sum_j\frac{\partial y}{\partial A^k_{ij}}.\]
+Heatmaps are generated as\[L=\text{ReLU}\left(\sum_k \alpha_kA^k\right).\]
+This provides visual confirmation that the model is using barcode-like structures rather than unrelated image regions.
+This learns features automatically and has no information loss, leading to higher accuracy than crafted features.
+
+\section{Binary Progression Prediction Model}
+
+\subsection*{Objective}
+
+The goal is to determine whether barcode measurements obtained from a baseline OCT scan can predict future AMD progression.
+The outcome is binary: \[Y_i=\begin{cases}1, & \text{rapid progression},\\0, & \text{slow or no progression}.\end{cases}\]
+The exact definition of progression depends on available data. Possible endpoints include conversion to geographic atrophy or rapid geographic enlargement.
+
+\subsection*{Predictor Variables}
+
+Predictors may include our previously defined barcoding score, along with demographic covariates like age, and other known biomarkers.
+
+\subsection*{Logistic Regression Model}
+
+A natural starting point is logistic regression:
+
+\[\log\left(\frac{p_i}{1-p_i}\right)=\beta_0+\beta_1S_i+\beta_2X_{i1}+\cdots+\beta_pX_{ip},\]
+where$p_i=P(Y_i=1)$ and $e^{\beta_1}$ represents the odds ratio associated with a one-unit increase in barcode score.
+
+\subsection*{Model Evaluation}
+
+Performance can be assessed using AUC and confusion matrices, along with calibration curves.
+
+\subsection*{Clinical Question}
+
+The key comparison is whether or not adding the barcode score improves prediction significantly.
+
+\section{Bayesian Progression Prediction Model}
+
+\subsection*{Motivation}
+
+Barcode measurements are inherently uncertain. Different image-processing methods, scanners, or graders may produce slightly different values. A Bayesian model explicitly accounts for this uncertainty.
+
+\subsection*{Latent Barcode Severity}
+
+Instead of treating the barcode score as fixed, define $Z_i=\text{latent barcode severity}.$
+
+Observed image measurements are noisy observations: \[X_i\mid Z_i\sim N(Z_i,\sigma_X^2).\]
+The latent severity becomes the true biological quantity of interest.
+
+\subsection*{Progression Model}
+
+Let \[Y_i=\begin{cases}1,&\text{progression},\\0,&\text{no progression}.\end{cases}\]
+Then $Y_i\mid Z_i\sim\text{Bernoulli}(p_i),$ with $\text{logit}(p_i)=\alpha+\beta Z_i+\gamma^\top C_i,$ where $C_i$ contains clinical covariates.
+
+\subsection*{Prior Distributions}
+
+Example priors: \[\alpha\sim N(0,10^2) \qquad \beta\sim N(0,10^2) \qquad Z_i\sim N(\mu_Z,\sigma_Z^2)\]
+The posterior distribution becomes $p(\alpha,\beta,Z \mid X,Y).$ We can then sample with MCMC methods or variational inference.
+
+\subsection*{Outputs}
+
+For each patient, the model produces: \[P(\text{progression}\mid \text{OCT}),\]
+along with a full posterior distribution, which yields mean risk estimates, credible intervals, and better uncertainty quantification. This ensures image uncertainty gets incorporated, and also seperates measurement noise from biological signal.
 
 
 % =================================================================================
+\newpage
 \part{Notes}
 
 \section{Statistical Methods for Barcode Quantification}
