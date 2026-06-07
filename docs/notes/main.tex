@@ -1011,18 +1011,203 @@ thereby improving interpretability and clinical trust.
 \part{Trials}
 
 \section{6/7: Initial Testing}
+This is the first attempt at quantifying the barcoding artifact that we observed in the images. The longer goal is to be able to quantify the severity of this artifact and then assess the robustness across scans and patients, and use a comparison study to see if it can qualify as a good biomarker or feature for downstream analysis.
 
 \subsection{Feature Exploration}
+We want to see whether the barcoding phenomenon could be represented quantitatively using simple image-derived features. 
+Three representative scans exhibiting best-case barcoding were selected for exploratory analysis. 
+All images were converted to grayscale and intensity-normalized to place measurements on a common scale.
 
-\subsection{Gabor Score}
+The barcoding artifact appears as vertically oriented regions of increased transmission extending into the choroid, so analysis was restricted to a manually selected region of interest (ROI) containing the RPE/choroid interface and the upper choroid. 
+Several candidate crops were visually evaluated. A crop spanning pixel rows 180--350 was selected because it retained the visible transmission columns while excluding most of the vitreous, neurosensory retina, and low-information background signal.
 
-\subsection{Anistropy Score}
+As a first proof-of-concept approach, the 2D ROI was reduced to a 1D transmission profile. 
+For each horizontal image position, the average pixel intensity within the ROI was computed. 
+Conceptually, this profile measures the amount of light transmitted through the retina into the underlying choroid. 
+Areas of RPE disruption are expected to exhibit increased transmission and therefore appear as brighter regions within the profile.
 
-\subsection{Barcoding Index}
+Initial inspection revealed a substantial large-scale brightness gradient across the scan, reflecting global imaging and anatomical effects rather than the barcoding artifact itself. 
+To isolate local transmission variations, a heavily smoothed trend estimate was subtracted from the transmission profile, producing a detrended signal centered approximately around zero. 
+This detrending step allowed local fluctuations associated with transmission columns to be examined independently of overall image brightness.
+
+Several simple summary statistics were then extracted from the detrended profile, including the SD, variance, and number of prominent local peaks. 
+For the representative examples, SD ranged from 0.0200 to 0.0325, variance ranged from 0.000398 to 0.001057, and peak counts ranged from 24 to 27. 
+Although these measurements demonstrated that the barcoding pattern could be converted into quantitative features, differences between scans were relatively modest.
+
+Importantly, the resulting numerical rankings did not fully align with visual assessments of barcoding severity. 
+Images that appeared to exhibit prominent barcoding did not consistently produce the largest transmission-profile statistics. 
+This suggests that maybe reducing the OCT image to a 1D signal discards information that may be important for characterizing the artifact.
+
+Clinically, barcoding is not defined solely by intensity variation. 
+The phenomenon is also characterized by its vertical orientation, localized appearance, and irregular spacing within the choroid. 
+These properties are not explicitly represented by transmission-profile statistics. 
+While the transmission-profile approach provided a useful proof of concept, the results suggested that methods preserving 2D information would likely be required for more effective quantification of the artifact.
+
+This finding motivated subsequent investigation of texture-analysis approaches, including Gabor filtering and directional image features designed specifically to quantify vertically oriented structures.
+
+
+\subsection{Directional Texture Quantification Using Gabor Filters}
+The next objective was to develop a quantitative feature that explicitly captures the vertical texture pattern observed in OCT barcoding.
+
+We employ a Gabor filter, a commonly used image-analysis tool designed to detect structures with a specific orientation and spacing. 
+Conceptually, a Gabor filter functions as a directional texture detector. 
+Rather than measuring overall image brightness, it measures how strongly an image contains repetitive structures aligned in a particular direction. 
+Because the barcoding artifact appears clinically as a series of vertically oriented transmission columns extending into the choroid, Gabor filtering provides a natural framework for quantification.
+
+Two key parameters determine the behavior of a Gabor filter. Orientation, which specifies the direction of the texture being detected, and spatial frequency, which determines the characteristic spacing between repeating structures. 
+To identify the most informative parameter settings, a systematic grid search was performed across multiple frequencies (0.02--0.20) and orientations (0 to $\pi/2$ radians). 
+The analysis was restricted to the same ROI selected in the previous notebook.
+
+Frequency analysis demonstrated that the strongest responses generally occurred at low frequencies. 
+For the representative example used during initial testing, the peak response occurred near a frequency of 0.04, corresponding to an estimated spacing of approximately 25 pixels between adjacent transmission columns. 
+This finding suggests that the barcoding artifact is composed primarily of relatively broad structures rather than fine-scale image texture. 
+
+Orientation analysis revealed a clear directional preference. 
+The strongest response was observed at an orientation of $\pi/2$, corresponding to vertical image structures. 
+This result is consistent with clinical observations. 
+
+To assess reproducibility, the frequency-orientation search was repeated for all three representative scans. The highest observed responses were:
+
+\begin{itemize}
+    \item amd\_sample1: 0.0141 (frequency = 0.02, orientation = $\pi/2$)
+    \item amd\_sample3: 0.0048 (frequency = 0.02, orientation = $\pi/2$)
+    \item amd\_sample2: 0.0028 (frequency = 0.06, orientation = 0)
+\end{itemize}
+
+Interestingly, Samples 1 and 3 demonstrated similar response patterns, with maximal responses occurring at low frequencies and vertical orientations. 
+Sample 2 exhibited a different response structure, suggesting either weaker barcoding, greater structural heterogeneity, or the presence of competing image features influencing the measurement. 
+
+Because ROI selection may influence texture measurements, a sensitivity analysis was performed using progressively deeper choroidal crops. 
+Although response magnitude decreased as additional low-information pixels were included, the overall ranking of scans remained stable. 
+For example, the Gabor score for Sample 1 decreased from 0.0141 to 0.0045 as the ROI was expanded, while maintaining the highest response among the representative examples. 
+This behavior suggests that the measurement is influenced by ROI definition but remains directionally consistent across reasonable crop choices. 
+
+Overall, these findings indicate that Gabor-based texture analysis captures important structural information that is lost when OCT images are reduced to 1D transmission profiles. 
+The method successfully identifies the directional nature of the barcoding artifact and provides an interpretable quantitative measure of transmission-column prominence. 
+These results motivated further investigation of complementary directional texture measures, including structural tensor analysis and anisotropy-based metrics.
+
+\subsection{Directional Organization and Anisotropy Analysis}
+
+A second image-analysis approach was investigated to determine whether the barcoding phenomenon exhibits measurable directional organization. 
+Structure tensor analysis evaluates the local orientation of image features directly. 
+This provides a complementary method for quantifying the degree of organization present within the transmission-column pattern.
+
+The structure tensor is a commonly used image-processing technique that identifies whether local image regions contain a preferred direction. 
+Regions containing aligned structures, such as vessels, fibers, or transmission columns, produce stronger directional signals than regions with random texture. 
+To summarize this directional organization, an anisotropy score was computed. 
+Anisotropy measures the extent to which image features are oriented in a common direction. 
+Higher values indicate greater directional organization, whereas lower values indicate more isotropic or randomly oriented texture.
+
+Initial analysis of the full ROI demonstrated that anisotropy measurements were influenced by several anatomical structures, including retinal layer boundaries, the foveal depression, the RPE interface, and the transmission columns themselves. 
+To better isolate the barcoding pattern, the analysis was repeated using a barcode-focused ROI restricted to the upper choroid, where the transmission columns were most visually apparent. 
+This reduced the influence of unrelated retinal anatomy while preserving the structures of interest. 
+The mean anisotropy score decreased only slightly from 0.451 in the full ROI to 0.430 in the barcode-focused ROI, suggesting that directional organization remained prominent after restricting attention to the choroidal region.  
+
+The barcode-focused analysis was then applied to all three representative scans. The resulting anisotropy scores were:
+
+\begin{itemize}
+    \item amd\_sample1: 0.430
+    \item amd\_sample3: 0.382
+    \item amd\_sample2: 0.341
+\end{itemize}
+
+The ranking is consistent with Gabor filter analysis, which is important because the two approaches measure different image characteristics. 
+Gabor filters quantify oriented texture patterns at specific spatial scales, whereas anisotropy measures the overall directional organization of image features without assuming a particular spacing between structures. 
+The consistency between these methods suggests that both are detecting a genuine property of the barcoding pattern rather than an artifact of a particular algorithm.  
+
+From a clinical perspective, the anisotropy results support the hypothesis that barcoding is not simply a collection of isolated transmission defects. 
+Instead, the phenomenon appears to possess coherent directional organization, with stronger examples exhibiting more pronounced alignment of transmission columns. 
+The ability of anisotropy measurements to distinguish among the representative scans provides further evidence that directional image features may serve as useful quantitative biomarkers.
+
+\subsection{Development of a Composite Barcoding Index}
+The previous analyses demonstrated that multiple image-derived features capture different aspects of the barcoding phenomenon. 
+Transmission-profile statistics quantify overall signal variability, Gabor filtering measures directional texture strength, and anisotropy analysis quantifies directional organization. 
+Because no single feature fully characterizes the artifact, the next objective was to investigate whether these complementary measurements could be combined into a unified quantitative score.
+
+To construct a prototype barcoding index, four features were incorporated:
+
+\begin{itemize}
+    \item Transmission-profile standard deviation,
+    \item Peak count from the detrended transmission profile,
+    \item Gabor texture score,
+    \item Anisotropy score.
+\end{itemize}
+
+Because these measurements exist on different numerical scales, each feature was normalized relative to its maximum observed value before aggregation. 
+An initial composite index was then constructed using equal weighting of all four features.
+
+The resulting composite scores were:
+
+\begin{itemize}
+    \item amd\_sample1: 0.945
+    \item amd\_sample3: 0.808
+    \item amd\_sample2: 0.624
+\end{itemize}
+
+This produces the same ranking, so thd ordering was consistent with both visual inspection and the rankings obtained from the Gabor and anisotropy analyses. 
+The agreement suggests that multiple independent image characteristics contribute to the appearance of barcoding and can be integrated into a single quantitative measure.
+
+Because the exploratory analyses indicated that texture and directional organization appeared more informative than simple transmission-profile statistics, a second texture-oriented index was evaluated. 
+In this formulation, greater weight was assigned to the Gabor and anisotropy features while standard deviation and peak count received smaller contributions. Specifically,
+
+\[
+BI_{\text{texture}}
+=
+0.4G
++
+0.4A
++
+0.1S
++
+0.1P,
+\]
+
+where \(G\) denotes the normalized Gabor score, \(A\) the normalized anisotropy score, \(S\) the normalized standard deviation, and \(P\) the normalized peak count.
+
+The resulting weighted scores were:
+
+\begin{itemize}
+    \item amd\_sample1: 0.978
+    \item amd\_sample3: 0.692
+    \item amd\_sample2: 0.547
+\end{itemize}
+
+Importantly, the ranking remained unchanged:
+
+\[
+\text{Image 1}
+>
+\text{Image 3}
+>
+\text{Image 2}.
+\]
+
+The stability of the ranking under different weighting schemes suggests that the observed ordering is not driven by a single feature or modeling choice. 
+Rather, multiple independent measurements identify the same image as exhibiting the strongest apparent barcoding and the same image as exhibiting the weakest.
+
+The present index should be viewed as a proof-of-concept biomarker rather than a finalized clinical severity scale. 
+The analysis is limited to three representative OCT scans, ROI selection remains manually defined, and the feature weights were selected heuristically rather than learned from outcome data. 
 
 \subsection{Robustness Check}
 
+Before such measurements can be considered useful biomarkers, it is important to evaluate their stability under reasonable variations in image processing choices.
 
+The most important user-defined parameter in the current workflow is ROI selection. 
+Because the transmission columns are not sharply bounded anatomical structures, small differences in crop placement may occur during manual image review. 
+To assess the sensitivity of the proposed measurements to ROI definition, the vertical crop boundaries were systematically shifted while recomputing both the Gabor texture score and the anisotropy score.
 
+Five ROI configurations were evaluated, spanning pixel rows 170--340 through 210--380. 
+These perturbations were selected to represent realistic variations in manual ROI placement while maintaining focus on the RPE/choroid complex and the upper choroid.
+
+Across all three representative scans, both the Gabor and anisotropy measurements decreased gradually as the ROI was shifted deeper into the choroid. 
+This behavior is expected because the strongest transmission-column signal is concentrated near the RPE/choroid interface. As progressively deeper regions were included, the proportion of low-information tissue increased, resulting in lower overall feature values.
+
+Despite these changes in magnitude, the relative ordering of the representative scans remained unchanged throughout the analysis. 
+This finding is particularly important because the primary objective of the proposed barcoding index is not necessarily to assign an absolute severity value, but rather to distinguish among scans exhibiting different degrees of the phenomenon. 
+The magnitude of variation was modest. For example, the mean anisotropy score ranged from 0.420 for Sample 1 to 0.340 for Sample 2, with standard deviations of 0.017 and 0.006, respectively. 
+
+Formal bootstrap-based uncertainty estimation was initially considered. 
+However, repeated computation of Gabor and structure tensor features proved computationally expensive during this exploratory phase of development. 
+Consequently, ROI perturbation analysis was adopted as a practical first assessment of robustness.
 
 \end{document}
