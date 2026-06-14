@@ -292,3 +292,7 @@ __pycache__/
 data/
 
 models/results/models/*
+
+# Model checkpoints
+results/models/*
+!results/models/.gitkeep
