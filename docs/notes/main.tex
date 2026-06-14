@@ -524,6 +524,12 @@ Important observations include:
 
 The paper demonstrates the potential value of hybrid CNN--Transformer architectures for retinal OCT analysis and segmentation tasks.
 
+\section{The Barcode Sign in Optical Coherence Tomography}
+
+\section{Identifying Medical Diagnoses and Treatable Diseases by Image-Based Deep Learning}
+
+\section{Grad-CAM: Visual Explanations from Deep Networks}
+
 % =================================================================================
 \newpage
 \part{Project Directions}
@@ -1209,5 +1215,31 @@ The magnitude of variation was modest. For example, the mean anisotropy score ra
 Formal bootstrap-based uncertainty estimation was initially considered. 
 However, repeated computation of Gabor and structure tensor features proved computationally expensive during this exploratory phase of development. 
 Consequently, ROI perturbation analysis was adopted as a practical first assessment of robustness.
+
+\section{6/13: Barcoding CNN, a Three-Stage Sketch}
+
+The initial barcoding index and image-processing analyses demonstrated that the barcoding phenomenon appears to possess measurable image characteristics. However, these approaches rely on manually defined ROIs and handcrafted features. An alternative direction is to use a convolutional neural network (CNN) to identify and localize barcoding directly from OCT images.
+
+\subsection{CNN for Barcoding Detection}
+The first stage would be to identify an existing CNN-based object detection or segmentation framework from the OCT literature and adapt it to the barcoding problem. Candidate architectures include Faster R-CNN, RetinaNet, YOLO, or OCT-specific segmentation networks. The model would be trained using hyptertransmission AMD OCT scans labeled as barcoding-positive or barcoding-negative. The primary output would be:
+\begin{itemize}
+\item Presence or absence of barcoding,
+\item Confidence score for barcoding detection.
+\end{itemize}
+
+This stage addresses the basic question: \emph{Can a CNN reliably distinguish scans exhibiting barcoding from scans without barcoding?}
+
+\subsection{CNN for Bounding Barcoding}
+
+Once detection performance is satisfactory, the second stage would focus on localization. Rather than simply classifying a scan, the model would be trained to identify a bounding box containing the barcode-positive region. This would require clinician-provided annotations indicating the approximate location of hypertransmission or barcoding within each scan.
+
+\subsection{CNN for Pixel-to-Meter Conversion}
+A third stage would focus on extracting quantitative measurements from the detected ROI. Using the image scale information available within the OCT scan, pixel measurements could be converted into physical units. Candidate measurements include:
+\begin{itemize}
+\item Overall barcode width, length, and area
+\item Sufficient statistics: Number of bars, Mean bar width, Median bar width, Minimum and maximum bar width, 
+\item Bar density and fraction of the ROI occupied by barcode-positive tissue.
+\end{itemize}
+These measurements could then be incorporated into future progression-risk models and evaluated alongside conventional AMD biomarkers.
 
 \end{document}
