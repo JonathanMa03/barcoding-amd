@@ -1,42 +1,136 @@
-# Name
+Barcoding in Age-Related Macular Degeneration (AMD)
 
-This repository hosts the  project for `name` development, description.
+This repository contains exploratory research on detecting and quantifying barcoding (hypertransmission patterns) in optical coherence tomography (OCT) images of patients with age-related macular degeneration (AMD).
 
-**Author:** Jonathan Ma
+The project combines classical image analysis techniques, convolutional neural networks (CNNs), and explainable AI methods to investigate whether barcoding can be measured reliably and ultimately used as a prognostic marker for disease progression.
 
----
+Author: Jonathan Ma
 
-**Aim**: TBD
+⸻
 
-**Keywords**: _TBD_
+Aim
 
----
+The primary objective of this project is to develop computational methods for identifying and quantifying barcoding patterns observed in OCT scans of AMD patients.
 
-## Data Source
+Current goals include:
 
-**Dataset:** TBD
+* Detecting barcoding and hypertransmission patterns in OCT images.
+* Developing quantitative measurements of barcode extent and morphology.
+* Investigating whether barcode-related features are associated with disease progression.
 
----
+⸻
 
-## Methodology
+Data Sources
 
-TBD
+Current Dataset
 
----
+Retinal OCT Image Classification – 8 Classes
 
+* 24,000 OCT images
+* 8 retinal disease categories
+* Used as a proof-of-concept dataset for CNN training and explainability
 
-## Structure
+Classes:
 
-```text
-repo/
-├── code/                        
-│   └── requirements.txt          # dependencies
-├── data/                         # datasets
-├── docs/                         
-│   ├── CHANGELOG.md              # Project updates and version history
-│   └── R_git.md              # Quick reference for GitHub Usage
-|   └── Python_git.md              # Quick reference for GitHub Usage
-├── .gitignore                    # Files and folders excluded from Git tracking
-├── LICENSE                       # Usage license
-└── README.md                     # Project overview 
-```
+* AMD
+* CNV
+* CSR
+* DME
+* DR
+* DRUSEN
+* MH
+* NORMAL
+
+Future Data
+
+The primary analysis will utilize AMD OCT scans containing:
+
+* Barcoding / hypertransmission-positive cases
+* Barcoding / hypertransmission-negative cases
+* Volume scans
+* Longitudinal progression information (when available)
+
+⸻
+
+Methodology
+
+Phase 1: Exploratory Barcoding Quantification
+
+Classical image-analysis methods were used to construct an exploratory barcoding index:
+
+* Transmission profile analysis
+* Gabor filtering
+* Structure tensor analysis
+* Anisotropy measurements
+* Composite barcoding index
+
+These methods were evaluated using ROI perturbation and bootstrap sensitivity analyses.
+
+Phase 2: CNN Proof-of-Concept
+
+A transfer-learning pipeline was developed using:
+
+* ResNet50
+* ImageNet pretrained weights
+* Layer-wise fine tuning
+* Grad-CAM explainability
+
+Results:
+
+* Frozen backbone accuracy: ~86%
+* Fine-tuned accuracy: ~93%
+
+Grad-CAM visualizations demonstrated localization of clinically meaningful retinal structures and pathology-associated regions.
+
+Phase 3: Planned Work
+
+Future work includes:
+
+* Hypertransmission detection
+* Barcoding-positive vs. barcoding-negative classification
+* Bounding-box localization of barcode regions
+* Automated feature extraction
+* Quantification of barcode width and area
+* Progression-risk modeling
+
+⸻
+
+Repository Structure
+
+barcoding-amd/
+├── data/                         # Local datasets (ignored by Git)
+├── docs/                         # Notes, reports, references
+├── notebooks/
+│   ├── 01_data.ipynb
+│   ├── 02_cnn.ipynb
+│   └── 03_gradcam.ipynb
+├── results/
+│   ├── figures/
+│   └── models/
+├── src/
+│   ├── dataset.py
+│   ├── gradcam.py
+│   ├── models.py
+│   └── train.py
+├── .gitignore
+├── LICENSE
+├── README.md
+└── requirements.txt
+
+⸻
+
+Current Status
+
+Completed:
+
+* OCT dataset acquisition and inspection
+* CNN training with transfer learning
+* Model evaluation
+* Grad-CAM explainability analysis
+* Initial barcoding quantification experiments
+
+In Progress:
+
+* Acquisition of barcoding-positive and barcoding-negative AMD volume scans
+* Development of automated barcoding detection pipelines
+* Hypertransmission localization and quantification
