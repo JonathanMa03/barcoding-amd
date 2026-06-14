@@ -291,4 +291,4 @@ __pycache__/
 
 data/
 
-models/
+models/results/models/*
