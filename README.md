@@ -6,7 +6,7 @@ The project combines classical image analysis techniques, convolutional neural n
 
 Author: Jonathan Ma
 
-⸻
+---
 
 Aim
 
@@ -18,7 +18,7 @@ Current goals include:
 * Developing quantitative measurements of barcode extent and morphology.
 * Investigating whether barcode-related features are associated with disease progression.
 
-⸻
+---
 
 Data Sources
 
@@ -30,17 +30,6 @@ Retinal OCT Image Classification – 8 Classes
 * 8 retinal disease categories
 * Used as a proof-of-concept dataset for CNN training and explainability
 
-Classes:
-
-* AMD
-* CNV
-* CSR
-* DME
-* DR
-* DRUSEN
-* MH
-* NORMAL
-
 Future Data
 
 The primary analysis will utilize AMD OCT scans containing:
@@ -50,7 +39,7 @@ The primary analysis will utilize AMD OCT scans containing:
 * Volume scans
 * Longitudinal progression information (when available)
 
-⸻
+---
 
 Methodology
 
@@ -93,10 +82,11 @@ Future work includes:
 * Quantification of barcode width and area
 * Progression-risk modeling
 
-⸻
+---
 
 Repository Structure
 
+```bash
 barcoding-amd/
 ├── data/                         # Local datasets (ignored by Git)
 ├── docs/                         # Notes, reports, references
@@ -116,8 +106,9 @@ barcoding-amd/
 ├── LICENSE
 ├── README.md
 └── requirements.txt
+```
 
-⸻
+---
 
 Current Status
 
