@@ -1216,6 +1216,7 @@ Formal bootstrap-based uncertainty estimation was initially considered.
 However, repeated computation of Gabor and structure tensor features proved computationally expensive during this exploratory phase of development. 
 Consequently, ROI perturbation analysis was adopted as a practical first assessment of robustness.
 
+\newpage
 \section{6/13: Barcoding CNN, a Three-Stage Sketch}
 
 The initial barcoding index and image-processing analyses demonstrated that the barcoding phenomenon appears to possess measurable image characteristics. However, these approaches rely on manually defined ROIs and handcrafted features. An alternative direction is to use a convolutional neural network (CNN) to identify and localize barcoding directly from OCT images.
@@ -1241,5 +1242,62 @@ A third stage would focus on extracting quantitative measurements from the detec
 \item Bar density and fraction of the ROI occupied by barcode-positive tissue.
 \end{itemize}
 These measurements could then be incorporated into future progression-risk models and evaluated alongside conventional AMD biomarkers.
+
+\subsection{CNN for OCT Classification Results}
+
+Before developing a CNN specifically for barcoding detection, a proof-of-concept study was conducted to determine whether a modern convolutional neural network could learn clinically meaningful OCT image features and provide interpretable localization of retinal pathology. A publicly available OCT dataset containing 24,000 images across eight retinal conditions (AMD, CNV, CSR, DME, DR, DRUSEN, MH, and NORMAL) was used for this purpose.
+
+Initial exploratory analysis confirmed that the dataset was balanced across disease classes, with 3,000 images per condition. Images exhibited varying spatial resolutions, with widths ranging from 512 to 1536 pixels and heights ranging from 496 to 586 pixels. Both grayscale and RGB images were present, so we converted everything to RGB and scaled everything to 224x224.
+
+A ResNet50 architecture pretrained on ImageNet was selected as the baseline model. Transfer learning was used because retinal OCT datasets are substantially smaller than the datasets typically required to train deep convolutional networks from scratch. Two training strategies were evaluated.
+
+The first strategy froze the pretrained convolutional backbone and trained only the final classification layer. After three epochs, the model achieved approximately 85\% validation accuracy and 86\% test accuracy. Performance varied across disease categories, with AMD achieving near-perfect classification while DRUSEN and NORMAL exhibited greater confusion. Although classification performance was encouraging, the resulting Grad-CAM visualizations occasionally highlighted broad regions of the image, suggesting that the model’s learned representations were still relatively coarse.
+
+To improve OCT-specific feature learning, a second model was trained by fine-tuning the final residual block (Layer 4) together with the classification head while keeping earlier layers frozen. This approach substantially improved performance. The fine-tuned model achieved a test accuracy of 93.2\%, with corresponding class-specific performance summarized below:
+
+\begin{table}[H]
+    \centering
+    \caption{Classification performance of the fine-tuned ResNet50 model on the OCT test set.}
+    \label{tab:cnn_results}
+    \begin{tabular}{lccc}
+    \toprule
+    Class & Precision & Recall & F1 Score \\
+    \midrule
+    AMD    & 1.00 & 1.00 & 1.00 \\
+    CNV    & 0.88 & 0.85 & 0.86 \\
+    CSR    & 1.00 & 1.00 & 1.00 \\
+    DME    & 0.94 & 0.85 & 0.89 \\
+    DR     & 1.00 & 0.99 & 0.99 \\
+    DRUSEN & 0.82 & 0.82 & 0.82 \\
+    MH     & 0.99 & 1.00 & 0.99 \\
+    NORMAL & 0.84 & 0.95 & 0.89 \\
+    \bottomrule
+    \end{tabular}
+\end{table}
+
+The improvement is below:
+
+\begin{table}[H]
+    \centering
+    \caption{Overall classification performance of the ResNet50 models.}
+    \label{tab:cnn_summary}
+    \begin{tabular}{lc}
+    \toprule
+    Model & Test Accuracy \\
+    \midrule
+    Frozen Backbone & 0.86 \\
+    Layer 4 Fine-Tuned & 0.932 \\
+    \bottomrule
+    \end{tabular}
+    \end{table}
+
+
+The strongest performance was observed for AMD, CSR, DR, and MH, all of which achieved near-perfect classification. DRUSEN remained the most challenging category, which is clinically reasonable given the overlap between drusen morphology, early AMD features, and normal retinal appearance.
+
+Gradient-weighted Class Activation Mapping (Grad-CAM) was applied to both the frozen and fine-tuned models. Grad-CAM produces heatmaps that identify image regions contributing most strongly to a particular prediction. The frozen model produced relatively diffuse activation maps, whereas the fine-tuned model consistently localized attention to retinal structures associated with disease pathology.
+
+For AMD and DRUSEN images, activation regions frequently concentrated near the outer retina, retinal pigment epithelium (RPE), and choroidal interface, which are the anatomical locations where disease-related abnormalities are expected. For NORMAL scans, activations were concentrated around the foveal contour and preserved retinal layer architecture. Importantly, the model did not appear to rely primarily on image borders, scanner artifacts, or irrelevant background structures.
+
+Although Grad-CAM does not provide pixel-level segmentation, these results suggest that the CNN learned biologically plausible retinal representations and was capable of localizing clinically meaningful image features. This proof-of-concept provides evidence that CNN-based approaches may be suitable for future barcoding detection and localization tasks. In particular, the ability of the model to identify disease-associated retinal regions supports the feasibility of adapting similar architectures for barcode-positive versus barcode-negative classification, bounding-box localization of hypertransmission regions, and subsequent extraction of quantitative barcode measurements.
 
 \end{document}

@@ -1,4 +1,4 @@
-Barcoding in Age-Related Macular Degeneration (AMD)
+# Barcoding in Age-Related Macular Degeneration (AMD)
 
 This repository contains exploratory research on detecting and quantifying barcoding (hypertransmission patterns) in optical coherence tomography (OCT) images of patients with age-related macular degeneration (AMD).
 
@@ -8,7 +8,7 @@ Author: Jonathan Ma
 
 ---
 
-Aim
+## Aim
 
 The primary objective of this project is to develop computational methods for identifying and quantifying barcoding patterns observed in OCT scans of AMD patients.
 
@@ -20,9 +20,9 @@ Current goals include:
 
 ---
 
-Data Sources
+## Data Sources
 
-Current Dataset
+### Current Dataset
 
 Retinal OCT Image Classification – 8 Classes
 
@@ -30,7 +30,7 @@ Retinal OCT Image Classification – 8 Classes
 * 8 retinal disease categories
 * Used as a proof-of-concept dataset for CNN training and explainability
 
-Future Data
+### Future Data
 
 The primary analysis will utilize AMD OCT scans containing:
 
@@ -41,9 +41,9 @@ The primary analysis will utilize AMD OCT scans containing:
 
 ---
 
-Methodology
+## Methodology
 
-Phase 1: Exploratory Barcoding Quantification
+### Phase 1: Exploratory Barcoding Quantification
 
 Classical image-analysis methods were used to construct an exploratory barcoding index:
 
@@ -55,7 +55,7 @@ Classical image-analysis methods were used to construct an exploratory barcoding
 
 These methods were evaluated using ROI perturbation and bootstrap sensitivity analyses.
 
-Phase 2: CNN Proof-of-Concept
+### Phase 2: CNN Proof-of-Concept
 
 A transfer-learning pipeline was developed using:
 
@@ -71,7 +71,7 @@ Results:
 
 Grad-CAM visualizations demonstrated localization of clinically meaningful retinal structures and pathology-associated regions.
 
-Phase 3: Planned Work
+### Phase 3: Planned Work
 
 Future work includes:
 
@@ -84,7 +84,7 @@ Future work includes:
 
 ---
 
-Repository Structure
+## Repository Structure
 
 ```bash
 barcoding-amd/
@@ -110,9 +110,9 @@ barcoding-amd/
 
 ---
 
-Current Status
+## Current Status
 
-Completed:
+### Completed:
 
 * OCT dataset acquisition and inspection
 * CNN training with transfer learning
@@ -120,7 +120,7 @@ Completed:
 * Grad-CAM explainability analysis
 * Initial barcoding quantification experiments
 
-In Progress:
+### In Progress:
 
 * Acquisition of barcoding-positive and barcoding-negative AMD volume scans
 * Development of automated barcoding detection pipelines
