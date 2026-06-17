@@ -294,3 +294,4 @@ data/
 # Model checkpoints
 results/models/*
 !results/models/.gitkeep
+archive/
