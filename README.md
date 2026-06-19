@@ -125,3 +125,32 @@ barcoding-amd/
 * Acquisition of barcoding-positive and barcoding-negative AMD volume scans
 * Development of automated barcoding detection pipelines
 * Hypertransmission localization and quantification
+
+---
+
+## Workstation Setup
+
+Clone the repository:
+
+```bash
+git clone https://github.com/JonathanMa03/barcoding-amd.git
+cd barcoding-amd
+```
+
+Create environment:
+
+```bash
+bash scripts/setup_env.sh
+```
+
+Check setup:
+
+```bash
+python scripts/check_setup.py
+```
+
+Launch jupyter:
+
+```bash
+jupyter lab
+```
