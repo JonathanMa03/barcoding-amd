@@ -1012,8 +1012,257 @@ The resulting map highlights image regions most influential for the prediction. 
 
 thereby improving interpretability and clinical trust.
 
+\section{Hyperparameter Tuning and Extension Toward Localization}
+
+\subsection{Tuning ResNet50 for Binary Barcoding Classification}
+
+The OCT-C8 model provides a pretrained OCT feature extractor that can be adapted to binary barcoding detection. The new classification task is
+
+\[
+y \in \{0,1\},
+\]
+
+where \(0\) denotes barcode-negative and \(1\) denotes barcode-positive.
+
+The first architectural change is replacing the eight-class output layer with a two-class output layer. The convolutional backbone can initially be retained from the OCT-C8 fine-tuned model.
+
+Key hyperparameters to tune include:
+
+\begin{itemize}
+    \item \textbf{Learning rate:} controls the size of parameter updates during training. Candidate values can be tested on a log scale, such as $\eta \in \{10^{-5}, 3\times10^{-5}, 10^{-4}, 3\times10^{-4}, 10^{-3}\}$.
+
+    \item \textbf{Fine-tuning depth:} determines which ResNet layers are unfrozen. Candidate settings include $d \in \{0,1,2,3\}$, where $d=0$ trains only the classifier, $d=1$ unfreezes Layer 4, $d=2$ unfreezes Layers 3--4, and $d=3$ unfreezes Layers 2--4.
+
+    \item \textbf{Batch size:} controls how many images are processed before each optimization step. Candidate values include $B \in \{8,16,32,64\}$, depending on GPU memory.
+
+    \item \textbf{Weight decay:} regularizes model weights to reduce overfitting. Candidate values can be tested on a log scale, such as $\lambda \in \{0,10^{-6},10^{-5},10^{-4},10^{-3}\}$.
+
+    \item \textbf{Dropout:} may be added before the final classifier to reduce overfitting. Candidate probabilities include $p_{\text{drop}} \in \{0,0.1,0.2,0.3,0.5\}$.
+
+    \item \textbf{Class weighting:} addresses imbalance between barcode-positive and barcode-negative scans. Candidate positive-class weights can be tested as $w_+ \in \{1,2,3,5,10\}$, or defined from class counts using $w_+ = N_-/N_+$.
+
+    \item \textbf{Data augmentation:} improves robustness to scan variability. Candidate augmentation strengths can be indexed as $a \in \{0,1,2,3\}$, where $a=0$ uses no augmentation, $a=1$ uses light flips/crops, $a=2$ adds mild brightness and contrast jitter, and $a=3$ adds stronger geometric and intensity perturbations.
+
+    \item \textbf{Decision threshold:} converts predicted probability into a positive or negative classification. Candidate thresholds can be tested over $\tau \in [0.10,0.90]$ with step size $\Delta \tau = 0.05$.
+\end{itemize}
+
+A reasonable tuning sequence is:
+
+\begin{enumerate}
+    \item Train only the final classifier with the ResNet backbone frozen.
+    \item Unfreeze Layer 4 and fine-tune with a small learning rate.
+    \item If the dataset is sufficiently large, unfreeze Layers 3 and 4.
+    \item Compare performance across learning rates such as \(10^{-3}\), \(10^{-4}\), and \(10^{-5}\).
+    \item Tune the probability threshold for barcode-positive classification based on sensitivity, specificity, and clinical priorities.
+\end{enumerate}
+
+Because missing true barcoding cases may be clinically undesirable, threshold selection should not rely only on accuracy. Instead, candidate thresholds should be evaluated using:
+
+\begin{itemize}
+
+    \item \textbf{Sensitivity (Recall):} measures the proportion of barcode-positive scans correctly identified by the model.
+
+    $\text{Sensitivity} = \frac{TP}{TP + FN}$
+
+    \item \textbf{Positive Predictive Value (PPV, Precision):} measures the probability that a scan predicted as barcode-positive is truly positive.
+
+    $\text{PPV} = \frac{TP}{TP + FP}$
+
+    \item \textbf{Precision-Recall AUC (PR-AUC):} summarizes the tradeoff between precision and recall across all decision thresholds.
+
+    Let
+
+    $\text{Precision}(\tau) = \frac{TP(\tau)}{TP(\tau)+FP(\tau)}$
+
+    and
+
+    $\text{Recall}(\tau) = \frac{TP(\tau)}{TP(\tau)+FN(\tau)}$.
+
+    Then
+
+    $\text{PR-AUC} = \int_0^1 \text{Precision}(\text{Recall}) \, d(\text{Recall})$.
+
+    \item \textbf{Expected Calibration Error (ECE):} measures agreement between predicted probabilities and observed frequencies.
+
+    $\text{ECE} = \sum_{m=1}^{M} \frac{|B_m|}{N} \left| \mathrm{acc}(B_m) - \mathrm{conf}(B_m) \right|$
+
+    where $B_m$ denotes the $m$th probability bin, $\mathrm{acc}(B_m)$ is the empirical accuracy within the bin, and $\mathrm{conf}(B_m)$ is the average predicted probability within the bin.
+
+\end{itemize}
+
+For barcoding detection, sensitivity is prioritized to minimize missed barcode-positive scans, PPV quantifies confidence in positive detections, PR-AUC is preferred over ROC-AUC under class imbalance, and ECE evaluates whether predicted probabilities can be interpreted as reliable confidence estimates.
+
+If barcode-positive cases are rare, precision-recall AUC may be more informative than overall accuracy.
+
+\subsection{Tuning Grad-CAM for Barcoding Localization}
+
+Grad-CAM does not have trainable parameters in the same way as ResNet50, but it does involve design choices that affect interpretability.
+
+Important Grad-CAM choices include:
+
+\begin{itemize}
+    \item \textbf{Target layer:} the convolutional layer used to generate the heatmap.
+    \item \textbf{Target class:} barcode-positive probability should be used for localization.
+    \item \textbf{Heatmap threshold:} determines which activated pixels are treated as candidate barcode regions.
+    \item \textbf{Smoothing:} reduces noisy activation patterns.
+    \item \textbf{Minimum region size:} removes small isolated heatmap artifacts.
+\end{itemize}
+
+The default target layer is the final ResNet block, usually Layer 4. This gives semantically meaningful localization but spatially coarse maps. If localization is too diffuse, earlier layers such as Layer 3 can be tested because they retain higher spatial resolution.
+
+A practical approach is to evaluate multiple Grad-CAM variants:
+
+\begin{itemize}
+    \item Layer 4 Grad-CAM,
+    \item Layer 3 Grad-CAM,
+    \item Smoothed Grad-CAM,
+    \item Thresholded Grad-CAM,
+    \item Grad-CAM combined with classical texture measures.
+\end{itemize}
+
+The key validation question is not only whether the classifier is correct, but whether the heatmap overlaps with the clinically suspected barcode or hypertransmission region.
+
+\subsection{From Classification to Bounding Boxes}
+
+Once binary classification is reliable, the next step is localization. The simplest approach is to use Grad-CAM heatmaps as weak localization maps.
+
+A candidate bounding box can be generated by:
+
+\begin{enumerate}
+    \item Compute the Grad-CAM heatmap for the barcode-positive class.
+    \item Threshold the heatmap, for example retaining the top 10--20\% of activation values.
+    \item Remove small isolated regions.
+    \item Identify the largest connected activated region.
+    \item Draw the smallest rectangle enclosing that region.
+\end{enumerate}
+
+This produces an approximate barcode ROI without requiring pixel-level segmentation labels.
+
+The bounding box can be written as
+
+\[
+(x_{\min}, y_{\min}, x_{\max}, y_{\max}),
+\]
+
+where \(x_{\min}\) and \(x_{\max}\) define the horizontal extent and \(y_{\min}\) and \(y_{\max}\) define the vertical extent.
+
+If clinician-provided bounding boxes become available, the model can shift from weak localization to supervised object detection using architectures such as Faster R-CNN, RetinaNet, or YOLO.
+
+At that stage, hyperparameters shift from classification tuning to detection tuning, including:
+
+\begin{itemize}
+    \item Anchor box sizes,
+    \item Anchor aspect ratios,
+    \item Intersection-over-union threshold,
+    \item Non-maximum suppression threshold,
+    \item Detection confidence threshold,
+    \item Bounding-box regression loss weight.
+\end{itemize}
+
+The primary evaluation metric also changes. Instead of accuracy or AUC, localization should be evaluated using intersection-over-union (IoU), defined as
+
+\[
+IoU =
+\frac{\text{Area of Overlap}}
+{\text{Area of Union}}.
+\]
+
+A predicted box is considered accurate if it sufficiently overlaps the clinician-defined barcode region.
+
+\subsection{From Bounding Boxes to Pixel-Level Measurements}
+
+After the barcode region is localized, the bounding box becomes the analysis ROI. Within this ROI, a second-stage measurement pipeline can estimate barcode morphology.
+
+Candidate measurements include:
+
+\begin{itemize}
+    \item Total barcode width,
+    \item Total barcode height,
+    \item Bounding-box area,
+    \item Number of individual bars,
+    \item Mean bar width,
+    \item Median bar width,
+    \item Minimum and maximum bar width,
+    \item Bar density,
+    \item Fraction of ROI occupied by barcode-positive pixels.
+\end{itemize}
+
+This shifts the model output from a probability,
+
+\[
+P(\text{barcoding present}),
+\]
+
+to quantitative measurements of barcode extent and morphology.
+
+\subsection{Pixel-to-Micron Conversion}
+
+Pixel-based measurements are useful for algorithm development, but clinical interpretation requires physical units.
+
+If OCT metadata provide scale factors, let \(s_x\) denote microns per pixel horizontally and \(s_y\) denote microns per pixel vertically.
+
+A pixel width \(w_{\text{px}}\) can be converted into microns by
+
+\[
+w_{\mu m}
+=
+w_{\text{px}} s_x.
+\]
+
+Similarly, a pixel height \(h_{\text{px}}\) becomes
+
+\[
+h_{\mu m}
+=
+h_{\text{px}} s_y.
+\]
+
+Area conversion is given by
+
+\[
+A_{\mu m^2}
+=
+A_{\text{px}} s_x s_y.
+\]
+
+Therefore, once barcode-positive regions are localized, the same measurements can be reported in clinically interpretable units such as microns or square microns.
+
+This requires preserving scan metadata from the original OCT volume files, especially pixel spacing and acquisition geometry.
+
+\subsection{Overall Development Path}
+
+The intended development path is:
+
+\[
+\text{C8 OCT Classification}
+\rightarrow
+\text{Binary Barcoding Classification}
+\rightarrow
+\text{Grad-CAM Localization}
+\rightarrow
+\text{Bounding Box Detection}
+\rightarrow
+\text{Pixel-Level Measurement}
+\rightarrow
+\text{Physical Unit Conversion}.
+\]
+
+At each stage, the tuning target changes:
+
+\begin{itemize}
+    \item Classification stage: optimize discrimination and calibration.
+    \item Grad-CAM stage: optimize clinical plausibility of localization.
+    \item Bounding-box stage: optimize overlap with clinician-defined ROIs.
+    \item Measurement stage: optimize repeatability and agreement with expert assessment.
+    \item Physical-scale stage: ensure measurements are comparable across scans and devices.
+\end{itemize}
+
+This staged approach preserves the strengths of the current CNN framework while gradually moving toward clinically interpretable barcoding measurements.
+
 % =================================================================================
+
 \newpage
+
 \part{Trials}
 
 \section{6/7: Initial Testing}
