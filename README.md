@@ -154,3 +154,5 @@ Launch jupyter:
 ```bash
 jupyter lab
 ```
+
+when running on windows, once output is created, commit after setting user.name and user.email. On mac, pull from main, should show a down arrow
