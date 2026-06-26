@@ -3,6 +3,8 @@
 python -m venv .venv
 source .venv/bin/activate
 
+#Windows use Scripts instead of bin
+
 pip install --upgrade pip
 pip install -r requirements.txt
 
