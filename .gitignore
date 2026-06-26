@@ -289,8 +289,7 @@ __pycache__/
 !*.jpeg
 !*.svg
 
-data/amd_best/
-data/oct_c8/
+data/RetinalOCT_Dataset/
 
 
 # Model checkpoints
