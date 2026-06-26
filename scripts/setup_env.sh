@@ -1,7 +1,7 @@
 #!/bin/bash
 
 python -m venv .venv
-source .venv/bin/activate
+source .venv/Scripts/activate
 
 #Windows use Scripts instead of bin
 
@@ -13,3 +13,4 @@ python -m ipykernel install --user \
   --display-name "Python (barcoding-amd)"
 
 #chmod +x scripts/setup_env.sh
+# Window button + L for logout
