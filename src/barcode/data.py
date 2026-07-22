@@ -113,85 +113,114 @@ def get_bm_boundary(
     layer_name: str = "BM",
 ) -> np.ndarray:
     """
-    Extract the Bruch's membrane boundary for one B-scan.
+    Extract one retinal-layer boundary from an eyepy EyeVolume.
 
     Parameters
     ----------
     volume:
-        Loaded EyeVolume.
+        Loaded eyepy EyeVolume.
     bscan_index:
-        Zero-based B-scan index.
+        Zero-based index of the requested B-scan.
     layer_name:
-        Name used by eyepy for Bruch's membrane.
+        Retinal layer name, such as ``"BM"``.
 
     Returns
     -------
     np.ndarray
-        One vertical coordinate per image column.
-
-    Notes
-    -----
-    The exact eyepy API for imported HEYEX layers can vary. This function
-    attempts common storage patterns and raises an informative error if the
-    layer cannot be located.
+        One vertical boundary coordinate per image column, with shape
+        ``(bscan_width,)``.
     """
     available_layers = inspect_volume_layers(volume)
 
-    candidate = None
-
-    if hasattr(volume, "layers"):
-        layers = volume.layers
-
-        if isinstance(layers, dict) and layer_name in layers:
-            candidate = layers[layer_name]
-
-        elif hasattr(layers, "__getitem__"):
-            try:
-                candidate = layers[layer_name]
-            except (KeyError, TypeError, IndexError):
-                candidate = None
-
-    if candidate is None and hasattr(volume, "layer_annotations"):
-        annotations = volume.layer_annotations
-
-        if isinstance(annotations, dict) and layer_name in annotations:
-            candidate = annotations[layer_name]
-
-    if candidate is None:
+    if layer_name not in available_layers:
         raise KeyError(
-            f"Could not find layer '{layer_name}'. "
+            f"Layer '{layer_name}' was not found. "
             f"Available layers: {available_layers}"
         )
 
-    layer_array = np.asarray(candidate)
+    layer_annotation = volume.layers[layer_name]
 
-    if layer_array.ndim == 2:
+    # eyepy stores boundary coordinates in the annotation's data property.
+    if hasattr(layer_annotation, "data"):
+        layer_array = np.asarray(
+            layer_annotation.data,
+            dtype=np.float32,
+        )
+    else:
+        layer_array = np.asarray(
+            layer_annotation,
+            dtype=np.float32,
+        )
+
+    if layer_array.ndim == 1:
+        # Only valid when the object already represents one B-scan.
+        boundary = layer_array
+
+    elif layer_array.ndim == 2:
+        # Expected eyepy format: (number of B-scans, image width).
+        if bscan_index < 0 or bscan_index >= layer_array.shape[0]:
+            raise IndexError(
+                f"B-scan index {bscan_index} is outside the layer-data "
+                f"range 0 to {layer_array.shape[0] - 1}."
+            )
+
         boundary = layer_array[bscan_index]
+
     elif layer_array.ndim == 3:
-        boundary = layer_array[bscan_index, 0]
+        # Handle a possible singleton channel dimension.
+        squeezed = np.squeeze(layer_array)
+
+        if squeezed.ndim != 2:
+            raise ValueError(
+                f"Could not interpret layer '{layer_name}' with shape "
+                f"{layer_array.shape} after squeezing."
+            )
+
+        boundary = squeezed[bscan_index]
+
     else:
         raise ValueError(
-            f"Unsupported layer-array shape for '{layer_name}': "
+            f"Unsupported data shape for layer '{layer_name}': "
             f"{layer_array.shape}"
         )
 
-    boundary = boundary.astype(np.float32)
+    boundary = np.asarray(boundary, dtype=np.float32)
+
+    expected_width = int(volume[bscan_index].shape[1])
+
+    if boundary.shape != (expected_width,):
+        raise ValueError(
+            f"Expected the '{layer_name}' boundary to have shape "
+            f"({expected_width},), but received {boundary.shape}."
+        )
 
     return interpolate_missing_boundary(boundary)
 
 
-def interpolate_missing_boundary(boundary: np.ndarray) -> np.ndarray:
+def interpolate_missing_boundary(
+    boundary: np.ndarray,
+) -> np.ndarray:
     """
-    Fill missing or non-finite layer coordinates by linear interpolation.
+    Fill missing retinal-boundary coordinates by linear interpolation.
+
+    Non-finite and negative coordinates are treated as missing.
     """
-    boundary = np.asarray(boundary, dtype=np.float32).copy()
+    boundary = np.asarray(
+        boundary,
+        dtype=np.float32,
+    ).copy()
 
     x = np.arange(boundary.size)
-    valid = np.isfinite(boundary)
+
+    valid = (
+        np.isfinite(boundary)
+        & (boundary >= 0)
+    )
 
     if valid.sum() < 2:
         raise ValueError(
-            "Boundary contains fewer than two valid coordinates."
+            "Boundary contains fewer than two valid coordinates and "
+            "cannot be interpolated."
         )
 
     boundary[~valid] = np.interp(
