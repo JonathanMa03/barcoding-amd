@@ -10,6 +10,12 @@ from .data import (
     robust_normalize,
 )
 
+from .model_threshold import (
+    BarcodeInterval,
+    ThresholdBarcodeDetector,
+    ThresholdPrediction,
+)
+
 __all__ = [
     "PreprocessedBscan",
     "crop_below_boundary",
@@ -20,4 +26,7 @@ __all__ = [
     "load_e2e_volume",
     "preprocess_bscan",
     "robust_normalize",
+    "BarcodeInterval",
+    "ThresholdBarcodeDetector",
+    "ThresholdPrediction",
 ]
