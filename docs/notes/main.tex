@@ -524,7 +524,165 @@ Important observations include:
 
 The paper demonstrates the potential value of hybrid CNN--Transformer architectures for retinal OCT analysis and segmentation tasks.
 
+\section{Machine Learning for Detection of Geographic Atrophy in Spectral OCT}
 
+This paper presents two deep learning pipelines for automated detection and quantification of geographic atrophy (GA) from spectral-domain optical coherence tomography (SD-OCT). Rather than relying on fundus autofluorescence (FAF), the authors use volumetric OCT data to identify regions of retinal pigment epithelium (RPE) loss and associated hypertransmission defects. Although the work focuses on supervised semantic segmentation, several of the ideas are directly applicable to our goal of automatically identifying and quantifying barcoding artifacts.
+
+\subsection{Clinical Motivation}
+
+Geographic atrophy represents the advanced stage of dry age-related macular degeneration (AMD), characterized by degeneration of the retinal pigment epithelium (RPE), photoreceptors, and outer retinal layers. Progression to GA is irreversible and results in permanent vision loss.
+
+The Classification of Atrophy Meetings (CAM) consensus defines complete RPE and outer retinal atrophy (cRORA) on OCT by the simultaneous presence of
+
+\begin{itemize}
+    \item complete RPE loss,
+    \item overlying photoreceptor degeneration, and
+    \item hypertransmission into the choroid,
+\end{itemize}
+
+with each lesion spanning at least $250\,\mu$m in its greatest diameter.
+
+The authors argue that OCT is preferable to fundus autofluorescence because it provides three-dimensional structural information and allows direct visualization of retinal layers rather than only surface appearance.
+
+\subsection{Ground Truth Construction}
+
+A particularly interesting aspect of the work is that the authors do not manually delineate every GA lesion from scratch. Instead, they leverage retinal layer segmentation.
+
+Previously validated machine learning models segment three retinal boundaries:
+
+\begin{itemize}
+    \item Ellipsoid Zone (EZ)
+    \item Retinal Pigment Epithelium (RPE)
+    \item Bruch's Membrane (BM)
+\end{itemize}
+
+Ground-truth GA masks are then generated automatically wherever these three segmented layers completely overlap, indicating total disappearance of both the EZ and RPE.
+
+Conceptually,
+
+\[
+\text{GA} \Longleftrightarrow
+EZ = RPE = BM
+\]
+
+within a local region.
+
+This produces pixel-level training masks while dramatically reducing manual annotation effort.
+
+\subsection{B-Scan versus En Face Models}
+
+The paper develops two complementary segmentation models.
+
+The first operates directly on individual OCT B-scans. This approach detects GA using cross-sectional structural information, making it highly specific to retinal anatomy. Because every slice is analyzed independently, subtle structural changes are preserved.
+
+The second operates on en face OCT projections. Instead of detecting retinal layer loss directly, the model identifies regions of hypertransmission visible in the en face image. Predictions can then be projected back onto individual B-scans using the Bruch's membrane segmentation.
+
+The authors emphasize that the two representations provide complementary information:
+
+\begin{itemize}
+    \item B-scans capture detailed retinal anatomy.
+    \item En face images capture global lesion morphology.
+\end{itemize}
+
+Future work proposed by the authors is to combine both models into a hybrid system.
+
+\subsection{Model Architecture}
+
+Both models employ a standard U-Net architecture for semantic segmentation.
+
+Training used
+
+\begin{itemize}
+    \item resized $256\times256$ inputs,
+    \item binary cross-entropy loss,
+    \item approximately twenty million trainable parameters,
+    \item automatic hard-example retraining by oversampling poorly performing patches.
+\end{itemize}
+
+Although technically straightforward, the authors demonstrate that careful construction of the training labels contributes more to performance than architectural novelty.
+
+\subsection{Results}
+
+The B-scan model achieved
+
+\begin{itemize}
+    \item 91\% detection accuracy,
+    \item 94\% pixel-wise segmentation accuracy,
+    \item ICC = 0.88 for lesion measurements.
+\end{itemize}
+
+The en face model achieved
+
+\begin{itemize}
+    \item 82\% detection accuracy,
+    \item 96\% pixel-wise segmentation accuracy,
+    \item ICC = 0.95 for lesion measurements.
+\end{itemize}
+
+Performance generalized well across both Heidelberg Spectralis and Zeiss Cirrus OCT systems, suggesting that the learned structural features are relatively device independent.
+
+\subsection{Hypertransmission as an Imaging Biomarker}
+
+Perhaps the most interesting observation is that many apparent false positives from the en face model were not actually incorrect predictions.
+
+Instead, the model frequently identified isolated hypertransmission defects that did not yet satisfy the complete CAM definition of geographic atrophy.
+
+Consequently, the authors hypothesize that hypertransmission itself may represent a useful biomarker preceding fully developed GA. Rather than suppressing these predictions, they suggest explicitly modeling hypertransmission independently from established GA.
+
+This observation is particularly relevant because our project is similarly interested in identifying image features that may precede disease progression rather than only detecting already established pathology.
+
+\subsection{Relevance to Barcoding Detection}
+
+Although the objective differs substantially from ours, several ideas transfer directly.
+
+First, the paper demonstrates that OCT contains sufficient structural information for automated discovery of clinically meaningful biomarkers.
+
+Second, the authors emphasize representation learning directly from image structure rather than relying solely on handcrafted measurements.
+
+Third, the work illustrates how clinically meaningful imaging biomarkers can be quantified automatically once reliable image representations have been obtained.
+
+Our problem differs in one important respect. Rather than detecting a well-defined pathological structure such as GA, we seek to characterize vertical barcoding artifacts whose morphology is not currently described by a precise anatomical definition. Consequently, constructing exhaustive pixel-level annotations suitable for supervised segmentation would be difficult.
+
+Instead, our objective is to develop an unsupervised representation capable of identifying and quantifying recurring vertical stripe patterns without requiring dense manual labels.
+
+\subsection{Limitations}
+
+From the perspective of the present project, several limitations remain.
+
+\begin{itemize}
+    \item The approach requires extensive pixel-level ground truth.
+    \item Performance depends upon accurate retinal layer segmentation.
+    \item U-Net learns supervised anatomical labels rather than discovering novel biomarkers.
+    \item The framework detects predefined pathology instead of identifying previously unknown structural patterns.
+\end{itemize}
+
+These limitations motivate investigating unsupervised feature learning approaches for quantitative characterization of barcoding.
+
+\subsection{Method Sketch}
+
+Inspired by the OCT-based workflow of Kalra et al., our approach similarly begins by leveraging the anatomical structure available within individual B-scans rather than attempting to analyze the entire OCT image directly. However, instead of performing supervised semantic segmentation of geographic atrophy, our objective is to discover and quantify barcoding patterns using unsupervised image analysis.
+
+The proposed pipeline consists of four stages.
+
+First, each Heidelberg Spectralis B-scan is paired with the retinal layer segmentations provided by the HEYEX software. These segmentations are used to identify the Bruch's membrane (BM), which serves as a stable anatomical reference. Each B-scan is flattened with respect to the BM in order to remove normal retinal curvature and standardize image geometry across subjects.
+
+Following flattening, only the image region at and below the BM is retained. This isolates the portion of the OCT image where hypertransmission and barcoding are expected to occur while removing the majority of unrelated retinal structure. Restricting the analysis to this anatomically meaningful region substantially reduces background variation and focuses subsequent processing on tissue most relevant to the proposed biomarker.
+
+Within this region of interest, an unsupervised algorithm will be used to identify candidate barcoding regions based on image appearance. Rather than relying upon manually defined annotations, the method will learn or estimate characteristic intensity patterns associated with barcoding. Candidate features include increased local brightness, oscillatory vertical intensity profiles, periodic texture, or combinations thereof. Multiple unsupervised approaches will be explored, and the final representation will be selected based on robustness and consistency across patients.
+
+Instead of producing a dense pixel-level segmentation mask, the initial objective is to identify the horizontal extent of barcoding along each B-scan. The algorithm should therefore produce an overlay indicating regions classified as normal and regions exhibiting barcoding, for example,
+
+\[
+\underbrace{\rule{2.5cm}{0.4pt}}_{\text{Normal}}
+\quad
+\underbrace{\rule{2.5cm}{0.4pt}}_{\text{Barcoding}}
+\quad
+\underbrace{\rule{2cm}{0.4pt}}_{\text{Normal}}
+\]
+
+where the highlighted interval corresponds to the automatically detected barcoding region.
+
+Once the affected region has been localized, quantitative biomarkers can be extracted exclusively within the detected interval. Candidate measurements include the horizontal extent of barcoding, average and maximum brightness, vertical intensity oscillation statistics, texture descriptors, and additional quantitative measures that may correlate with disease progression. By separating localization from quantification, the framework naturally supports future refinement of both detection algorithms and downstream biomarkers without altering the overall pipeline.
 
 % =================================================================================
 \newpage
@@ -556,5 +714,57 @@ ML methods capable of localizing clinically relevant regions will be explored su
 Once reliable localization has been achieved, quantitative measurements of barcoding will be investigated. Potential biomarkers include the horizontal extent of barcoding, the number of distinct barcode regions, total barcode coverage, overlap with Early Atrophy, and the spatial relationship between EA and barcoding. 
 
 Finally, the developed methods will be validated against the clinician-generated ground truth to assess localization accuracy, measurement consistency, and clinical interpretability.
+
+\section{Extraction and Measurement of Manual Markings}
+
+To establish a quantitative baseline for subsequent image analysis, a manual annotation dataset was first constructed from optical coherence tomography (OCT) scans. Representative cases corresponding to the fastest and slowest progressing eyes were identified by the clinical collaborators. Using the Heidelberg HEYEX software, retinal specialists manually annotated two clinically relevant features on selected B-scans:
+
+\begin{enumerate}
+    \item Regions exhibiting barcoding artifacts, and
+    \item Regions corresponding to external atrophy (EA).
+\end{enumerate}
+
+These annotations were exported as JPEG images containing the original OCT scan overlaid with colored measurement segments. Red and yellow measurement lines were used to distinguish between the two annotation types, while the numerical measurement values remained embedded only within the HEYEX interface. Consequently, an automated procedure was required to recover the annotation geometry directly from the exported images.
+
+\subsection{Automatic Extraction of Manual Annotations}
+
+The objective of the extraction algorithm was to identify every manually drawn measurement segment and estimate its length in image pixels. Because the exported JPEGs contain interface elements, text labels, and other colored graphics in addition to the OCT image itself, the extraction procedure consisted of several stages designed to progressively isolate the clinician-generated markings.
+
+The first step was localization of the OCT B-scan within the exported image. Rather than processing the full screenshot, the OCT display panel was cropped using fixed interface boundaries, substantially reducing the search space and eliminating unrelated graphical elements.
+
+Within the cropped OCT image, colored annotations were isolated using HSV thresholding. Separate color masks were constructed for the red and yellow overlays, producing binary images containing only candidate annotation pixels. Since the measurement segments are predominantly horizontal, morphological filtering with a horizontal structuring element was applied to suppress isolated noise while reinforcing elongated horizontal structures.
+
+Connected-component analysis was subsequently performed on each binary mask. Initially, individual measurement lines frequently appeared fragmented into multiple connected components. Investigation revealed that this fragmentation was not caused by breaks in the annotations themselves, but rather by nearby measurement text that was rendered in the same color as the corresponding annotation. The text labels were therefore detected as additional connected components.
+
+To address this issue, a geometric filtering procedure was developed. Components satisfying the following criteria were removed:
+
+\begin{itemize}
+    \item located vertically above another component,
+    \item sufficiently close in vertical distance,
+    \item overlapping horizontally with a longer component, and
+    \item substantially shorter than the underlying horizontal segment.
+\end{itemize}
+
+This heuristic successfully removed measurement text while preserving the underlying annotation. Remaining adjacent horizontal components were then merged into single measurement segments, yielding one connected component per clinician annotation.
+
+For each recovered segment, the algorithm recorded the horizontal start coordinate, end coordinate, color classification, and pixel length. These measurements formed the basis of the subsequent quantitative analysis.
+
+\subsection{Toward Physical Measurement Recovery}
+
+Although pixel lengths can be recovered directly from the exported images, the clinically relevant quantities are expressed in microns within the HEYEX software. To recover physical distances, metadata stored within the proprietary Heidelberg \texttt{.E2E} files was investigated using the \texttt{eyepy} package.
+
+Each B-scan provides acquisition metadata including image dimensions, scan positions, acquisition time, and several calibration-related fields. In particular, the metadata contains multiple candidate quantities describing scan geometry, including scan endpoints, image dimensions, and undocumented calibration parameters.
+
+An initial investigation suggested that one undocumented metadata field may correspond to a physical scan width. However, this quantity varied across B-scans despite nearly identical acquisition geometry, indicating that its interpretation remains unclear. Consequently, a reliable conversion from exported JPEG pixel lengths to physical distances could not yet be established using metadata alone.
+
+At present, pixel-based measurements can be recovered automatically, while the mapping to physical units remains an open calibration problem requiring further investigation.
+
+\subsection{Future Investigation}
+
+Several avenues remain for improving the annotation extraction pipeline. First, additional validation will be performed across a substantially larger collection of manually annotated scans to assess robustness under varying image quality, annotation density, and acquisition settings.
+
+Second, alternative strategies for recovering physical measurements will be explored. Rather than relying solely on undocumented metadata fields, future work will investigate direct calibration using native OCT image geometry, known scan dimensions, or empirical calibration against measurements reported within the HEYEX software.
+
+Finally, the extracted annotation dataset will serve as ground truth for subsequent automated segmentation models, providing paired image--measurement data for learning clinically relevant biomarkers directly from OCT scans.
 
 \end{document}
