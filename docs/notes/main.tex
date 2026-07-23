@@ -20,6 +20,7 @@
 \usepackage{microtype}
 \usepackage{parskip}
 \usepackage{tabularx}
+\usepackage{listings}
 
 
 % -------------------------------------------------
@@ -767,4 +768,25 @@ Second, alternative strategies for recovering physical measurements will be expl
 
 Finally, the extracted annotation dataset will serve as ground truth for subsequent automated segmentation models, providing paired image--measurement data for learning clinically relevant biomarkers directly from OCT scans.
 
+\subsection{Normal Autoencoder Approach}
+Instead of teaching a CNN what barcoding looks like, train an unsupervised once class model reliant on normal regions, so the model learns the distribution of a normal sub-BM appearance. At inference time, columns or windows that differ substantially recieve a high anomaly score. Use a 1D CAE across horizontal sequence or 2D CAE on patches from the flattened image
+
+It would be easier because normal regions are easier to detect and less dependent on manual markings, but it would likely pick up anything abnormal, like hypertransmission without barcoding, shadows, or other noise
+
+\subsection{Pretrained Transfer of a 2D nnU-Net}
+
+Cloning the OCTAVE:
+
+
+* Run `git clone https://github.com/Translational-Biophotonics-Laboratory/octvision3d.git`  into root/external
+
+* Replace the git part of the gitmodule with https so it looks like:
+
+\begin{lstlisting}
+[submodule "nnUNet"]
+    path = nnUNet
+    url = https://github.com/dkermany/nnUNetOCT.git
+\end{lstlisting}
+
+* Run `git submodule sync` and`git submodule update --init --recursive` to pull the submodule''
 \end{document}
