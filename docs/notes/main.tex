@@ -774,19 +774,9 @@ Instead of teaching a CNN what barcoding looks like, train an unsupervised once 
 It would be easier because normal regions are easier to detect and less dependent on manual markings, but it would likely pick up anything abnormal, like hypertransmission without barcoding, shadows, or other noise
 
 \subsection{Pretrained Transfer of a 2D nnU-Net}
+Octavision3D Repo: https://github.com/Translational-Biophotonics-Laboratory/octvision3d/tree/main
 
-Cloning the OCTAVE:
+NNU-Net Repo: https://github.com/dkermany/nnUNetOCT/tree/b4cc9869fb406a6d6372c823427796d4a4e95a96
 
-
-* Run `git clone https://github.com/Translational-Biophotonics-Laboratory/octvision3d.git`  into root/external
-
-* Replace the git part of the gitmodule with https so it looks like:
-
-\begin{lstlisting}
-[submodule "nnUNet"]
-    path = nnUNet
-    url = https://github.com/dkermany/nnUNetOCT.git
-\end{lstlisting}
-
-* Run `git submodule sync` and`git submodule update --init --recursive` to pull the submodule''
+Dataset Link: https://zenodo.org/records/14580071
 \end{document}
