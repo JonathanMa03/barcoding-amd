@@ -16,9 +16,18 @@ class PreprocessedBscan:
     bm_boundary: np.ndarray
     flattened_bscan: np.ndarray
     sub_bm_crop: np.ndarray
+
+    # This contains either the normalized crop or the unchanged crop,
+    # depending on whether normalization was enabled.
     normalized_crop: np.ndarray
+
     reference_row: int
     depth_below_bm: int
+
+    normalization_enabled: bool
+    lower_percentile: float | None
+    upper_percentile: float | None
+
     metadata: dict[str, Any]
 
 
@@ -350,20 +359,70 @@ def robust_normalize(
 ) -> np.ndarray:
     """
     Robustly scale image intensities to [0, 1].
+
+    Intensities below the selected lower percentile are mapped to 0.
+    Intensities above the selected upper percentile are mapped to 1.
+
+    Parameters
+    ----------
+    image:
+        Input image.
+    lower_percentile:
+        Lower clipping percentile.
+    upper_percentile:
+        Upper clipping percentile.
+
+    Returns
+    -------
+    np.ndarray
+        Float32 image scaled to [0, 1].
     """
     image = np.asarray(image, dtype=np.float32)
 
     if not 0 <= lower_percentile < upper_percentile <= 100:
-        raise ValueError("Percentiles must satisfy 0 <= lower < upper <= 100.")
+        raise ValueError(
+            "Percentiles must satisfy "
+            "0 <= lower_percentile < upper_percentile <= 100."
+        )
 
-    lower = float(np.percentile(image, lower_percentile))
-    upper = float(np.percentile(image, upper_percentile))
+    finite_values = image[np.isfinite(image)]
+
+    if finite_values.size == 0:
+        raise ValueError(
+            "Cannot normalize an image containing no finite values."
+        )
+
+    lower = float(
+        np.percentile(
+            finite_values,
+            lower_percentile,
+        )
+    )
+
+    upper = float(
+        np.percentile(
+            finite_values,
+            upper_percentile,
+        )
+    )
 
     if upper <= lower:
-        return np.zeros_like(image, dtype=np.float32)
+        return np.zeros_like(
+            image,
+            dtype=np.float32,
+        )
 
-    normalized = (image - lower) / (upper - lower)
-    normalized = np.clip(normalized, 0.0, 1.0)
+    normalized = (
+        image - lower
+    ) / (
+        upper - lower
+    )
+
+    normalized = np.clip(
+        normalized,
+        0.0,
+        1.0,
+    )
 
     return normalized.astype(np.float32)
 
@@ -374,9 +433,38 @@ def preprocess_bscan(
     bm_layer_name: str = "BM",
     depth_below_bm: int = 150,
     reference_row: int | None = None,
+    normalize: bool = True,
+    lower_percentile: float = 1.0,
+    upper_percentile: float = 99.0,
 ) -> PreprocessedBscan:
     """
     Run the full preprocessing pipeline for one OCT B-scan.
+
+    Parameters
+    ----------
+    volume:
+        Loaded eyepy EyeVolume.
+    bscan_index:
+        Zero-based index of the requested B-scan.
+    bm_layer_name:
+        Name of the retinal boundary used for flattening.
+    depth_below_bm:
+        Number of pixels retained at and below the flattened BM.
+    reference_row:
+        Optional row onto which BM is flattened. If omitted, the median
+        BM location is used.
+    normalize:
+        Whether to apply robust percentile normalization to the sub-BM crop.
+    lower_percentile:
+        Lower clipping percentile used when normalization is enabled.
+    upper_percentile:
+        Upper clipping percentile used when normalization is enabled.
+
+    Returns
+    -------
+    PreprocessedBscan
+        Container holding the original image, flattened image, crop,
+        optionally normalized crop, and associated metadata.
     """
     raw_bscan = load_bscan(
         volume=volume,
@@ -401,7 +489,22 @@ def preprocess_bscan(
         depth_below_bm=depth_below_bm,
     )
 
-    normalized_crop = robust_normalize(sub_bm_crop)
+    if normalize:
+        normalized_crop = robust_normalize(
+            image=sub_bm_crop,
+            lower_percentile=lower_percentile,
+            upper_percentile=upper_percentile,
+        )
+
+        recorded_lower_percentile: float | None = lower_percentile
+        recorded_upper_percentile: float | None = upper_percentile
+
+    else:
+        # Preserve the original crop without modifying its intensity scale.
+        normalized_crop = sub_bm_crop.copy().astype(np.float32)
+
+        recorded_lower_percentile = None
+        recorded_upper_percentile = None
 
     bscan_object = volume[bscan_index]
 
@@ -409,7 +512,21 @@ def preprocess_bscan(
         "volume_shape": tuple(volume.shape),
         "bscan_shape": tuple(raw_bscan.shape),
         "available_layers": inspect_volume_layers(volume),
-        "bscan_meta": getattr(bscan_object.meta, "_store", {}),
+        "bscan_meta": getattr(
+            bscan_object.meta,
+            "_store",
+            {},
+        ),
+        "normalization": {
+            "enabled": normalize,
+            "method": (
+                "robust_percentile"
+                if normalize
+                else "none"
+            ),
+            "lower_percentile": recorded_lower_percentile,
+            "upper_percentile": recorded_upper_percentile,
+        },
     }
 
     return PreprocessedBscan(
@@ -421,5 +538,8 @@ def preprocess_bscan(
         normalized_crop=normalized_crop,
         reference_row=resolved_reference_row,
         depth_below_bm=depth_below_bm,
+        normalization_enabled=normalize,
+        lower_percentile=recorded_lower_percentile,
+        upper_percentile=recorded_upper_percentile,
         metadata=metadata,
     )
