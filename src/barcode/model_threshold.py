@@ -1,320 +1,574 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from pathlib import Path
+from typing import Any
+import warnings
 
+import matplotlib.pyplot as plt
 import numpy as np
-from scipy.ndimage import gaussian_filter1d
+from scipy.ndimage import map_coordinates
 
 
 @dataclass
-class BarcodeInterval:
-    """One contiguous predicted barcoding interval."""
-
-    x_start: int
-    x_end: int
-    length_px: int
-    mean_score: float
-    max_score: float
-
-
-@dataclass
-class ThresholdPrediction:
-    """Output from the threshold-based barcode detector."""
-
-    raw_signal: np.ndarray
-    smoothed_signal: np.ndarray
-    threshold: float
-    raw_mask: np.ndarray
-    cleaned_mask: np.ndarray
-    intervals: list[BarcodeInterval]
-
-
-def longest_true_run(values: np.ndarray) -> int:
-    """Return the longest consecutive run of True values."""
-
-    values = np.asarray(values, dtype=bool)
-
-    longest = 0
-    current = 0
-
-    for value in values:
-        if value:
-            current += 1
-            longest = max(longest, current)
-        else:
-            current = 0
-
-    return longest
-
-
-def compute_persistence_signal(
-    roi: np.ndarray,
-    bright_quantile: float = 0.75,
-) -> np.ndarray:
+class IntensityProfileResult:
     """
-    Compute a vertical bright-pixel persistence score for every column.
+    Output from ImageJ-like line-profile extraction.
 
-    Parameters
+    Attributes
     ----------
-    roi:
-        Normalized sub-BM image with shape ``(depth, width)``.
-    bright_quantile:
-        Quantile of the full ROI used to define bright pixels.
-
-    Returns
-    -------
-    np.ndarray
-        Longest bright-run fraction for every image column.
+    start:
+        Resolved starting coordinate as ``(x, y)``.
+    end:
+        Resolved ending coordinate as ``(x, y)``.
+    depth:
+        Vertical depth of the horizontal line, measured in pixels from
+        the top of the supplied B-scan.
+    stepsize:
+        Distance between sampled profile measurements, in pixels.
+    distance:
+        Distance along the line in pixels. This is ``None`` when
+        ``data=False``.
+    gray_values:
+        Sampled grayscale intensity values. This is ``None`` when
+        ``data=False``.
+    profile_data:
+        Two-column array containing distance and gray value. This is
+        ``None`` when ``data=False``.
+    figure:
+        Matplotlib figure containing the marked B-scan and profile plot.
+        This is ``None`` when ``plot=False``.
+    plot_path:
+        Location where the plot was saved, when applicable.
+    data_path:
+        Location where the numerical profile was saved, when applicable.
+    metadata:
+        Additional information about the image and profile extraction.
     """
-    roi = np.asarray(roi, dtype=np.float32)
 
-    if roi.ndim != 2:
+    start: tuple[float, float]
+    end: tuple[float, float]
+    depth: float
+    stepsize: float
+    distance: np.ndarray | None
+    gray_values: np.ndarray | None
+    profile_data: np.ndarray | None
+    figure: Any | None
+    plot_path: Path | None
+    data_path: Path | None
+    metadata: dict[str, Any]
+
+
+def _validate_bscan(bscan: np.ndarray) -> np.ndarray:
+    """
+    Validate and convert a B-scan to a two-dimensional float32 array.
+    """
+    image = np.asarray(bscan, dtype=np.float32)
+
+    if image.ndim != 2:
         raise ValueError(
-            f"Expected a 2D ROI, received shape {roi.shape}."
+            f"Expected a two-dimensional B-scan, received shape "
+            f"{image.shape}."
         )
 
-    if not 0 < bright_quantile < 1:
-        raise ValueError("bright_quantile must lie between 0 and 1.")
+    if image.size == 0:
+        raise ValueError("The supplied B-scan is empty.")
 
-    threshold = float(np.quantile(roi, bright_quantile))
-    bright_mask = roi >= threshold
+    if not np.isfinite(image).any():
+        raise ValueError(
+            "The supplied B-scan contains no finite intensity values."
+        )
 
-    depth = roi.shape[0]
+    return image
 
-    signal = np.array(
+
+def _convert_to_imagej_gray_values(
+    image: np.ndarray,
+) -> np.ndarray:
+    """
+    Convert normalized images to an ImageJ-like 8-bit gray-value scale.
+
+    Images whose finite values lie entirely between 0 and 1 are assumed
+    to be normalized and are multiplied by 255. Images already outside
+    that range retain their original intensity scale.
+    """
+    image = np.asarray(image, dtype=np.float32)
+
+    finite_values = image[np.isfinite(image)]
+
+    if finite_values.size == 0:
+        raise ValueError(
+            "Cannot convert an image containing no finite values."
+        )
+
+    image_min = float(finite_values.min())
+    image_max = float(finite_values.max())
+
+    if image_min >= 0.0 and image_max <= 1.0:
+        return image * 255.0
+
+    return image.copy()
+
+
+def _resolve_line_coordinates(
+    image_shape: tuple[int, int],
+    start: tuple[float, float],
+    end: tuple[float, float],
+    depth: float | None,
+    clip_to_image: bool,
+) -> tuple[tuple[float, float], tuple[float, float], float]:
+    """
+    Resolve and validate the line coordinates.
+
+    When ``depth`` is supplied, the y-coordinate of both endpoints is
+    replaced by that value, producing a horizontal line.
+    """
+    height, width = image_shape
+
+    if len(start) != 2 or len(end) != 2:
+        raise ValueError(
+            "start and end must each contain exactly two values: (x, y)."
+        )
+
+    start_x = float(start[0])
+    start_y = float(start[1])
+    end_x = float(end[0])
+    end_y = float(end[1])
+
+    if depth is not None:
+        if not np.isfinite(depth):
+            raise ValueError("depth must be finite.")
+
+        start_y = float(depth)
+        end_y = float(depth)
+
+    elif not np.isclose(start_y, end_y):
+        raise ValueError(
+            "The ImageJ-like barcode profile must be horizontal. "
+            "Provide endpoints with identical y-coordinates or supply "
+            "the depth argument."
+        )
+
+    resolved_depth = start_y
+
+    coordinates = np.array(
         [
-            longest_true_run(bright_mask[:, x]) / depth
-            for x in range(roi.shape[1])
+            [start_x, start_y],
+            [end_x, end_y],
         ],
+        dtype=np.float64,
+    )
+
+    if not np.isfinite(coordinates).all():
+        raise ValueError(
+            "start and end coordinates must contain finite values."
+        )
+
+    outside_image = (
+        start_x < 0
+        or start_x > width - 1
+        or end_x < 0
+        or end_x > width - 1
+        or start_y < 0
+        or start_y > height - 1
+        or end_y < 0
+        or end_y > height - 1
+    )
+
+    if outside_image:
+        if not clip_to_image:
+            raise ValueError(
+                "The requested profile line extends outside the supplied "
+                f"B-scan. Image dimensions are width={width}, "
+                f"height={height}; requested start={start}, end={end}, "
+                f"depth={resolved_depth}."
+            )
+
+        warnings.warn(
+            "The requested profile coordinates extend outside the "
+            "supplied B-scan and will be clipped to the image boundaries.",
+            stacklevel=2,
+        )
+
+        start_x = float(np.clip(start_x, 0, width - 1))
+        end_x = float(np.clip(end_x, 0, width - 1))
+        start_y = float(np.clip(start_y, 0, height - 1))
+        end_y = float(np.clip(end_y, 0, height - 1))
+
+        resolved_depth = start_y
+
+    if np.isclose(start_x, end_x) and np.isclose(start_y, end_y):
+        raise ValueError(
+            "The profile line must have nonzero length."
+        )
+
+    return (
+        (start_x, start_y),
+        (end_x, end_y),
+        resolved_depth,
+    )
+
+
+def _sample_line_profile(
+    image: np.ndarray,
+    start: tuple[float, float],
+    end: tuple[float, float],
+    stepsize: float,
+) -> tuple[np.ndarray, np.ndarray]:
+    """
+    Sample grayscale intensity along a line segment.
+
+    Bilinear interpolation is used when the requested coordinates do not
+    fall exactly on integer pixel locations.
+    """
+    if stepsize <= 0:
+        raise ValueError("stepsize must be greater than zero.")
+
+    start_x, start_y = start
+    end_x, end_y = end
+
+    delta_x = end_x - start_x
+    delta_y = end_y - start_y
+
+    line_length = float(
+        np.hypot(delta_x, delta_y)
+    )
+
+    distances = np.arange(
+        0.0,
+        line_length,
+        stepsize,
         dtype=np.float32,
     )
 
-    return signal
-
-
-def otsu_threshold(values: np.ndarray, bins: int = 256) -> float:
-    """
-    Estimate a threshold using Otsu's between-class variance criterion.
-
-    Otsu's method selects the threshold that best separates the one-
-    dimensional score distribution into two groups.
-    """
-    values = np.asarray(values, dtype=np.float32)
-    finite_values = values[np.isfinite(values)]
-
-    if finite_values.size == 0:
-        raise ValueError("Cannot threshold an empty signal.")
-
-    value_min = float(finite_values.min())
-    value_max = float(finite_values.max())
-
-    if value_max <= value_min:
-        return value_min
-
-    histogram, edges = np.histogram(
-        finite_values,
-        bins=bins,
-        range=(value_min, value_max),
-    )
-
-    histogram = histogram.astype(np.float64)
-    probabilities = histogram / histogram.sum()
-
-    centers = (edges[:-1] + edges[1:]) / 2
-
-    cumulative_probability = np.cumsum(probabilities)
-    cumulative_mean = np.cumsum(probabilities * centers)
-    total_mean = cumulative_mean[-1]
-
-    denominator = (
-        cumulative_probability
-        * (1.0 - cumulative_probability)
-    )
-
-    between_class_variance = np.zeros_like(denominator)
-
-    valid = denominator > 0
-
-    between_class_variance[valid] = (
-        (
-            total_mean * cumulative_probability[valid]
-            - cumulative_mean[valid]
+    if distances.size == 0 or not np.isclose(
+        distances[-1],
+        line_length,
+    ):
+        distances = np.append(
+            distances,
+            np.float32(line_length),
         )
-        ** 2
-        / denominator[valid]
+
+    fractions = distances / line_length
+
+    x_coordinates = start_x + fractions * delta_x
+    y_coordinates = start_y + fractions * delta_y
+
+    gray_values = map_coordinates(
+        image,
+        coordinates=np.vstack(
+            [
+                y_coordinates,
+                x_coordinates,
+            ]
+        ),
+        order=1,
+        mode="nearest",
     )
 
-    best_index = int(np.argmax(between_class_variance))
-
-    return float(centers[best_index])
-
-
-def remove_short_runs(
-    mask: np.ndarray,
-    min_length: int,
-) -> np.ndarray:
-    """Remove positive runs shorter than ``min_length`` columns."""
-
-    mask = np.asarray(mask, dtype=bool)
-    cleaned = mask.copy()
-
-    start = None
-
-    for index, value in enumerate(
-        np.append(mask, False)
-    ):
-        if value and start is None:
-            start = index
-
-        elif not value and start is not None:
-            run_length = index - start
-
-            if run_length < min_length:
-                cleaned[start:index] = False
-
-            start = None
-
-    return cleaned
+    return (
+        distances.astype(np.float32),
+        gray_values.astype(np.float32),
+    )
 
 
-def fill_short_gaps(
-    mask: np.ndarray,
-    max_gap: int,
-) -> np.ndarray:
-    """Fill negative gaps between positive runs when sufficiently short."""
+def _create_profile_figure(
+    image: np.ndarray,
+    start: tuple[float, float],
+    end: tuple[float, float],
+    distance: np.ndarray,
+    gray_values: np.ndarray,
+    gray_value_limits: tuple[float, float],
+):
+    """
+    Create the marked-image and intensity-profile visualization.
+    """
+    lower_limit, upper_limit = gray_value_limits
 
-    mask = np.asarray(mask, dtype=bool)
-    filled = mask.copy()
+    if lower_limit >= upper_limit:
+        raise ValueError(
+            "gray_value_limits must satisfy lower < upper."
+        )
 
-    start = None
+    figure, axes = plt.subplots(
+        nrows=2,
+        ncols=1,
+        figsize=(12, 8),
+        gridspec_kw={
+            "height_ratios": [1.25, 1.0],
+        },
+    )
 
-    for index, value in enumerate(
-        np.append(mask, True)
-    ):
-        if not value and start is None:
-            start = index
+    image_axis = axes[0]
+    profile_axis = axes[1]
 
-        elif value and start is not None:
-            gap_length = index - start
+    image_axis.imshow(
+        image,
+        cmap="gray",
+        aspect="auto",
+    )
 
-            has_positive_left = start > 0 and mask[start - 1]
-            has_positive_right = index < mask.size and mask[index]
+    image_axis.plot(
+        [start[0], end[0]],
+        [start[1], end[1]],
+        color="yellow",
+        linewidth=2,
+    )
 
-            if (
-                gap_length <= max_gap
-                and has_positive_left
-                and has_positive_right
-            ):
-                filled[start:index] = True
+    image_axis.scatter(
+        [start[0], end[0]],
+        [start[1], end[1]],
+        s=35,
+        facecolors="white",
+        edgecolors="yellow",
+        linewidths=1.5,
+        zorder=3,
+    )
 
-            start = None
+    image_axis.set_title(
+        "Processed B-scan with intensity-profile line"
+    )
+    image_axis.set_xlabel("Horizontal position")
+    image_axis.set_ylabel("Depth from top")
 
-    return filled
+    profile_axis.plot(
+        distance,
+        gray_values,
+        linewidth=1.0,
+    )
+
+    profile_axis.set_ylim(
+        lower_limit,
+        upper_limit,
+    )
+
+    profile_axis.set_title(
+        "ImageJ-like intensity profile"
+    )
+    profile_axis.set_xlabel(
+        "Distance (pixels)"
+    )
+    profile_axis.set_ylabel(
+        "Gray value"
+    )
+    profile_axis.grid(
+        alpha=0.25,
+    )
+
+    figure.tight_layout()
+
+    return figure
 
 
-def extract_intervals(
-    mask: np.ndarray,
-    scores: np.ndarray,
-) -> list[BarcodeInterval]:
-    """Convert a one-dimensional Boolean mask into intervals."""
+def extract_intensity_profile(
+    bscan: np.ndarray,
+    start: tuple[float, float] = (73, 135),
+    depth: float | None = None,
+    end: tuple[float, float] = (1169, 135),
+    stepsize: float = 1.0,
+    plot: bool = True,
+    data: bool = True,
+    plot_path: str | Path | None = None,
+    data_path: str | Path | None = None,
+    gray_value_limits: tuple[float, float] = (0.0, 300.0),
+    clip_to_image: bool = True,
+) -> IntensityProfileResult:
+    """
+    Extract an ImageJ-like grayscale profile from a processed B-scan.
 
-    mask = np.asarray(mask, dtype=bool)
-    scores = np.asarray(scores, dtype=np.float32)
+    A line segment is placed on the supplied B-scan and grayscale
+    intensity is sampled along that line. By default, the function
+    reproduces the manually selected ImageJ line running from
+    ``(73, 135)`` to ``(1169, 135)``.
 
-    if mask.shape != scores.shape:
-        raise ValueError("mask and scores must have identical shapes.")
+    Parameters
+    ----------
+    bscan:
+        Two-dimensional raw, flattened, cropped, or normalized B-scan.
+    start:
+        Starting line coordinate as ``(x, y)``. The default is
+        ``(73, 135)``.
+    depth:
+        Vertical position of the line measured in pixels from the top
+        of the supplied image. When provided, this replaces the
+        y-coordinate in both ``start`` and ``end``.
+    end:
+        Ending line coordinate as ``(x, y)``. The default is
+        ``(1169, 135)``.
+    stepsize:
+        Distance between profile measurements, in pixels. The default
+        is one measurement per pixel.
+    plot:
+        Whether to generate the marked B-scan and profile plot.
+    data:
+        Whether to return the numerical distance and gray-value data.
+    plot_path:
+        Optional output path for the plot. When omitted, the figure is
+        created but not saved.
+    data_path:
+        Optional CSV output path for the numerical profile. This
+        requires ``data=True``.
+    gray_value_limits:
+        Fixed y-axis range for the profile plot. The default is
+        ``(0, 300)`` so scans use a consistent display scale.
+    clip_to_image:
+        Whether endpoints outside the image should be clipped to valid
+        image coordinates. This defaults to ``True``.
 
-    intervals: list[BarcodeInterval] = []
-    start = None
+    Returns
+    -------
+    IntensityProfileResult
+        Extracted profile, coordinates, optional numerical data, plot,
+        and metadata.
 
-    for index, value in enumerate(
-        np.append(mask, False)
-    ):
-        if value and start is None:
-            start = index
+    Notes
+    -----
+    If the supplied image is normalized to the range [0, 1], its
+    intensities are automatically converted to an 8-bit-style scale
+    from 0 to 255 before extracting the profile.
 
-        elif not value and start is not None:
-            end = index - 1
-            interval_scores = scores[start:index]
+    The default endpoint ``x=1169`` comes from the original ImageJ
+    screenshot. For a 512-pixel-wide EyePy B-scan, that coordinate lies
+    outside the image and will therefore be clipped to ``x=511`` unless
+    different coordinates are supplied.
+    """
+    image = _validate_bscan(bscan)
 
-            intervals.append(
-                BarcodeInterval(
-                    x_start=int(start),
-                    x_end=int(end),
-                    length_px=int(end - start + 1),
-                    mean_score=float(interval_scores.mean()),
-                    max_score=float(interval_scores.max()),
-                )
+    gray_image = _convert_to_imagej_gray_values(
+        image
+    )
+
+    resolved_start, resolved_end, resolved_depth = (
+        _resolve_line_coordinates(
+            image_shape=gray_image.shape,
+            start=start,
+            end=end,
+            depth=depth,
+            clip_to_image=clip_to_image,
+        )
+    )
+
+    distance_values, gray_values = _sample_line_profile(
+        image=gray_image,
+        start=resolved_start,
+        end=resolved_end,
+        stepsize=stepsize,
+    )
+
+    figure = None
+    resolved_plot_path = None
+
+    if plot:
+        figure = _create_profile_figure(
+            image=gray_image,
+            start=resolved_start,
+            end=resolved_end,
+            distance=distance_values,
+            gray_values=gray_values,
+            gray_value_limits=gray_value_limits,
+        )
+
+        if plot_path is not None:
+            resolved_plot_path = Path(plot_path)
+            resolved_plot_path.parent.mkdir(
+                parents=True,
+                exist_ok=True,
             )
 
-            start = None
+            figure.savefig(
+                resolved_plot_path,
+                dpi=300,
+                bbox_inches="tight",
+            )
 
-    return intervals
-
-
-class ThresholdBarcodeDetector:
-    """
-    Unsupervised threshold detector for horizontal barcoding intervals.
-    """
-
-    def __init__(
-        self,
-        bright_quantile: float = 0.75,
-        smooth_sigma: float = 4.0,
-        min_interval_length: int = 12,
-        max_gap: int = 6,
-        threshold_multiplier: float = 1.0,
-    ) -> None:
-        self.bright_quantile = bright_quantile
-        self.smooth_sigma = smooth_sigma
-        self.min_interval_length = min_interval_length
-        self.max_gap = max_gap
-        self.threshold_multiplier = threshold_multiplier
-
-    def predict(
-        self,
-        roi: np.ndarray,
-    ) -> ThresholdPrediction:
-        """Detect barcoding intervals in a normalized sub-BM ROI."""
-
-        raw_signal = compute_persistence_signal(
-            roi=roi,
-            bright_quantile=self.bright_quantile,
+    elif plot_path is not None:
+        warnings.warn(
+            "plot_path was supplied, but plot=False. No plot was saved.",
+            stacklevel=2,
         )
 
-        smoothed_signal = gaussian_filter1d(
-            raw_signal,
-            sigma=self.smooth_sigma,
+    profile_data = None
+    returned_distance = None
+    returned_gray_values = None
+    resolved_data_path = None
+
+    if data:
+        returned_distance = distance_values.copy()
+        returned_gray_values = gray_values.copy()
+
+        profile_data = np.column_stack(
+            [
+                returned_distance,
+                returned_gray_values,
+            ]
+        ).astype(np.float32)
+
+        if data_path is not None:
+            resolved_data_path = Path(data_path)
+            resolved_data_path.parent.mkdir(
+                parents=True,
+                exist_ok=True,
+            )
+
+            np.savetxt(
+                resolved_data_path,
+                profile_data,
+                delimiter=",",
+                header="distance_pixels,gray_value",
+                comments="",
+                fmt="%.6f",
+            )
+
+    elif data_path is not None:
+        warnings.warn(
+            "data_path was supplied, but data=False. No numerical data "
+            "was saved.",
+            stacklevel=2,
         )
 
-        base_threshold = otsu_threshold(smoothed_signal)
+    metadata = {
+        "image_shape": tuple(gray_image.shape),
+        "original_dtype": str(
+            np.asarray(bscan).dtype
+        ),
+        "start": resolved_start,
+        "end": resolved_end,
+        "depth": resolved_depth,
+        "stepsize": float(stepsize),
+        "number_of_measurements": int(
+            distance_values.size
+        ),
+        "line_length_pixels": float(
+            distance_values[-1]
+        ),
+        "gray_value_min": float(
+            gray_values.min()
+        ),
+        "gray_value_max": float(
+            gray_values.max()
+        ),
+        "gray_value_mean": float(
+            gray_values.mean()
+        ),
+        "gray_value_limits": tuple(
+            float(value)
+            for value in gray_value_limits
+        ),
+        "plot_created": bool(plot),
+        "data_returned": bool(data),
+    }
 
-        threshold = (
-            base_threshold * self.threshold_multiplier
-        )
-
-        raw_mask = smoothed_signal >= threshold
-
-        cleaned_mask = fill_short_gaps(
-            mask=raw_mask,
-            max_gap=self.max_gap,
-        )
-
-        cleaned_mask = remove_short_runs(
-            mask=cleaned_mask,
-            min_length=self.min_interval_length,
-        )
-
-        intervals = extract_intervals(
-            mask=cleaned_mask,
-            scores=smoothed_signal,
-        )
-
-        return ThresholdPrediction(
-            raw_signal=raw_signal,
-            smoothed_signal=smoothed_signal,
-            threshold=float(threshold),
-            raw_mask=raw_mask,
-            cleaned_mask=cleaned_mask,
-            intervals=intervals,
-        )
+    return IntensityProfileResult(
+        start=resolved_start,
+        end=resolved_end,
+        depth=resolved_depth,
+        stepsize=float(stepsize),
+        distance=returned_distance,
+        gray_values=returned_gray_values,
+        profile_data=profile_data,
+        figure=figure,
+        plot_path=resolved_plot_path,
+        data_path=resolved_data_path,
+        metadata=metadata,
+    )
