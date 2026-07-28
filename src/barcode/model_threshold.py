@@ -333,11 +333,16 @@ def _create_profile_figure(
     image_axis.set_ylabel("Depth from top")
 
     profile_axis.plot(
-        distance,
+        np.arange(gray_values.size),
         gray_values,
         linewidth=1.0,
     )
 
+    profile_axis.set_xlim(
+        -0.5,
+        gray_values.size - 0.5,
+    )
+    
     profile_axis.set_ylim(
         lower_limit,
         upper_limit,
