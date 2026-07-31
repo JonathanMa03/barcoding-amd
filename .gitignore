@@ -306,6 +306,7 @@ archive/
 
 # OCTAVE dataset
 external/OCTAVE/
+results/
 
 # Optional: ignore generated training artifacts if you ever remove the line above
 # external/OCTAVE/nnUNet_preprocessed/
