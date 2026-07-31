@@ -1,0 +1,817 @@
+\documentclass[aspectratio=169]{beamer}
+
+\usetheme{Madrid}
+\usecolortheme{default}
+
+\usepackage{amsmath, amssymb}
+\usepackage{booktabs}
+\usepackage{array}
+\usepackage{xcolor}
+
+\title[Barcoding Detection]{Barcoding Detection and Parameter Sensitivity}
+\subtitle{OCT Profile Extraction Proof-of-Concept}
+\author{Jonathan Ma}
+\date{July 31, 2026}
+
+\begin{document}
+
+\begin{frame}
+  \titlepage
+\end{frame}
+
+\begin{frame}{Roadmap}
+  \tableofcontents
+\end{frame}
+
+\section{Interactive Profile Overlay and Manual Classification}
+
+\begin{frame}{New Tool: Interactive Profile Overlay}
+
+\begin{block}{Purpose}
+The annotation interface aligns the processed sub-BM scan with its extracted
+intensity profile on a shared horizontal axis.
+\end{block}
+
+\begin{columns}[T]
+
+\column{0.50\textwidth}
+
+\textbf{Workflow}
+
+\begin{enumerate}
+    \item Select an annotation class:
+    \begin{itemize}
+        \item Normal
+        \item Early Atrophy (EA)
+        \item Barcoding
+    \end{itemize}
+    \item Drag horizontally across either:
+    \begin{itemize}
+        \item the processed OCT scan, or
+        \item the aligned intensity profile.
+    \end{itemize}
+    \item Use \texttt{Undo last} or \texttt{Clear all} to revise intervals.
+    \item Save the annotations when enabled.
+\end{enumerate}
+
+\column{0.46\textwidth}
+
+\textbf{Saved information}
+
+\begin{itemize}
+    \item Source E2E file
+    \item Central B-scan index
+    \item Profile depth and step size
+    \item Profile margin and aggregation method
+    \item Normalization configuration
+    \item Interval start and end positions
+    \item Class label and interval width
+\end{itemize}
+
+\end{columns}
+
+\end{frame}
+
+
+\begin{frame}{Manual Classification Results}
+
+\begin{block}{Initial proof-of-concept annotation}
+Three contiguous horizontal regions were manually classified on the central
+B-scan.
+\end{block}
+
+\begin{table}
+\centering
+\small
+\begin{tabular}{lccc}
+\toprule
+\textbf{Class} &
+\textbf{Start $x$} &
+\textbf{End $x$} &
+\textbf{Width (px)} \\
+\midrule
+Normal &
+2.0 &
+131.5 &
+129.5 \\
+Early Atrophy (EA) &
+137.1 &
+185.0 &
+47.9 \\
+Barcoding &
+191.9 &
+263.5 &
+71.6 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\vspace{0.3cm}
+
+\begin{columns}[T]
+
+\column{0.50\textwidth}
+
+\textbf{Interval counts}
+
+\begin{itemize}
+    \item Normal: 1
+    \item Early Atrophy: 1
+    \item Barcoding: 1
+\end{itemize}
+
+\column{0.46\textwidth}
+
+\textbf{Total annotated width}
+
+\begin{itemize}
+    \item Normal: 129.5 px
+    \item Early Atrophy: 47.9 px
+    \item Barcoding: 71.6 px
+\end{itemize}
+
+\end{columns}
+
+\end{frame}
+
+\section{Profile Extraction Tests}
+
+\begin{frame}{Profile Extraction Expansion}
+
+We want to evaluate whether averaging neighboring rows produces a more robust intensity
+profile than extracting a single horizontal line.
+
+
+\textbf{Configurations evaluated}
+
+\begin{table}
+\centering
+\small
+\begin{tabular}{ll}
+\toprule
+Method & Description\\
+\midrule
+Single Line & Baseline profile from one row\\
+Mean $\pm2$ px & Average across 5 rows\\
+Mean $\pm4$ px & Average across 9 rows\\
+Median $\pm2$ px & Median across 5 rows\\
+Median $\pm4$ px & Median across 9 rows\\
+Median $\pm6$ px & Median across 13 rows\\
+\bottomrule
+\end{tabular}
+\end{table}
+
+
+\textbf{Summary statistics}
+
+\begin{itemize}
+\item Gradient energy — amount of rapid intensity change, profile roughness.
+\item Correlation — similarity to the original single-line extraction (1.0 = identical).
+\item (MAD) — average point-by-point intensity difference from the baseline.
+\item (RMSD) — overall magnitude of deviation, emphasizing larger differences.
+\end{itemize}
+
+\end{frame}
+
+\begin{frame}{Profile Extraction Results}
+
+\small
+
+\begin{table}
+\centering
+\begin{tabular}{lcccc}
+\toprule
+Method &
+Gradient &
+Correlation &
+MAD &
+RMSD\\
+\midrule
+Single Line & 270.8 & 1.000 & 0.00 & 0.00\\
+Mean $\pm2$ & 108.0 & 0.933 & 7.45 & 9.27\\
+Mean $\pm4$ & 81.4 & 0.908 & 8.60 & 10.76\\
+Median $\pm2$ & 146.3 & 0.935 & 6.15 & 9.11\\
+Median $\pm4$ & 107.2 & 0.907 & 7.82 & 10.76\\
+Median $\pm6$ & 83.5 & 0.901 & 8.35 & 11.11\\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\textbf{Observations}
+
+\begin{itemize}
+\item Increasing the averaging band substantially reduced roughness.
+\item Mean and median aggregation produced similar overall profiles.
+\item Median $\pm2$ produced the smallest deviation from the baseline profile.
+\item Larger averaging windows generated smoother profiles but differed more.
+\end{itemize}
+
+\end{frame}
+
+\begin{frame}{Interpretation}
+
+\begin{block}{Clinical interpretation}
+
+\begin{itemize}
+\item Averaging neighboring rows suppresses local speckle noise while preserving the overall profile shape.
+\item Small averaging windows ($\pm2$ pixels) appear to provide the best balance between noise reduction and preservation of local features.
+\item Very large averaging windows may smooth clinically relevant local intensity changes associated with early atrophy or barcoding.
+\end{itemize}
+
+\end{block}
+
+\vspace{0.4cm}
+
+\begin{alertblock}{Current recommendation}
+
+For subsequent experiments, a profile band of approximately
+$\pm2$ pixels is recommended as the baseline extraction strategy.
+This configuration substantially reduces profile variability while
+remaining highly correlated ($r\approx0.93$) with the original
+single-line extraction.
+
+\end{alertblock}
+
+\end{frame}
+
+\section{Normalization Scopes}
+
+\begin{frame}{Normalization Scope Comparison}
+
+\textbf{Objective}
+
+Evaluate whether normalization should be performed using the entire
+sub-Bruch's membrane (BM) region or only the rows used for profile extraction.
+
+\vspace{0.3cm}
+
+\textbf{Normalization strategies}
+
+\begin{table}
+\centering
+\small
+\begin{tabular}{ll}
+\toprule
+Method & Description\\
+\midrule
+Whole ROI & Percentiles computed using all pixels below BM\\
+Local Band & Percentiles computed only within the extraction band\\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\vspace{0.3cm}
+
+Both strategies were evaluated using:
+
+\begin{itemize}
+\item Robust percentile normalization (1--99\%) \& Min--max normalization (0--100\%)
+\end{itemize}
+
+\vspace{0.2cm}
+
+\textbf{Summary statistics}
+
+\begin{itemize}
+\item Correlation, MAD, RMSD, Gradient Energy, and dynamic range, the difference between the darkest and brightest profile values after normalization.
+\end{itemize}
+
+\end{frame}
+
+\begin{frame}{Normalization Scope Results}
+
+\small
+
+\begin{table}
+\centering
+\begin{tabular}{lcccc}
+\toprule
+Method &
+Correlation &
+MAD &
+RMSD &
+Gradient\\
+\midrule
+Whole ROI (1--99) & 1.0000 & 0.00 & 0.00 & 180.1\\
+Local Band (1--99) & 0.9971 & 10.24 & 12.49 & 328.3\\
+Whole ROI (0--100) & 0.99996 & 39.80 & 41.26 & 84.0\\
+Local Band (0--100) & 0.99996 & 10.67 & 11.05 & 151.4\\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\vspace{0.3cm}
+
+\textbf{Normalization intensity ranges}
+
+\begin{table}
+\centering
+\small
+\begin{tabular}{lcc}
+\toprule
+Method & Lower & Upper\\
+\midrule
+Whole ROI (1--99) & 0.0 & 171.0\\
+Local Band (1--99) & 25.1 & 149.0\\
+Whole ROI (0--100) & 0.0 & 251.0\\
+Local Band (0--100) & 0.0 & 187.0\\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\end{frame}
+
+\begin{frame}{Interpretation}
+
+\begin{block}{Clinical interpretation}
+
+\begin{itemize}
+\item Whole-ROI normalization provides a consistent intensity reference using the entire processed scan.
+\item Local-band normalization adapts the intensity scaling to the immediate neighborhood surrounding the extracted profile.
+\item Restricting normalization to the local band increases local contrast, producing larger intensity gradients that may improve visibility of subtle features.
+\item Min--max normalization (0--100\%) uses the full intensity range and is more influenced by extreme pixel values than percentile-based normalization.
+\end{itemize}
+
+\end{block}
+
+\vspace{0.4cm}
+
+\begin{alertblock}{Current recommendation}
+
+Percentile normalization  using the entire processed ROI is recommended because it provides a stable global reference while remaining robust to extreme intensity values.
+
+\end{alertblock}
+
+\end{frame}
+
+\section{One-Factor-at-a-Time Analysis}
+
+\begin{frame}{One-Factor-at-a-Time Experimental Setup}
+
+\textbf{Objective}
+
+Measure how strongly each processing choice changes the extracted intensity
+profile when all other settings are held fixed.
+
+\vspace{0.25cm}
+
+\textbf{Baseline configuration}
+
+\begin{table}
+\centering
+\small
+\begin{tabular}{ll}
+\toprule
+Parameter & Baseline setting\\
+\midrule
+Profile margin & $\pm4$ pixels\\
+Aggregation & Mean\\
+Normalization scope & Whole ROI\\
+Percentile bounds & 1--99\%\\
+Sampling step size & 1 pixel\\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\vspace{0.2cm}
+
+\textbf{Factors varied independently}
+
+\begin{itemize}
+    \item Profile margin: $0$, $\pm2$, $\pm4$, $\pm6$, and $\pm8$ pixels
+    \item Percentile bounds: 0--100, 0.5--99.5, 1--99, 2--98, and 5--95
+    \item Sampling step size: 1, 2, 4, and 8 pixels
+\end{itemize}
+
+\end{frame}
+
+\begin{frame}{How OFAT Sensitivity Was Measured}
+
+\small
+
+Each alternative profile was compared with the baseline profile at the same
+horizontal image positions.
+
+\begin{itemize}
+    \item \textbf{Sufficient Statistics}: Correlation, MAD, RMSD, Max Absolute Difference, Grad Energy
+
+    \item \textbf{Curvature energy}: the amount of rapid change in profile
+    slope.
+    \begin{itemize}
+        \item Helps measure sharp peaks and narrow local features.
+    \end{itemize}
+\end{itemize}
+
+\end{frame}
+
+\begin{frame}{OFAT Results: Profile Margin and Aggregation}
+
+\small
+
+\begin{table}
+\centering
+\begin{tabular}{lcccc}
+\toprule
+Setting &
+Correlation &
+MAD &
+RMSD &
+Roughness\\
+\midrule
+Margin $\pm0$ px & 0.907 & 12.80 & 16.00 & 207.2\\
+Margin $\pm2$ px & 0.986 & 4.68 & 5.88 & 103.1\\
+Margin $\pm4$ px & 1.000 & 0.00 & 0.00 & 83.8\\
+Margin $\pm6$ px & 0.992 & 3.44 & 4.39 & 68.2\\
+Margin $\pm8$ px & 0.983 & 4.77 & 6.26 & 62.3\\
+\midrule
+Mean aggregation & 1.000 & 0.00 & 0.00 & 83.8\\
+Median aggregation & 0.989 & 4.01 & 5.14 & 99.4\\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\vspace{0.25cm}
+
+\textbf{Interpretation}
+
+\begin{itemize}
+    \item The single-line profile was substantially rougher and differed most
+    from the baseline.
+    \item Increasing the margin progressively smoothed the profile.
+    \item Margins of $\pm2$ to $\pm6$ pixels remained highly similar to the
+    baseline.
+    \item Mean and median aggregation produced similar profile shapes, although
+    the median retained slightly more local roughness.
+\end{itemize}
+
+\end{frame}
+
+\begin{frame}{OFAT Results: Sampling Step Size}
+
+\small
+
+\begin{table}
+\centering
+\begin{tabular}{lcccc}
+\toprule
+Step size &
+Correlation &
+MAD &
+RMSD &
+Roughness\\
+\midrule
+1 px & 1.000 & 0.00 & 0.00 & 83.8\\
+2 px & 0.981 & 3.55 & 6.71 & 66.3\\
+4 px & 0.954 & 6.95 & 10.36 & 34.7\\
+8 px & 0.894 & 11.09 & 15.95 & 13.5\\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\vspace{0.3cm}
+
+\begin{block}{Interpretation}
+
+\begin{itemize}
+    \item Larger step sizes reduce the number of sampled horizontal positions.
+    \item This produces progressively smoother profiles because narrow local
+    changes may be skipped.
+    \item A 2-pixel step remained relatively close to the baseline.
+    \item Step sizes of 4 or 8 pixels increasingly altered the profile shape
+    and may miss narrow barcode-like features.
+\end{itemize}
+
+\end{block}
+
+\end{frame}
+
+\begin{frame}{Which Parameters Had the Greatest Influence?}
+
+\small
+
+\begin{table}
+\centering
+\begin{tabular}{lccc}
+\toprule
+Factor &
+Mean MAD &
+Maximum RMSD &
+Minimum correlation\\
+\midrule
+Percentile bounds & 15.80 & 41.26 & 0.998\\
+Sampling step size & 5.40 & 15.95 & 0.894\\
+Profile margin & 5.14 & 16.00 & 0.907\\
+Normalization scope & 5.12 & 12.49 & 0.997\\
+Aggregation method & 2.01 & 5.14 & 0.989\\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\vspace{0.3cm}
+
+\textbf{Clinical interpretation}
+
+\begin{itemize}
+    \item \textbf{Percentile bounds} changed the absolute gray-value scale most
+    strongly, although the spatial profile shape was largely preserved.
+    \item \textbf{Sampling step size} and \textbf{profile margin} had the
+    greatest effect on profile shape and local detail.
+    \item \textbf{Aggregation method} had the smallest overall influence.
+\end{itemize}
+
+\end{frame}
+
+\begin{frame}{OFAT Conclusions}
+
+\begin{alertblock}{Current working configuration}
+
+\begin{itemize}
+    \item Profile margin: approximately $\pm4$ pixels
+    \item Aggregation: mean
+    \item Normalization: whole-ROI, 1--99\%
+    \item Sampling step size: 1 pixel
+\end{itemize}
+
+\end{alertblock}
+
+\vspace{0.3cm}
+
+\begin{itemize}
+    \item Small symmetric averaging bands reduce speckle while preserving the
+    underlying spatial profile.
+    \item Whole-ROI percentile normalization provides a reproducible intensity
+    reference.
+    \item Native 1-pixel sampling is preferred for preserving narrow barcode
+    structures.
+    \item These findings are based on the current proof-of-concept scan and
+    require confirmation across additional OCT volumes.
+\end{itemize}
+
+\end{frame}
+
+\section{Factorial Analysis}
+
+\begin{frame}{Factorial Experimental Setup}
+
+\textbf{Objective}
+
+Evaluate combinations of preprocessing and profile-extraction settings to
+determine whether parameter interactions produce substantially different
+intensity profiles.
+
+\vspace{0.25cm}
+
+\textbf{Factors included}
+
+\begin{table}
+\centering
+\small
+\begin{tabular}{ll}
+\toprule
+Parameter & Levels evaluated\\
+\midrule
+Profile margin & $\pm2$, $\pm4$, and $\pm6$ pixels\\
+Aggregation & Mean and median\\
+Normalization scope & Whole ROI and local band\\
+Percentile bounds & 0--100, 1--99, and 2--98\%\\
+Sampling step size & 1 and 2 pixels\\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\vspace{0.25cm}
+
+\[
+3 \times 2 \times 2 \times 3 \times 2
+=
+72 \text{ parameter combinations}
+\]
+
+Each resulting profile was compared with the working baseline:
+
+\begin{center}
+$\pm4$ pixels, mean aggregation, whole-ROI 1--99\% normalization,
+and 1-pixel sampling.
+\end{center}
+
+\end{frame}
+
+
+\begin{frame}{Most Stable Factorial Configurations}
+
+\scriptsize
+
+\begin{table}
+\centering
+\begin{tabular}{cccccccc}
+\toprule
+Margin &
+Aggregate &
+Scope &
+Bounds &
+Step &
+Corr. &
+MAD &
+RMSD\\
+\midrule
+$\pm4$ & Mean & Whole ROI & 1--99 & 1 & 1.000 & 0.00 & 0.00\\
+$\pm6$ & Mean & Whole ROI & 1--99 & 1 & 0.992 & 3.44 & 4.39\\
+$\pm4$ & Median & Whole ROI & 1--99 & 1 & 0.989 & 4.01 & 5.14\\
+$\pm6$ & Median & Whole ROI & 1--99 & 1 & 0.987 & 4.47 & 5.59\\
+$\pm2$ & Mean & Whole ROI & 1--99 & 1 & 0.986 & 4.68 & 5.88\\
+$\pm4$ & Mean & Whole ROI & 2--98 & 1 & 1.000 & 6.09 & 6.30\\
+$\pm4$ & Mean & Whole ROI & 1--99 & 2 & 0.981 & 3.55 & 6.71\\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\vspace{0.25cm}
+
+\textbf{Observed pattern}
+
+\begin{itemize}
+    \item The most stable configurations consistently used whole-ROI
+    normalization.
+    \item Percentile bounds of 1--99\% appeared most frequently among the
+    highest-ranked settings.
+    \item Margins of $\pm4$ or $\pm6$ pixels were more stable than the smallest
+    tested margin.
+    \item One-pixel sampling generally produced the closest agreement with the
+    baseline.
+\end{itemize}
+
+\end{frame}
+
+\begin{frame}{Configurations Producing the Largest Changes}
+
+\scriptsize
+
+\begin{table}
+\centering
+\begin{tabular}{cccccccc}
+\toprule
+Margin &
+Aggregate &
+Scope &
+Bounds &
+Step &
+Corr. &
+MAD &
+RMSD\\
+\midrule
+$\pm6$ & Mean & Whole ROI & 0--100 & 1 & 0.992 & 40.06 & 41.79\\
+$\pm6$ & Mean & Whole ROI & 0--100 & 2 & 0.976 & 39.66 & 41.71\\
+$\pm2$ & Mean & Whole ROI & 0--100 & 2 & 0.970 & 39.77 & 41.70\\
+$\pm6$ & Median & Whole ROI & 0--100 & 1 & 0.987 & 39.87 & 41.65\\
+$\pm6$ & Median & Whole ROI & 0--100 & 2 & 0.973 & 39.60 & 41.64\\
+$\pm2$ & Median & Whole ROI & 0--100 & 2 & 0.961 & 39.45 & 41.48\\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\vspace{0.25cm}
+
+\textbf{Interpretation}
+
+\begin{itemize}
+    \item Min--max normalization produced the largest gray-value shifts.
+    \item Correlations remained relatively high, indicating that the overall
+    spatial pattern was preserved despite substantial scale changes.
+    \item This means two profiles can have similar shape while having very
+    different absolute intensity values.
+    \item Local-band 2--98\% normalization also produced larger deviations,
+    although less extreme than whole-ROI min--max normalization.
+\end{itemize}
+
+\end{frame}
+
+\begin{frame}{Balancing Stability and Signal Preservation}
+
+\small
+
+Stability alone is not sufficient: excessive smoothing may reduce noise while
+also suppressing clinically relevant barcode-like intensity changes.
+
+\begin{itemize}
+    \item \textbf{Gradient energy ratio}
+    \begin{itemize}
+        \item A value near 1 indicates similar preservation of local intensity
+        changes.
+        \item Values below 1 indicate stronger smoothing.
+        \item Values above 1 indicate greater local variation.
+    \end{itemize}
+
+    \item \textbf{Stability--signal score}
+    \begin{itemize}
+        \item Lower scores indicate better agreement with the baseline while
+        retaining a similar amount of local structure.
+        \item This is an exploratory ranking measure rather than a clinical
+        diagnostic score.
+    \end{itemize}
+\end{itemize}
+
+\begin{table}
+\centering
+\scriptsize
+\begin{tabular}{lccc}
+\toprule
+Configuration & RMSD & Gradient ratio & Score\\
+\midrule
+$\pm4$, mean, whole ROI, 1--99, step 1 & 0.00 & 1.000 & -2.577\\
+$\pm6$, median, whole ROI, 1--99, step 1 & 5.59 & 0.974 & -2.050\\
+$\pm4$, mean, whole ROI, 2--98, step 1 & 6.30 & 1.094 & -1.854\\
+$\pm6$, mean, whole ROI, 1--99, step 1 & 4.39 & 0.814 & -1.829\\
+$\pm4$, median, whole ROI, 1--99, step 1 & 5.14 & 1.186 & -1.766\\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\end{frame}
+
+\begin{frame}{Factorial Analysis Conclusions}
+
+\begin{block}{Main findings}
+
+\begin{itemize}
+    \item Stable parameter combinations clustered around whole-ROI percentile
+    normalization, small-to-moderate averaging bands, and native 1-pixel
+    sampling.
+    \item Percentile bounds strongly affected absolute intensity scale.
+    \item Profile margin and sampling step size more directly affected local
+    profile detail.
+    \item Mean and median aggregation were both viable, with comparatively
+    smaller effects than normalization and sampling choices.
+\end{itemize}
+
+\end{block}
+
+\vspace{0.25cm}
+
+\begin{alertblock}{Working configuration}
+Use 0.01-0.99 normalization about the whole ROI, using mean $\pm4$ pixels
+
+\end{alertblock}
+
+\vspace{0.2cm}
+
+\centering
+\textit{These results describe one proof-of-concept scan and will be
+validated across the remaining OCT volumes before fixing final defaults.}
+
+\end{frame}
+
+
+
+\section{Conclusions}
+
+\begin{frame}{Conclusions}
+
+\begin{block}{Main findings}
+
+\begin{itemize}
+    \item Small-to-moderate depth averaging reduced profile roughness while preserving overall signal shape.
+    \item Whole-ROI percentile normalization provided the most stable intensity reference.
+    \item Sampling step size strongly affected preservation of narrow local features.
+    \item Aggregation method had a smaller influence than normalization, margin, or step size.
+    \item Stable configurations clustered around:
+    \begin{itemize}
+        \item $\pm4$ to $\pm6$ pixel margins,
+        \item whole-ROI 1--99\% normalization,
+        \item and 1-pixel sampling.
+    \end{itemize}
+\end{itemize}
+
+\end{block}
+
+\end{frame}
+
+\begin{frame}{Next Steps}
+
+\begin{enumerate}
+    \item \textbf{Apply the pipeline to all available E2E volumes}
+    \begin{itemize}
+        \item Test the central scan of each volume
+        \item Test across all scans of a single volume
+    \end{itemize}
+
+    \item \textbf{Develop numerical detection features}
+    \begin{itemize}
+        \item Local intensity level
+        \item Gradient and curvature activity
+        \item Peak density and spatial frequency
+        \item Vertical persistence across neighboring depths
+        \item Look into Neural Super Resolution (a resolution enhancing technique like DLSS)
+    \end{itemize}
+
+    \item \textbf{Evaluate automated spatial classification}
+    \begin{itemize}
+        \item Threshold-based signal processing
+        \item Change-point methods
+        \item Hidden Markov models
+    \end{itemize}
+
+\end{enumerate}
+
+\end{frame}
+
+\end{document}
