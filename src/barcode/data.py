@@ -25,8 +25,18 @@ class PreprocessedBscan:
     depth_below_bm: int
 
     normalization_enabled: bool
+    normalization_scope: str
+
     lower_percentile: float | None
     upper_percentile: float | None
+
+    normalization_center_row: int | None
+    normalization_margin: int | None
+    normalization_band_start: int | None
+    normalization_band_end: int | None
+
+    normalization_lower_value: float | None
+    normalization_upper_value: float | None
 
     metadata: dict[str, Any]
 
@@ -356,66 +366,113 @@ def robust_normalize(
     image: np.ndarray,
     lower_percentile: float = 1.0,
     upper_percentile: float = 99.0,
-) -> np.ndarray:
+    reference_image: np.ndarray | None = None,
+) -> tuple[np.ndarray, float, float]:
     """
     Robustly scale image intensities to [0, 1].
 
-    Intensities below the selected lower percentile are mapped to 0.
-    Intensities above the selected upper percentile are mapped to 1.
+    Percentile bounds may be estimated from the complete input image or
+    from a separate reference image. Regardless of which reference is
+    used, the resulting transformation is applied to the complete input
+    image.
 
     Parameters
     ----------
     image:
-        Input image.
+        Image to normalize.
     lower_percentile:
-        Lower clipping percentile.
+        Lower clipping percentile. Must be between 0 and 100.
     upper_percentile:
-        Upper clipping percentile.
+        Upper clipping percentile. Must be between 0 and 100 and greater
+        than ``lower_percentile``.
+    reference_image:
+        Optional image region used only to estimate the lower and upper
+        intensity bounds. If omitted, the complete input image is used.
 
     Returns
     -------
-    np.ndarray
+    normalized:
         Float32 image scaled to [0, 1].
+    lower_value:
+        Intensity value corresponding to the selected lower percentile.
+    upper_value:
+        Intensity value corresponding to the selected upper percentile.
     """
-    image = np.asarray(image, dtype=np.float32)
+    image = np.asarray(
+        image,
+        dtype=np.float32,
+    )
 
-    if not 0 <= lower_percentile < upper_percentile <= 100:
+    if image.ndim != 2:
+        raise ValueError(
+            f"Expected a two-dimensional image, received shape "
+            f"{image.shape}."
+        )
+
+    if not (
+        0.0
+        <= lower_percentile
+        < upper_percentile
+        <= 100.0
+    ):
         raise ValueError(
             "Percentiles must satisfy "
             "0 <= lower_percentile < upper_percentile <= 100."
         )
 
-    finite_values = image[np.isfinite(image)]
-
-    if finite_values.size == 0:
-        raise ValueError(
-            "Cannot normalize an image containing no finite values."
+    if reference_image is None:
+        reference = image
+    else:
+        reference = np.asarray(
+            reference_image,
+            dtype=np.float32,
         )
 
-    lower = float(
+        if reference.size == 0:
+            raise ValueError(
+                "The normalization reference image is empty."
+            )
+
+    finite_reference_values = reference[
+        np.isfinite(reference)
+    ]
+
+    if finite_reference_values.size == 0:
+        raise ValueError(
+            "Cannot normalize using a reference region containing no "
+            "finite intensity values."
+        )
+
+    lower_value = float(
         np.percentile(
-            finite_values,
+            finite_reference_values,
             lower_percentile,
         )
     )
 
-    upper = float(
+    upper_value = float(
         np.percentile(
-            finite_values,
+            finite_reference_values,
             upper_percentile,
         )
     )
 
-    if upper <= lower:
-        return np.zeros_like(
+    if upper_value <= lower_value:
+        normalized = np.zeros_like(
             image,
             dtype=np.float32,
         )
 
+        return (
+            normalized,
+            lower_value,
+            upper_value,
+        )
+
     normalized = (
-        image - lower
+        image - lower_value
     ) / (
-        upper - lower
+        upper_value - lower_value
     )
 
     normalized = np.clip(
@@ -424,7 +481,13 @@ def robust_normalize(
         1.0,
     )
 
-    return normalized.astype(np.float32)
+    normalized[~np.isfinite(normalized)] = 0.0
+
+    return (
+        normalized.astype(np.float32),
+        lower_value,
+        upper_value,
+    )
 
 
 def preprocess_bscan(
@@ -434,6 +497,9 @@ def preprocess_bscan(
     depth_below_bm: int = 150,
     reference_row: int | None = None,
     normalize: bool = True,
+    normalization_scope: str = "whole_roi",
+    normalization_center_row: int | None = None,
+    normalization_margin: int = 0,
     lower_percentile: float = 1.0,
     upper_percentile: float = 99.0,
 ) -> PreprocessedBscan:
@@ -454,18 +520,76 @@ def preprocess_bscan(
         Optional row onto which BM is flattened. If omitted, the median
         BM location is used.
     normalize:
-        Whether to apply robust percentile normalization to the sub-BM crop.
+        Whether to apply robust percentile normalization to the sub-BM
+        crop.
+    normalization_scope:
+        Region used to estimate normalization percentile bounds.
+
+        Supported values are:
+
+        - ``"whole_roi"``: use all pixels in the sub-BM crop.
+        - ``"local_band"``: use a symmetric band around
+          ``normalization_center_row``.
+    normalization_center_row:
+        Center row of the local normalization band, measured relative to
+        the top of the sub-BM crop. Required when
+        ``normalization_scope="local_band"``.
+    normalization_margin:
+        Number of rows above and below ``normalization_center_row`` used
+        for local-band normalization. A margin of zero uses only the
+        selected center row.
     lower_percentile:
         Lower clipping percentile used when normalization is enabled.
+        May be any value from 0 to 100, subject to being less than
+        ``upper_percentile``.
     upper_percentile:
         Upper clipping percentile used when normalization is enabled.
+        May be any value from 0 to 100, subject to being greater than
+        ``lower_percentile``.
 
     Returns
     -------
     PreprocessedBscan
-        Container holding the original image, flattened image, crop,
-        optionally normalized crop, and associated metadata.
+        Container holding the original image, flattened image, sub-BM
+        crop, normalized or unchanged crop, and associated metadata.
     """
+    valid_normalization_scopes = {
+        "whole_roi",
+        "local_band",
+    }
+
+    if normalization_scope not in valid_normalization_scopes:
+        raise ValueError(
+            "normalization_scope must be one of "
+            f"{sorted(valid_normalization_scopes)}, received "
+            f"'{normalization_scope}'."
+        )
+
+    if not isinstance(normalization_margin, (int, np.integer)):
+        raise TypeError(
+            "normalization_margin must be an integer."
+        )
+
+    normalization_margin = int(
+        normalization_margin
+    )
+
+    if normalization_margin < 0:
+        raise ValueError(
+            "normalization_margin must be greater than or equal to zero."
+        )
+
+    if not (
+        0.0
+        <= lower_percentile
+        < upper_percentile
+        <= 100.0
+    ):
+        raise ValueError(
+            "Percentiles must satisfy "
+            "0 <= lower_percentile < upper_percentile <= 100."
+        )
+
     raw_bscan = load_bscan(
         volume=volume,
         bscan_index=bscan_index,
@@ -489,44 +613,174 @@ def preprocess_bscan(
         depth_below_bm=depth_below_bm,
     )
 
+    recorded_lower_percentile: float | None = None
+    recorded_upper_percentile: float | None = None
+
+    recorded_center_row: int | None = None
+    recorded_margin: int | None = None
+    normalization_band_start: int | None = None
+    normalization_band_end: int | None = None
+
+    normalization_lower_value: float | None = None
+    normalization_upper_value: float | None = None
+
     if normalize:
-        normalized_crop = robust_normalize(
+        if normalization_scope == "whole_roi":
+            normalization_reference = sub_bm_crop
+
+        else:
+            if normalization_center_row is None:
+                raise ValueError(
+                    "normalization_center_row must be supplied when "
+                    "normalization_scope='local_band'."
+                )
+
+            if not isinstance(
+                normalization_center_row,
+                (int, np.integer),
+            ):
+                raise TypeError(
+                    "normalization_center_row must be an integer."
+                )
+
+            requested_center_row = int(
+                normalization_center_row
+            )
+
+            crop_height = sub_bm_crop.shape[0]
+
+            if (
+                requested_center_row < 0
+                or requested_center_row >= crop_height
+            ):
+                raise ValueError(
+                    "normalization_center_row must lie within the "
+                    f"sub-BM crop. Valid rows are 0 to "
+                    f"{crop_height - 1}, received "
+                    f"{requested_center_row}."
+                )
+
+            normalization_band_start = max(
+                0,
+                requested_center_row
+                - normalization_margin,
+            )
+
+            normalization_band_end = min(
+                crop_height - 1,
+                requested_center_row
+                + normalization_margin,
+            )
+
+            normalization_reference = sub_bm_crop[
+                normalization_band_start:
+                normalization_band_end + 1,
+                :,
+            ]
+
+            recorded_center_row = requested_center_row
+            recorded_margin = normalization_margin
+
+        (
+            normalized_crop,
+            normalization_lower_value,
+            normalization_upper_value,
+        ) = robust_normalize(
             image=sub_bm_crop,
             lower_percentile=lower_percentile,
             upper_percentile=upper_percentile,
+            reference_image=normalization_reference,
         )
 
-        recorded_lower_percentile: float | None = lower_percentile
-        recorded_upper_percentile: float | None = upper_percentile
+        recorded_lower_percentile = float(
+            lower_percentile
+        )
+
+        recorded_upper_percentile = float(
+            upper_percentile
+        )
 
     else:
-        # Preserve the original crop without modifying its intensity scale.
-        normalized_crop = sub_bm_crop.copy().astype(np.float32)
-
-        recorded_lower_percentile = None
-        recorded_upper_percentile = None
+        normalized_crop = (
+            sub_bm_crop
+            .copy()
+            .astype(np.float32)
+        )
 
     bscan_object = volume[bscan_index]
 
+    normalization_metadata = {
+        "enabled": bool(normalize),
+        "method": (
+            "robust_percentile"
+            if normalize
+            else "none"
+        ),
+        "scope": (
+            normalization_scope
+            if normalize
+            else "none"
+        ),
+        "lower_percentile": (
+            recorded_lower_percentile
+        ),
+        "upper_percentile": (
+            recorded_upper_percentile
+        ),
+        "lower_intensity_value": (
+            normalization_lower_value
+        ),
+        "upper_intensity_value": (
+            normalization_upper_value
+        ),
+        "center_row": recorded_center_row,
+        "margin": recorded_margin,
+        "band_start": normalization_band_start,
+        "band_end": normalization_band_end,
+        "band_height": (
+            normalization_band_end
+            - normalization_band_start
+            + 1
+            if (
+                normalization_band_start
+                is not None
+                and normalization_band_end
+                is not None
+            )
+            else None
+        ),
+    }
+
     metadata = {
-        "volume_shape": tuple(volume.shape),
-        "bscan_shape": tuple(raw_bscan.shape),
-        "available_layers": inspect_volume_layers(volume),
+        "volume_shape": tuple(
+            volume.shape
+        ),
+        "bscan_shape": tuple(
+            raw_bscan.shape
+        ),
+        "sub_bm_crop_shape": tuple(
+            sub_bm_crop.shape
+        ),
+        "available_layers": inspect_volume_layers(
+            volume
+        ),
         "bscan_meta": getattr(
             bscan_object.meta,
             "_store",
             {},
         ),
-        "normalization": {
-            "enabled": normalize,
-            "method": (
-                "robust_percentile"
-                if normalize
-                else "none"
+        "preprocessing": {
+            "bm_layer_name": bm_layer_name,
+            "reference_row": (
+                resolved_reference_row
             ),
-            "lower_percentile": recorded_lower_percentile,
-            "upper_percentile": recorded_upper_percentile,
+            "depth_below_bm": (
+                depth_below_bm
+            ),
         },
+        "normalization": (
+            normalization_metadata
+        ),
     }
 
     return PreprocessedBscan(
@@ -538,8 +792,37 @@ def preprocess_bscan(
         normalized_crop=normalized_crop,
         reference_row=resolved_reference_row,
         depth_below_bm=depth_below_bm,
-        normalization_enabled=normalize,
-        lower_percentile=recorded_lower_percentile,
-        upper_percentile=recorded_upper_percentile,
+        normalization_enabled=bool(
+            normalize
+        ),
+        normalization_scope=(
+            normalization_scope
+            if normalize
+            else "none"
+        ),
+        lower_percentile=(
+            recorded_lower_percentile
+        ),
+        upper_percentile=(
+            recorded_upper_percentile
+        ),
+        normalization_center_row=(
+            recorded_center_row
+        ),
+        normalization_margin=(
+            recorded_margin
+        ),
+        normalization_band_start=(
+            normalization_band_start
+        ),
+        normalization_band_end=(
+            normalization_band_end
+        ),
+        normalization_lower_value=(
+            normalization_lower_value
+        ),
+        normalization_upper_value=(
+            normalization_upper_value
+        ),
         metadata=metadata,
     )

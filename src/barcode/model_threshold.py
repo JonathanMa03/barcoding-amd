@@ -22,15 +22,22 @@ class IntensityProfileResult:
     end:
         Resolved ending coordinate as ``(x, y)``.
     depth:
-        Vertical depth of the horizontal line, measured in pixels from
+        Vertical depth of the profile center, measured in pixels from
         the top of the supplied B-scan.
+    profile_margin:
+        Number of rows above and below ``depth`` used when extracting
+        the profile. A value of zero corresponds to a single horizontal
+        line.
+    aggregation:
+        Aggregation method applied across the profile band. Supported
+        values are ``"none"``, ``"mean"``, and ``"median"``.
     stepsize:
         Distance between sampled profile measurements, in pixels.
     distance:
-        Distance along the line in pixels. This is ``None`` when
+        Distance along the extracted profile. This is ``None`` when
         ``data=False``.
     gray_values:
-        Sampled grayscale intensity values. This is ``None`` when
+        Extracted grayscale intensity values. This is ``None`` when
         ``data=False``.
     profile_data:
         Two-column array containing distance and gray value. This is
@@ -43,19 +50,27 @@ class IntensityProfileResult:
     data_path:
         Location where the numerical profile was saved, when applicable.
     metadata:
-        Additional information about the image and profile extraction.
+        Additional information about the image, visualization, and
+        extraction settings.
     """
 
     start: tuple[float, float]
     end: tuple[float, float]
+
     depth: float
+    profile_margin: int
+    aggregation: str
     stepsize: float
+
     distance: np.ndarray | None
     gray_values: np.ndarray | None
     profile_data: np.ndarray | None
+
     figure: Any | None
+
     plot_path: Path | None
     data_path: Path | None
+
     metadata: dict[str, Any]
 
 
@@ -209,7 +224,7 @@ def _resolve_line_coordinates(
     )
 
 
-def _sample_line_profile(
+def _sample_single_profile(
     image: np.ndarray,
     start: tuple[float, float],
     end: tuple[float, float],
@@ -272,6 +287,126 @@ def _sample_line_profile(
         gray_values.astype(np.float32),
     )
 
+def _extract_band_profile(
+    image: np.ndarray,
+    start: tuple[float, float],
+    end: tuple[float, float],
+    stepsize: float,
+    profile_margin: int = 0,
+    aggregation: str = "none",
+) -> tuple[np.ndarray, np.ndarray]:
+    """
+    Extract a grayscale intensity profile from either a single
+    horizontal line or a horizontal band.
+
+    Parameters
+    ----------
+    image:
+        Two-dimensional grayscale image.
+    start:
+        Starting coordinate as (x, y).
+    end:
+        Ending coordinate as (x, y).
+    stepsize:
+        Distance between sampled measurements.
+    profile_margin:
+        Number of pixels above and below the center profile to include.
+        A value of zero extracts a single line profile.
+    aggregation:
+        Aggregation method across the band.
+
+        Supported values are
+
+        - "none"   : single profile only (margin must be zero)
+        - "mean"   : average all sampled profiles
+        - "median" : median of all sampled profiles
+
+    Returns
+    -------
+    distance:
+        Distance along the profile.
+    gray_values:
+        Extracted (or aggregated) grayscale profile.
+    """
+    if profile_margin < 0:
+        raise ValueError(
+            "profile_margin must be greater than or equal to zero."
+        )
+
+    aggregation = aggregation.lower()
+
+    valid_methods = {"none", "mean", "median"}
+
+    if aggregation not in valid_methods:
+        raise ValueError(
+            f"aggregation must be one of {sorted(valid_methods)}."
+        )
+
+    if profile_margin == 0:
+        return _sample_single_profile(
+            image=image,
+            start=start,
+            end=end,
+            stepsize=stepsize,
+        )
+
+    if aggregation == "none":
+        raise ValueError(
+            "aggregation='none' may only be used when "
+            "profile_margin=0."
+        )
+
+    start_x, start_y = start
+    end_x, end_y = end
+
+    image_height = image.shape[0]
+
+    first_row = max(
+        0,
+        int(np.floor(start_y - profile_margin)),
+    )
+
+    last_row = min(
+        image_height - 1,
+        int(np.ceil(start_y + profile_margin)),
+    )
+
+    profiles = []
+
+    distance = None
+
+    for row in range(first_row, last_row + 1):
+
+        current_start = (start_x, float(row))
+        current_end = (end_x, float(row))
+
+        current_distance, current_profile = (
+            _sample_single_profile(
+                image=image,
+                start=current_start,
+                end=current_end,
+                stepsize=stepsize,
+            )
+        )
+
+        if distance is None:
+            distance = current_distance
+
+        profiles.append(current_profile)
+
+    profile_stack = np.vstack(profiles)
+
+    if aggregation == "mean":
+        gray_values = profile_stack.mean(axis=0)
+
+    else:
+        gray_values = np.median(profile_stack, axis=0)
+
+    return (
+        distance.astype(np.float32),
+        gray_values.astype(np.float32),
+    )
+
 
 def _create_profile_figure(
     image: np.ndarray,
@@ -280,6 +415,11 @@ def _create_profile_figure(
     distance: np.ndarray,
     gray_values: np.ndarray,
     gray_value_limits: tuple[float, float],
+    *,
+    profile_margin: int = 0,
+    overlay: bool = False,
+    overlay_color: str = "cyan",
+    overlay_alpha: float = 0.30,
 ):
     """
     Create the marked-image and intensity-profile visualization.
@@ -309,6 +449,19 @@ def _create_profile_figure(
         aspect="auto",
     )
 
+    if overlay and profile_margin > 0:
+
+        center_y = start[1]
+
+        image_axis.axhspan(
+            center_y - profile_margin,
+            center_y + profile_margin,
+            color=overlay_color,
+            alpha=overlay_alpha,
+            linewidth=0,
+            zorder=1,
+        )
+
     image_axis.plot(
         [start[0], end[0]],
         [start[1], end[1]],
@@ -326,21 +479,27 @@ def _create_profile_figure(
         zorder=3,
     )
 
-    image_axis.set_title(
-        "Processed B-scan with intensity-profile line"
-    )
+    if profile_margin == 0:
+        title = "Processed B-scan with intensity-profile line"
+    else:
+        title = (
+            "Processed B-scan with aggregated "
+            f"{2 * profile_margin + 1}-pixel profile band"
+        )
+
+    image_axis.set_title(title)
     image_axis.set_xlabel("Horizontal position")
     image_axis.set_ylabel("Depth from top")
 
     profile_axis.plot(
-        np.arange(gray_values.size),
+        distance,
         gray_values,
         linewidth=1.0,
     )
 
     profile_axis.set_xlim(
-        -0.5,
-        gray_values.size - 0.5,
+        distance.min(),
+        distance.max(),
     )
     
     profile_axis.set_ylim(
@@ -372,11 +531,16 @@ def extract_intensity_profile(
     depth: float | None = None,
     end: tuple[float, float] = (1169, 135),
     stepsize: float = 1.0,
+    profile_margin: int = 0,
+    aggregation: str = "none",
     plot: bool = True,
     data: bool = True,
     plot_path: str | Path | None = None,
     data_path: str | Path | None = None,
     gray_value_limits: tuple[float, float] = (0.0, 300.0),
+    overlay: bool = False,
+    overlay_color: str = "cyan",
+    overlay_alpha: float = 0.30,
     clip_to_image: bool = True,
 ) -> IntensityProfileResult:
     """
@@ -404,6 +568,12 @@ def extract_intensity_profile(
     stepsize:
         Distance between profile measurements, in pixels. The default
         is one measurement per pixel.
+    profile_margin:
+        Number of pixels above and below the center profile used during
+        extraction. A value of zero extracts a single horizontal profile.
+    aggregation:
+        Aggregation method applied across the extraction band. Supported
+        values are "none", "mean", and "median".
     plot:
         Whether to generate the marked B-scan and profile plot.
     data:
@@ -417,9 +587,16 @@ def extract_intensity_profile(
     gray_value_limits:
         Fixed y-axis range for the profile plot. The default is
         ``(0, 300)`` so scans use a consistent display scale.
+    overlay:
+        Whether to display the extraction band on the B-scan.
+    overlay_color:
+        Color used for the extraction band overlay.
+    overlay_alpha:
+        Transparency of the extraction band overlay.
     clip_to_image:
         Whether endpoints outside the image should be clipped to valid
         image coordinates. This defaults to ``True``.
+    
 
     Returns
     -------
@@ -454,11 +631,13 @@ def extract_intensity_profile(
         )
     )
 
-    distance_values, gray_values = _sample_line_profile(
+    distance_values, gray_values = _extract_band_profile(
         image=gray_image,
         start=resolved_start,
         end=resolved_end,
         stepsize=stepsize,
+        profile_margin=profile_margin,
+        aggregation=aggregation,
     )
 
     figure = None
@@ -472,6 +651,10 @@ def extract_intensity_profile(
             distance=distance_values,
             gray_values=gray_values,
             gray_value_limits=gray_value_limits,
+            profile_margin=profile_margin,
+            overlay=overlay,
+            overlay_color=overlay_color,
+            overlay_alpha=overlay_alpha,
         )
 
         if plot_path is not None:
@@ -541,11 +724,24 @@ def extract_intensity_profile(
         "end": resolved_end,
         "depth": resolved_depth,
         "stepsize": float(stepsize),
+        "profile_margin": int(profile_margin),
+        "aggregation": aggregation.lower(),
+        "profile_band_start": max(
+            0,
+            int(resolved_depth - profile_margin),
+        ),
+        "profile_band_end": min(
+            gray_image.shape[0] - 1,
+            int(resolved_depth + profile_margin),
+        ),
+        "profile_band_height": int(2 * profile_margin + 1),
         "number_of_measurements": int(
             distance_values.size
         ),
-        "line_length_pixels": float(
-            distance_values[-1]
+        "line_length_pixels": (
+            float(distance_values[-1])
+            if distance_values.size > 0
+            else 0.0
         ),
         "gray_value_min": float(
             gray_values.min()
@@ -560,6 +756,9 @@ def extract_intensity_profile(
             float(value)
             for value in gray_value_limits
         ),
+        "overlay": bool(overlay),
+        "overlay_color": overlay_color,
+        "overlay_alpha": float(overlay_alpha),
         "plot_created": bool(plot),
         "data_returned": bool(data),
     }
@@ -568,6 +767,8 @@ def extract_intensity_profile(
         start=resolved_start,
         end=resolved_end,
         depth=resolved_depth,
+        profile_margin=profile_margin,
+        aggregation=aggregation,
         stepsize=float(stepsize),
         distance=returned_distance,
         gray_values=returned_gray_values,

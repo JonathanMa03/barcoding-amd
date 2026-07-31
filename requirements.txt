@@ -12,3 +12,4 @@ scikit-learn
 construct-typing==0.6.2
 ipywidgets
 torch
+ipyml
