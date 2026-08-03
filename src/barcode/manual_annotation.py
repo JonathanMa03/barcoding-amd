@@ -9,7 +9,9 @@ import json
 import matplotlib.pyplot as plt
 import numpy as np
 from matplotlib.widgets import Button, RadioButtons, SpanSelector
-
+from src.barcode.model_threshold import (
+    extract_intensity_profile,
+)
 
 DEFAULT_LABEL_COLORS: dict[str, str] = {
     "Normal": "tab:green",
@@ -139,10 +141,19 @@ class ManualProfileAnnotator:
         self.radio_buttons: Any | None = None
         self.undo_button: Any | None = None
         self.clear_button: Any | None = None
+        self.move_line_button: Any | None = None
         self.save_button: Any | None = None
 
         self.scan_selector: Any | None = None
         self.profile_selector: Any | None = None
+        self._line_placement_enabled = False
+        self._click_connection: int | None = None
+
+        self._profile_center_artist: Any | None = None
+        self._profile_band_artist: Any | None = None
+        self._profile_curve_artist: Any | None = None
+
+        self.profile_depth_source = "configured_default"
 
         self.last_saved_path: Path | None = None
 
@@ -338,6 +349,8 @@ class ManualProfileAnnotator:
             self.profile.profile_margin
         )
 
+        self._profile_band_artist = None
+
         if profile_margin > 0:
             band_start = max(
                 -0.5,
@@ -353,21 +366,25 @@ class ManualProfileAnnotator:
                 + 0.5,
             )
 
-            self.scan_axis.axhspan(
-                band_start,
-                band_end,
-                alpha=0.20,
-                label=(
-                    f"{2 * profile_margin + 1}-pixel "
-                    "extraction band"
-                ),
+            self._profile_band_artist = (
+                self.scan_axis.axhspan(
+                    band_start,
+                    band_end,
+                    alpha=0.20,
+                    label=(
+                        f"{2 * profile_margin + 1}-pixel "
+                        "extraction band"
+                    ),
+                )
             )
 
-        self.scan_axis.axhline(
-            profile_depth,
-            linestyle="--",
-            linewidth=1.5,
-            label="Profile center",
+        self._profile_center_artist = (
+            self.scan_axis.axhline(
+                profile_depth,
+                linestyle="--",
+                linewidth=1.5,
+                label="Profile center",
+            )
         )
 
         self.scan_axis.set_title(
@@ -395,7 +412,9 @@ class ManualProfileAnnotator:
     def _draw_profile(self) -> None:
         """Display the extracted intensity profile."""
 
-        self.profile_axis.plot(
+        (
+            self._profile_curve_artist,
+        ) = self.profile_axis.plot(
             self.profile_x,
             self.profile_y,
             linewidth=1.0,
@@ -447,7 +466,7 @@ class ManualProfileAnnotator:
         self.control_axis.set_yticks([])
 
         radio_axis = self.control_axis.inset_axes(
-            [0.05, 0.60, 0.90, 0.30]
+            [0.05, 0.64, 0.90, 0.27]
         )
 
         self.radio_buttons = RadioButtons(
@@ -456,12 +475,21 @@ class ManualProfileAnnotator:
             active=0,
         )
 
+        move_line_axis = self.control_axis.inset_axes(
+            [0.10, 0.49, 0.80, 0.08]
+        )
+
         undo_axis = self.control_axis.inset_axes(
-            [0.10, 0.39, 0.80, 0.08]
+            [0.10, 0.38, 0.80, 0.08]
         )
 
         clear_axis = self.control_axis.inset_axes(
             [0.10, 0.27, 0.80, 0.08]
+        )
+
+        self.move_line_button = Button(
+            move_line_axis,
+            "Move profile line",
         )
 
         self.undo_button = Button(
@@ -476,7 +504,7 @@ class ManualProfileAnnotator:
 
         if self.save_enabled:
             save_axis = self.control_axis.inset_axes(
-                [0.10, 0.15, 0.80, 0.08]
+                [0.10, 0.16, 0.80, 0.08]
             )
 
             self.save_button = Button(
@@ -484,7 +512,7 @@ class ManualProfileAnnotator:
                 "Save JSON",
             )
 
-            status_y = 0.05
+            status_y = 0.055
 
         else:
             self.save_button = None
@@ -500,10 +528,15 @@ class ManualProfileAnnotator:
             ha="center",
             va="center",
             transform=self.control_axis.transAxes,
+            wrap=True,
         )
 
         self.radio_buttons.on_clicked(
             self._set_selected_label
+        )
+
+        self.move_line_button.on_clicked(
+            self._toggle_line_placement
         )
 
         self.undo_button.on_clicked(
@@ -518,6 +551,13 @@ class ManualProfileAnnotator:
             self.save_button.on_clicked(
                 self._handle_save
             )
+
+        self._click_connection = (
+            self.figure.canvas.mpl_connect(
+                "button_press_event",
+                self._handle_profile_depth_click,
+            )
+        )
 
     def _create_selectors(self) -> None:
         """Allow interval selection from either aligned panel."""
@@ -546,6 +586,217 @@ class ManualProfileAnnotator:
             drag_from_anywhere=True,
             props=selector_properties,
         )
+
+    def _toggle_line_placement(
+        self,
+        _event: Any,
+    ) -> None:
+        """Enable or disable manual profile-depth selection."""
+
+        self._line_placement_enabled = (
+            not self._line_placement_enabled
+        )
+
+        if self._line_placement_enabled:
+            self.move_line_button.label.set_text(
+                "Click scan to place"
+            )
+
+            # Temporarily disable interval annotation so the scan click
+            # is interpreted only as a profile-depth selection.
+            self.scan_selector.set_active(False)
+            self.profile_selector.set_active(False)
+
+            self._set_status(
+                "Click vertically on the scan\n"
+                "to choose the profile depth."
+            )
+
+        else:
+            self.move_line_button.label.set_text(
+                "Move profile line"
+            )
+
+            self.scan_selector.set_active(True)
+            self.profile_selector.set_active(True)
+
+            self._set_status(
+                f"Selected: {self.selected_label}\n"
+                "Drag horizontally to annotate."
+            )
+
+
+    def _handle_profile_depth_click(
+        self,
+        event: Any,
+    ) -> None:
+        """Move the extraction band to the clicked scan depth."""
+
+        if not self._line_placement_enabled:
+            return
+
+        if event.inaxes is not self.scan_axis:
+            return
+
+        if event.ydata is None:
+            return
+
+        selected_depth = int(
+            np.clip(
+                round(event.ydata),
+                0,
+                self.image.shape[0] - 1,
+            )
+        )
+
+        self._recompute_profile(
+            selected_depth
+        )
+
+        self._line_placement_enabled = False
+        self.profile_depth_source = "manual"
+
+        self.move_line_button.label.set_text(
+            "Move profile line"
+        )
+
+        self.scan_selector.set_active(True)
+        self.profile_selector.set_active(True)
+
+        self._set_status(
+            f"Profile moved to depth {selected_depth} px.\n"
+            "Drag horizontally to annotate."
+        )
+
+
+    def _recompute_profile(
+        self,
+        selected_depth: int,
+    ) -> None:
+        """Re-extract and redraw the profile at a new depth."""
+
+        image_width = self.image.shape[1]
+
+        denoise_enabled = bool(
+            getattr(
+                self.profile,
+                "denoise_enabled",
+                False,
+            )
+        )
+
+        denoise_method = str(
+            getattr(
+                self.profile,
+                "denoise_method",
+                "none",
+            )
+        )
+
+        denoise_sigma = getattr(
+            self.profile,
+            "denoise_sigma",
+            None,
+        )
+
+        if denoise_sigma is None:
+            denoise_sigma = 1.5
+
+        new_profile = extract_intensity_profile(
+            bscan=self.image,
+            start=(0, selected_depth),
+            depth=selected_depth,
+            end=(image_width - 1, selected_depth),
+            stepsize=float(
+                self.profile.stepsize
+            ),
+            profile_margin=int(
+                self.profile.profile_margin
+            ),
+            aggregation=str(
+                self.profile.aggregation
+            ),
+            denoise=denoise_enabled,
+            denoise_method=denoise_method,
+            denoise_sigma=float(
+                denoise_sigma
+            ),
+            plot=False,
+            data=True,
+            overlay=False,
+        )
+
+        self.profile = new_profile
+        self.profile_x = self._resolve_profile_x()
+        self.profile_y = np.asarray(
+            new_profile.gray_values,
+            dtype=np.float32,
+        )
+
+        # Move the center line.
+        self._profile_center_artist.set_ydata(
+            [
+                selected_depth,
+                selected_depth,
+            ]
+        )
+
+        # Replace the old extraction-band shading.
+        if self._profile_band_artist is not None:
+            self._profile_band_artist.remove()
+            self._profile_band_artist = None
+
+        profile_margin = int(
+            new_profile.profile_margin
+        )
+
+        if profile_margin > 0:
+            band_start = max(
+                -0.5,
+                selected_depth
+                - profile_margin
+                - 0.5,
+            )
+
+            band_end = min(
+                self.image.shape[0] - 0.5,
+                selected_depth
+                + profile_margin
+                + 0.5,
+            )
+
+            self._profile_band_artist = (
+                self.scan_axis.axhspan(
+                    band_start,
+                    band_end,
+                    alpha=0.20,
+                    label=(
+                        f"{2 * profile_margin + 1}-pixel "
+                        "extraction band"
+                    ),
+                )
+            )
+
+        # Replace the displayed profile values.
+        self._profile_curve_artist.set_data(
+            self.profile_x,
+            self.profile_y,
+        )
+
+        self.profile_axis.set_xlim(
+            -0.5,
+            self.image.shape[1] - 0.5,
+        )
+
+        if self.gray_value_limits is None:
+            self.profile_axis.relim()
+            self.profile_axis.autoscale_view()
+
+        self.scan_axis.legend(
+            loc="upper right",
+        )
+
+        self.figure.canvas.draw_idle()
 
     def _set_selected_label(
         self,
@@ -728,6 +979,7 @@ class ManualProfileAnnotator:
             "depth": float(
                 self.profile.depth
             ),
+            "depth_source": self.profile_depth_source,
             "start": [
                 float(value)
                 for value in self.profile.start
@@ -747,6 +999,25 @@ class ManualProfileAnnotator:
             ),
             "number_of_measurements": int(
                 self.profile_y.size
+            ),
+            "denoise_enabled": bool(
+                getattr(
+                    self.profile,
+                    "denoise_enabled",
+                    False,
+                )
+            ),
+            "denoise_method": str(
+                getattr(
+                    self.profile,
+                    "denoise_method",
+                    "none",
+                )
+            ),
+            "denoise_sigma": getattr(
+                self.profile,
+                "denoise_sigma",
+                None,
             ),
         }
 
