@@ -3,6 +3,7 @@ from __future__ import annotations
 from typing import Any
 
 import matplotlib.pyplot as plt
+from matplotlib.widgets import Button
 import numpy as np
 
 from src.barcode.data import preprocess_bscan
@@ -50,6 +51,9 @@ class VolumeProfileBrowser:
         profile_margin: int = 4,
         aggregation: str = "mean",
         stepsize: float = 1.0,
+        denoise: bool = True,
+        denoise_method: str = "gaussian",
+        denoise_sigma: float = 1.5,
         gray_value_limits: tuple[float, float] = (0.0, 300.0),
         figure_size: tuple[float, float] = (14, 8),
     ) -> None:
@@ -89,6 +93,9 @@ class VolumeProfileBrowser:
             "profile_margin": int(profile_margin),
             "aggregation": aggregation,
             "stepsize": float(stepsize),
+            "denoise": bool(denoise),
+            "denoise_method": denoise_method,
+            "denoise_sigma": float(denoise_sigma),
         }
 
         self.gray_value_limits = gray_value_limits
@@ -101,6 +108,13 @@ class VolumeProfileBrowser:
         self.profile_axis = None
         self.status_text = None
         self._key_connection = None
+
+        # Manually selected profile depth for each B-scan.
+        self.selected_depths: dict[int, int] = {}
+
+        self._line_placement_enabled = False
+        self._move_line_button = None
+        self._click_connection = None
 
         self._create_figure()
         self._update_display()
@@ -120,9 +134,10 @@ class VolumeProfileBrowser:
             **self.preprocessing_config,
         )
 
-        profile_depth = self.profile_config[
-            "profile_depth"
-        ]
+        profile_depth = self.selected_depths.get(
+            bscan_index,
+            self.profile_config["profile_depth"],
+        )
 
         crop_height, crop_width = (
             processed.normalized_crop.shape
@@ -141,11 +156,14 @@ class VolumeProfileBrowser:
             depth=profile_depth,
             end=(crop_width - 1, profile_depth),
             stepsize=self.profile_config["stepsize"],
-            profile_margin=self.profile_config[
-                "profile_margin"
+            profile_margin=self.profile_config["profile_margin"],
+            aggregation=self.profile_config["aggregation"],
+            denoise=self.profile_config["denoise"],
+            denoise_method=self.profile_config[
+                "denoise_method"
             ],
-            aggregation=self.profile_config[
-                "aggregation"
+            denoise_sigma=self.profile_config[
+                "denoise_sigma"
             ],
             plot=False,
             data=True,
@@ -154,6 +172,12 @@ class VolumeProfileBrowser:
         result = {
             "processed": processed,
             "profile": profile,
+            "selected_profile_depth": int(profile_depth),
+            "profile_depth_source": (
+                "manual"
+                if bscan_index in self.selected_depths
+                else "configured_default"
+            ),
         }
 
         self._cache[bscan_index] = result
@@ -176,6 +200,19 @@ class VolumeProfileBrowser:
         self.scan_axis = axes[0]
         self.profile_axis = axes[1]
 
+        button_axis = self.figure.add_axes(
+            [0.81, 0.01, 0.16, 0.045]
+        )
+
+        self._move_line_button = Button(
+            button_axis,
+            "Move profile line",
+        )
+
+        self._move_line_button.on_clicked(
+            self._toggle_line_placement
+        )
+
         self.status_text = self.figure.text(
             0.5,
             0.01,
@@ -188,6 +225,13 @@ class VolumeProfileBrowser:
             self.figure.canvas.mpl_connect(
                 "key_press_event",
                 self._handle_key,
+            )
+        )
+
+        self._click_connection = (
+            self.figure.canvas.mpl_connect(
+                "button_press_event",
+                self._handle_scan_click,
             )
         )
 
@@ -307,10 +351,93 @@ class VolumeProfileBrowser:
         )
 
         self.figure.tight_layout(
-            rect=(0, 0.04, 1, 1)
+            rect=(0, 0.07, 1, 1)
         )
 
         self.figure.canvas.draw_idle()
+
+        def _toggle_line_placement(
+            self,
+            _event: Any,
+        ) -> None:
+            """
+            Enable or disable manual profile-line placement.
+            """
+            self._line_placement_enabled = (
+                not self._line_placement_enabled
+            )
+
+            if self._line_placement_enabled:
+                self._move_line_button.label.set_text(
+                    "Click scan to place"
+                )
+            else:
+                self._move_line_button.label.set_text(
+                    "Move profile line"
+                )
+
+            self.figure.canvas.draw_idle()
+
+        def _handle_scan_click(
+            self,
+            event: Any,
+        ) -> None:
+            """
+            Move the profile line to the clicked vertical location.
+            """
+            if not self._line_placement_enabled:
+                return
+
+            if event.inaxes is not self.scan_axis:
+                return
+
+            if event.ydata is None:
+                return
+
+            current_result = self._process_scan(
+                self.current_index
+            )
+
+            crop_height = current_result[
+                "processed"
+            ].normalized_crop.shape[0]
+
+            selected_depth = int(
+                np.clip(
+                    round(event.ydata),
+                    0,
+                    crop_height - 1,
+                )
+            )
+
+            self.selected_depths[
+                self.current_index
+            ] = selected_depth
+
+            # Remove the old profile because it was produced at another depth.
+            self._cache.pop(
+                self.current_index,
+                None,
+            )
+
+            self._line_placement_enabled = False
+
+            self._move_line_button.label.set_text(
+                "Move profile line"
+            )
+
+            self._update_display()
+
+            depth_source = result[
+                "profile_depth_source"
+            ]
+
+            self.status_text.set_text(
+                "← previous | → next | Home first | End last | C center "
+                "| Move profile line, then click scan "
+                f"| depth={int(profile.depth)} ({depth_source}) "
+                f"| cached scans: {len(self._cache)}"
+            )
 
     def _handle_key(
         self,
@@ -399,3 +526,38 @@ def create_volume_profile_browser(
         volume=volume,
         **kwargs,
     )
+
+    def get_current_metadata(
+        self,
+    ) -> dict[str, Any]:
+        """
+        Return metadata for the currently displayed profile.
+        """
+        result = self.get_current_result()
+
+        return {
+            "bscan_index": int(
+                self.current_index
+            ),
+            "profile_depth": int(
+                result["profile"].depth
+            ),
+            "profile_depth_source": result[
+                "profile_depth_source"
+            ],
+            "profile_margin": int(
+                result["profile"].profile_margin
+            ),
+            "aggregation": str(
+                result["profile"].aggregation
+            ),
+            "denoise_enabled": bool(
+                result["profile"].denoise_enabled
+            ),
+            "denoise_method": str(
+                result["profile"].denoise_method
+            ),
+            "denoise_sigma": (
+                result["profile"].denoise_sigma
+            ),
+        }

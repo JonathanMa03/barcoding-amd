@@ -13,6 +13,7 @@ from src.barcode.data import (
 from src.barcode.model_threshold import (
     extract_intensity_profile,
 )
+from matplotlib.widgets import Button
 
 
 class CohortCenterProfileBrowser:
@@ -60,6 +61,9 @@ class CohortCenterProfileBrowser:
         stepsize: float = 1.0,
         gray_value_limits: tuple[float, float] = (0.0, 300.0),
         figure_size: tuple[float, float] = (14, 8),
+        denoise: bool = True,
+        denoise_method: str = "gaussian",
+        denoise_sigma: float = 1.5,
     ) -> None:
         self.volume_records = [
             dict(record)
@@ -141,6 +145,9 @@ class CohortCenterProfileBrowser:
             "stepsize": float(
                 stepsize
             ),
+            "denoise": bool(denoise),
+            "denoise_method": denoise_method,
+            "denoise_sigma": float(denoise_sigma),
         }
 
         self.gray_value_limits = (
@@ -160,6 +167,12 @@ class CohortCenterProfileBrowser:
         self.profile_axis = None
         self.status_text = None
         self._key_connection = None
+
+        self.selected_depths: dict[Any, int] = {}
+
+        self._line_placement_enabled = False
+        self._move_line_button = None
+        self._click_connection = None
 
         self._create_figure()
         self._update_display()
@@ -206,10 +219,9 @@ class CohortCenterProfileBrowser:
             **self.preprocessing_config,
         )
 
-        profile_depth = (
-            self.profile_config[
-                "profile_depth"
-            ]
+        profile_depth = self.selected_depths.get(
+            subject_id,
+            self.profile_config["profile_depth"],
         )
 
         crop_height, crop_width = (
@@ -254,6 +266,13 @@ class CohortCenterProfileBrowser:
             plot=False,
             data=True,
             overlay=False,
+            denoise=self.profile_config["denoise"],
+            denoise_method=self.profile_config[
+                "denoise_method"
+            ],
+            denoise_sigma=self.profile_config[
+                "denoise_sigma"
+            ],
         )
 
         result = {
@@ -265,6 +284,14 @@ class CohortCenterProfileBrowser:
             "center_index": center_index,
             "processed": processed,
             "profile": profile,
+            "selected_profile_depth": int(
+                profile_depth
+            ),
+            "profile_depth_source": (
+                "manual"
+                if subject_id in self.selected_depths
+                else "configured_default"
+            ),
         }
 
         self._cache[
@@ -310,6 +337,105 @@ class CohortCenterProfileBrowser:
                 self._handle_key,
             )
         )
+
+        button_axis = self.figure.add_axes(
+            [0.81, 0.01, 0.16, 0.045]
+        )
+
+        self._move_line_button = Button(
+            button_axis,
+            "Move profile line",
+        )
+
+        self._move_line_button.on_clicked(
+            self._toggle_line_placement
+        )
+
+        self._click_connection = (
+            self.figure.canvas.mpl_connect(
+                "button_press_event",
+                self._handle_scan_click,
+            )
+        )
+
+    def _toggle_line_placement(
+        self,
+        _event: Any,
+    ) -> None:
+        """Enable or disable manual profile-line placement."""
+
+        self._line_placement_enabled = (
+            not self._line_placement_enabled
+        )
+
+        if self._line_placement_enabled:
+            self._move_line_button.label.set_text(
+                "Click scan to place"
+            )
+
+            self.status_text.set_text(
+                "Click the processed scan at the desired profile depth."
+            )
+
+        else:
+            self._move_line_button.label.set_text(
+                "Move profile line"
+            )
+
+        self.figure.canvas.draw_idle()
+
+
+    def _handle_scan_click(
+        self,
+        event: Any,
+    ) -> None:
+        """Move the profile line to the clicked vertical position."""
+
+        if not self._line_placement_enabled:
+            return
+
+        if event.inaxes is not self.scan_axis:
+            return
+
+        if event.ydata is None:
+            return
+
+        current_result = self._process_volume(
+            self.current_position
+        )
+
+        subject_id = current_result[
+            "record"
+        ]["subject_id"]
+
+        crop_height = current_result[
+            "processed"
+        ].normalized_crop.shape[0]
+
+        selected_depth = int(
+            np.clip(
+                round(event.ydata),
+                0,
+                crop_height - 1,
+            )
+        )
+
+        self.selected_depths[
+            subject_id
+        ] = selected_depth
+
+        self._cache.pop(
+            subject_id,
+            None,
+        )
+
+        self._line_placement_enabled = False
+
+        self._move_line_button.label.set_text(
+            "Move profile line"
+        )
+
+        self._update_display()
 
     def _update_display(
         self,
@@ -452,7 +578,7 @@ class CohortCenterProfileBrowser:
         self.figure.tight_layout(
             rect=(
                 0,
-                0.04,
+                0.07,
                 1,
                 1,
             )

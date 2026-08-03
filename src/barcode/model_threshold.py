@@ -7,8 +7,10 @@ import warnings
 
 import matplotlib.pyplot as plt
 import numpy as np
-from scipy.ndimage import map_coordinates
-
+from scipy.ndimage import (
+    gaussian_filter1d,
+    map_coordinates,
+)
 
 @dataclass
 class IntensityProfileResult:
@@ -63,7 +65,12 @@ class IntensityProfileResult:
     stepsize: float
 
     distance: np.ndarray | None
-    gray_values: np.ndarray | None
+    raw_gray_values: np.ndarray | None # profile immediately after row aggregation
+    gray_values: np.ndarray | None # profile used for display and analysis
+
+    denoise_enabled: bool
+    denoise_method: str
+    denoise_sigma: float | None
     profile_data: np.ndarray | None
 
     figure: Any | None
@@ -407,6 +414,56 @@ def _extract_band_profile(
         gray_values.astype(np.float32),
     )
 
+def _denoise_profile(
+    gray_values: np.ndarray,
+    *,
+    enabled: bool = True,
+    method: str = "gaussian",
+    sigma: float = 1.5,
+) -> np.ndarray:
+    """
+    Denoise a one-dimensional intensity profile.
+
+    Parameters
+    ----------
+    gray_values:
+        Extracted one-dimensional intensity profile.
+    enabled:
+        Whether denoising is applied.
+    method:
+        Denoising method. Currently supports ``"gaussian"`` and ``"none"``.
+    sigma:
+        Standard deviation of the Gaussian smoothing kernel, measured in
+        profile samples. Larger values produce stronger smoothing.
+
+    Returns
+    -------
+    np.ndarray
+        Raw or denoised profile as float32.
+    """
+    values = np.asarray(
+        gray_values,
+        dtype=np.float32,
+    )
+
+    if not enabled or method == "none":
+        return values.copy()
+
+    if method != "gaussian":
+        raise ValueError(
+            "denoise_method must be 'gaussian' or 'none'."
+        )
+
+    if sigma <= 0:
+        raise ValueError(
+            "denoise_sigma must be greater than zero."
+        )
+
+    return gaussian_filter1d(
+        values,
+        sigma=sigma,
+        mode="nearest",
+    ).astype(np.float32)
 
 def _create_profile_figure(
     image: np.ndarray,
@@ -533,6 +590,9 @@ def extract_intensity_profile(
     stepsize: float = 1.0,
     profile_margin: int = 0,
     aggregation: str = "none",
+    denoise: bool = True,
+    denoise_method: str = "gaussian",
+    denoise_sigma: float = 1.5,
     plot: bool = True,
     data: bool = True,
     plot_path: str | Path | None = None,
@@ -631,13 +691,20 @@ def extract_intensity_profile(
         )
     )
 
-    distance_values, gray_values = _extract_band_profile(
+    distance_values, raw_gray_values = _extract_band_profile(
         image=gray_image,
         start=resolved_start,
         end=resolved_end,
         stepsize=stepsize,
         profile_margin=profile_margin,
         aggregation=aggregation,
+    )
+
+    gray_values = _denoise_profile(
+        raw_gray_values,
+        enabled=denoise,
+        method=denoise_method,
+        sigma=denoise_sigma,
     )
 
     figure = None
@@ -761,6 +828,26 @@ def extract_intensity_profile(
         "overlay_alpha": float(overlay_alpha),
         "plot_created": bool(plot),
         "data_returned": bool(data),
+        "denoise_enabled": bool(denoise),
+        "denoise_method": (
+            denoise_method
+            if denoise
+            else "none"
+        ),
+        "denoise_sigma": (
+            float(denoise_sigma)
+            if denoise
+            else None
+        ),
+        "raw_gray_value_min": float(
+            raw_gray_values.min()
+        ),
+        "raw_gray_value_max": float(
+            raw_gray_values.max()
+        ),
+        "raw_gray_value_mean": float(
+            raw_gray_values.mean()
+        ),
     }
 
     return IntensityProfileResult(
@@ -777,4 +864,20 @@ def extract_intensity_profile(
         plot_path=resolved_plot_path,
         data_path=resolved_data_path,
         metadata=metadata,
+        raw_gray_values=(
+            raw_gray_values.copy()
+            if data
+            else None
+        ),
+        denoise_enabled=bool(denoise),
+        denoise_method=(
+            denoise_method
+            if denoise
+            else "none"
+        ),
+        denoise_sigma=(
+            float(denoise_sigma)
+            if denoise
+            else None
+        ),
     )
