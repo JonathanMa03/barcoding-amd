@@ -5,15 +5,21 @@
 # - Plot raw and standardized feature signals.
 # - Overlay numerical feature signals on the processed scan.
 # - Allow interactive feature visibility controls.
-# - Overlay detected intervals on the processed scan.
-# - Plot the combined score and detection threshold.
+# - Display the combined barcoding score beneath the processed scan.
+# - Overlay detected barcode intervals on the processed scan.
+# - Display the detector threshold and raw or cleaned candidate regions.
+# - Compare structural and hypertransmission group scores.
 # - Compare raw and cleaned detection masks.
 #
 # Inputs:
-# - Preprocessing, feature, detection, and measurement results.
+# - Preprocessing results.
+# - Feature-extraction results.
+# - Detection results.
+# - Measurement results.
 #
 # Outputs:
-# - Matplotlib figures and interactive visualization objects.
+# - Matplotlib figures.
+# - Interactive visualization objects.
 #
 # This module should not modify preprocessing results, feature values,
 # detector scores, masks, intervals, or measurements.
@@ -930,6 +936,7 @@ class FeatureOverlayViewer:
 
 
 def create_feature_overlay_viewer(
+        
     image: np.ndarray,
     feature_result: Any,
     **kwargs: Any,
@@ -955,5 +962,1260 @@ def create_feature_overlay_viewer(
     return FeatureOverlayViewer(
         image=image,
         feature_result=feature_result,
+        **kwargs,
+    )
+
+class BarcodeScoreViewer:
+    """
+    Interactive visualization of the barcode detector output.
+
+    The processed scan and continuous barcode score are displayed with a
+    shared horizontal axis. Cleaned barcode intervals can be highlighted
+    on the scan, while raw and cleaned candidate regions can be shown on
+    the score panel.
+
+    Available visibility controls include:
+
+    - detected intervals on the processed scan;
+    - raw threshold-positive regions;
+    - cleaned threshold-positive regions;
+    - detector threshold;
+    - structural group score;
+    - hypertransmission group score.
+
+    Moving the cursor across either panel reports the horizontal position,
+    combined barcode score, threshold status, cleaned detection status,
+    and grouped component scores when available.
+
+    Parameters
+    ----------
+    image:
+        Two-dimensional preprocessed or denoised scan.
+    detection_result:
+        DetectionResult returned by ``detect_barcoding``.
+    initially_visible:
+        Visualization elements visible when the viewer is created.
+    interval_alpha:
+        Transparency of detected interval overlays on the scan.
+    candidate_alpha:
+        Transparency of raw and cleaned candidate-region shading on the
+        score panel.
+    score_limits:
+        Optional fixed y-axis limits for the score plot. If omitted, the
+        limits are determined automatically.
+    figure_size:
+        Matplotlib figure size.
+    """
+
+    CONTROL_NAMES = (
+        "detected_intervals",
+        "raw_candidates",
+        "cleaned_candidates",
+        "threshold",
+        "structural_score",
+        "hypertransmission_score",
+    )
+
+    CONTROL_LABELS = {
+        "detected_intervals": "Detected intervals",
+        "raw_candidates": "Raw candidates",
+        "cleaned_candidates": "Cleaned candidates",
+        "threshold": "Threshold",
+        "structural_score": "Structural score",
+        "hypertransmission_score": "Hypertransmission score",
+    }
+
+    def __init__(
+        self,
+        image: np.ndarray,
+        detection_result: Any,
+        *,
+        initially_visible: tuple[str, ...] = (
+            "detected_intervals",
+            "cleaned_candidates",
+            "threshold",
+        ),
+        interval_alpha: float = 0.25,
+        candidate_alpha: float = 0.15,
+        score_limits: tuple[float, float] | None = None,
+        figure_size: tuple[float, float] = (
+            15.0,
+            9.0,
+        ),
+    ) -> None:
+        self.image = self._validate_image(
+            image
+        )
+
+        self.detection_result = (
+            detection_result
+        )
+
+        self.interval_alpha = float(
+            interval_alpha
+        )
+
+        self.candidate_alpha = float(
+            candidate_alpha
+        )
+
+        if not (
+            0.0
+            <= self.interval_alpha
+            <= 1.0
+        ):
+            raise ValueError(
+                "interval_alpha must lie between 0 and 1."
+            )
+
+        if not (
+            0.0
+            <= self.candidate_alpha
+            <= 1.0
+        ):
+            raise ValueError(
+                "candidate_alpha must lie between 0 and 1."
+            )
+
+        if score_limits is not None:
+            lower_limit, upper_limit = (
+                score_limits
+            )
+
+            if lower_limit >= upper_limit:
+                raise ValueError(
+                    "score_limits must satisfy lower < upper."
+                )
+
+            self.score_limits = (
+                float(lower_limit),
+                float(upper_limit),
+            )
+
+        else:
+            self.score_limits = None
+
+        self.figure_size = figure_size
+
+        self._validate_detection_result()
+
+        self.x_positions = np.asarray(
+            self.detection_result.x_positions,
+            dtype=np.float32,
+        )
+
+        self.score = np.asarray(
+            self.detection_result.score,
+            dtype=np.float32,
+        )
+
+        self.raw_mask = np.asarray(
+            self.detection_result.raw_mask,
+            dtype=bool,
+        )
+
+        self.cleaned_mask = np.asarray(
+            self.detection_result.cleaned_mask,
+            dtype=bool,
+        )
+
+        self.threshold = float(
+            self.detection_result.threshold
+        )
+
+        self.group_scores = {
+            name: np.asarray(
+                values,
+                dtype=np.float32,
+            )
+            for name, values in (
+                self.detection_result.group_scores.items()
+            )
+        }
+
+        invalid_controls = (
+            set(initially_visible)
+            - set(self.CONTROL_NAMES)
+        )
+
+        if invalid_controls:
+            raise ValueError(
+                "Unknown initially visible controls: "
+                f"{sorted(invalid_controls)}"
+            )
+
+        self.control_visibility = {
+            name: (
+                name in initially_visible
+            )
+            for name in self.CONTROL_NAMES
+        }
+
+        # Group-score controls are unavailable for individual scoring.
+        if "structural" not in self.group_scores:
+            self.control_visibility[
+                "structural_score"
+            ] = False
+
+        if "hypertransmission" not in self.group_scores:
+            self.control_visibility[
+                "hypertransmission_score"
+            ] = False
+
+        self.figure: Any | None = None
+        self.scan_axis: Any | None = None
+        self.score_axis: Any | None = None
+        self.control_axis: Any | None = None
+
+        self.check_buttons: Any | None = None
+        self.status_text: Any | None = None
+
+        self.combined_score_artist: Any | None = None
+        self.threshold_artist: Any | None = None
+        self.structural_score_artist: Any | None = None
+        self.hypertransmission_score_artist: Any | None = None
+
+        self.scan_cursor_line: Any | None = None
+        self.score_cursor_line: Any | None = None
+
+        self.interval_artists: list[Any] = []
+        self.raw_candidate_artists: list[Any] = []
+        self.cleaned_candidate_artists: list[Any] = []
+
+        self._motion_connection: int | None = None
+        self._leave_connection: int | None = None
+
+        self._create_interface()
+
+    @staticmethod
+    def _validate_image(
+        image: np.ndarray,
+    ) -> np.ndarray:
+        """Validate and convert the processed image to float32."""
+
+        array = np.asarray(
+            image,
+            dtype=np.float32,
+        )
+
+        if array.ndim != 2:
+            raise ValueError(
+                "Barcode score visualization requires a "
+                "two-dimensional image; "
+                f"received shape {array.shape}."
+            )
+
+        if array.size == 0:
+            raise ValueError(
+                "The supplied image is empty."
+            )
+
+        if not np.isfinite(array).any():
+            raise ValueError(
+                "The supplied image contains no finite values."
+            )
+
+        if not np.isfinite(array).all():
+            finite_values = array[
+                np.isfinite(array)
+            ]
+
+            replacement = float(
+                np.median(
+                    finite_values
+                )
+            )
+
+            array = np.where(
+                np.isfinite(array),
+                array,
+                replacement,
+            ).astype(np.float32)
+
+        return array
+
+    def _validate_detection_result(
+        self,
+    ) -> None:
+        """Validate the supplied detector output."""
+
+        required_attributes = {
+            "x_positions",
+            "score",
+            "raw_mask",
+            "cleaned_mask",
+            "intervals",
+            "scoring_mode",
+            "threshold",
+            "group_scores",
+        }
+
+        missing = [
+            attribute
+            for attribute in required_attributes
+            if not hasattr(
+                self.detection_result,
+                attribute,
+            )
+        ]
+
+        if missing:
+            raise TypeError(
+                "detection_result is missing required attributes: "
+                f"{missing}"
+            )
+
+        x_positions = np.asarray(
+            self.detection_result.x_positions,
+        )
+
+        score = np.asarray(
+            self.detection_result.score,
+        )
+
+        raw_mask = np.asarray(
+            self.detection_result.raw_mask,
+        )
+
+        cleaned_mask = np.asarray(
+            self.detection_result.cleaned_mask,
+        )
+
+        if x_positions.ndim != 1:
+            raise ValueError(
+                "detection_result.x_positions must be one-dimensional."
+            )
+
+        if x_positions.size == 0:
+            raise ValueError(
+                "detection_result contains no horizontal positions."
+            )
+
+        expected_length = (
+            x_positions.size
+        )
+
+        for name, values in (
+            ("score", score),
+            ("raw_mask", raw_mask),
+            ("cleaned_mask", cleaned_mask),
+        ):
+            if values.ndim != 1:
+                raise ValueError(
+                    f"detection_result.{name} must be one-dimensional."
+                )
+
+            if values.size != expected_length:
+                raise ValueError(
+                    f"detection_result.{name} contains "
+                    f"{values.size} values, but expected "
+                    f"{expected_length}."
+                )
+
+        if not np.isfinite(
+            score
+        ).all():
+            raise ValueError(
+                "The detector score contains non-finite values."
+            )
+
+        if not np.isfinite(
+            float(
+                self.detection_result.threshold
+            )
+        ):
+            raise ValueError(
+                "The detector threshold must be finite."
+            )
+
+        group_scores = (
+            self.detection_result.group_scores
+        )
+
+        if not isinstance(
+            group_scores,
+            Mapping,
+        ):
+            raise TypeError(
+                "detection_result.group_scores must be a mapping."
+            )
+
+        for name, values in group_scores.items():
+            group_signal = np.asarray(
+                values
+            )
+
+            if group_signal.ndim != 1:
+                raise ValueError(
+                    f"Group score '{name}' must be one-dimensional."
+                )
+
+            if group_signal.size != expected_length:
+                raise ValueError(
+                    f"Group score '{name}' contains "
+                    f"{group_signal.size} values, but expected "
+                    f"{expected_length}."
+                )
+
+            if not np.isfinite(
+                group_signal
+            ).all():
+                raise ValueError(
+                    f"Group score '{name}' contains non-finite values."
+                )
+
+    def _create_interface(
+        self,
+    ) -> None:
+        """Create the shared-axis detector visualization."""
+
+        self.figure = plt.figure(
+            figsize=self.figure_size,
+        )
+
+        grid = self.figure.add_gridspec(
+            nrows=2,
+            ncols=2,
+            width_ratios=[
+                5.5,
+                1.3,
+            ],
+            height_ratios=[
+                1.4,
+                1.0,
+            ],
+            hspace=0.12,
+            wspace=0.12,
+        )
+
+        self.scan_axis = self.figure.add_subplot(
+            grid[0, 0]
+        )
+
+        self.score_axis = self.figure.add_subplot(
+            grid[1, 0],
+            sharex=self.scan_axis,
+        )
+
+        self.control_axis = self.figure.add_subplot(
+            grid[:, 1]
+        )
+
+        self._draw_scan()
+        self._draw_score()
+        self._create_detection_artists()
+        self._create_controls()
+
+        self._motion_connection = (
+            self.figure.canvas.mpl_connect(
+                "motion_notify_event",
+                self._handle_mouse_motion,
+            )
+        )
+
+        self._leave_connection = (
+            self.figure.canvas.mpl_connect(
+                "axes_leave_event",
+                self._handle_axes_leave,
+            )
+        )
+
+        self.figure.canvas.draw_idle()
+
+    def _draw_scan(
+        self,
+    ) -> None:
+        """Draw the processed scan."""
+
+        image_height, image_width = (
+            self.image.shape
+        )
+
+        self.scan_axis.imshow(
+            self.image,
+            cmap="gray",
+            aspect="auto",
+            extent=(
+                -0.5,
+                image_width - 0.5,
+                image_height - 0.5,
+                -0.5,
+            ),
+            zorder=0,
+        )
+
+        scoring_mode = str(
+            self.detection_result.scoring_mode
+        ).title()
+
+        self.scan_axis.set_title(
+            "Detected barcoding intervals on processed scan\n"
+            f"{scoring_mode} scoring mode"
+        )
+
+        self.scan_axis.set_ylabel(
+            "Depth below BM"
+        )
+
+        self.scan_axis.set_xlim(
+            -0.5,
+            image_width - 0.5,
+        )
+
+        self.scan_axis.set_ylim(
+            image_height - 0.5,
+            -0.5,
+        )
+
+        plt.setp(
+            self.scan_axis.get_xticklabels(),
+            visible=False,
+        )
+
+        self.scan_cursor_line = (
+            self.scan_axis.axvline(
+                0,
+                linestyle="--",
+                linewidth=1.0,
+                visible=False,
+                zorder=30,
+            )
+        )
+
+    def _draw_score(
+        self,
+    ) -> None:
+        """Draw the continuous score and optional group signals."""
+
+        (
+            self.combined_score_artist,
+        ) = self.score_axis.plot(
+            self.x_positions,
+            self.score,
+            linewidth=1.5,
+            label="Combined barcoding score",
+            zorder=10,
+        )
+
+        self.threshold_artist = (
+            self.score_axis.axhline(
+                self.threshold,
+                linestyle="--",
+                linewidth=1.25,
+                label=(
+                    f"Threshold = "
+                    f"{self.threshold:.3f}"
+                ),
+                visible=self.control_visibility[
+                    "threshold"
+                ],
+                zorder=9,
+            )
+        )
+
+        if "structural" in self.group_scores:
+            (
+                self.structural_score_artist,
+            ) = self.score_axis.plot(
+                self.x_positions,
+                self.group_scores[
+                    "structural"
+                ],
+                linewidth=1.0,
+                alpha=0.80,
+                label="Structural score",
+                visible=self.control_visibility[
+                    "structural_score"
+                ],
+                zorder=7,
+            )
+
+        if (
+            "hypertransmission"
+            in self.group_scores
+        ):
+            (
+                self.hypertransmission_score_artist,
+            ) = self.score_axis.plot(
+                self.x_positions,
+                self.group_scores[
+                    "hypertransmission"
+                ],
+                linewidth=1.0,
+                alpha=0.80,
+                label="Hypertransmission score",
+                visible=self.control_visibility[
+                    "hypertransmission_score"
+                ],
+                zorder=7,
+            )
+
+        self.score_axis.set_title(
+            "Continuous barcoding score"
+        )
+
+        self.score_axis.set_xlabel(
+            "Horizontal position"
+        )
+
+        self.score_axis.set_ylabel(
+            "Standardized weighted score"
+        )
+
+        self.score_axis.set_xlim(
+            -0.5,
+            self.image.shape[1] - 0.5,
+        )
+
+        if self.score_limits is not None:
+            self.score_axis.set_ylim(
+                *self.score_limits
+            )
+
+        self.score_axis.grid(
+            alpha=0.25,
+        )
+
+        self.score_cursor_line = (
+            self.score_axis.axvline(
+                0,
+                linestyle="--",
+                linewidth=1.0,
+                visible=False,
+                zorder=30,
+            )
+        )
+
+        self._refresh_score_legend()
+
+    def _create_detection_artists(
+        self,
+    ) -> None:
+        """Create interval and candidate-region shading."""
+
+        self.interval_artists.clear()
+        self.raw_candidate_artists.clear()
+        self.cleaned_candidate_artists.clear()
+
+        for interval in (
+            self.detection_result.intervals
+        ):
+            artist = self.scan_axis.axvspan(
+                float(
+                    interval.x_start
+                ),
+                float(
+                    interval.x_end
+                ),
+                alpha=self.interval_alpha,
+                visible=self.control_visibility[
+                    "detected_intervals"
+                ],
+                zorder=5,
+            )
+
+            self.interval_artists.append(
+                artist
+            )
+
+        raw_runs = self._find_positive_runs(
+            self.raw_mask
+        )
+
+        for start_index, end_index in raw_runs:
+            x_start, x_end = (
+                self._resolve_run_bounds(
+                    start_index,
+                    end_index,
+                )
+            )
+
+            artist = self.score_axis.axvspan(
+                x_start,
+                x_end,
+                alpha=self.candidate_alpha,
+                visible=self.control_visibility[
+                    "raw_candidates"
+                ],
+                zorder=1,
+            )
+
+            self.raw_candidate_artists.append(
+                artist
+            )
+
+        cleaned_runs = self._find_positive_runs(
+            self.cleaned_mask
+        )
+
+        for start_index, end_index in cleaned_runs:
+            x_start, x_end = (
+                self._resolve_run_bounds(
+                    start_index,
+                    end_index,
+                )
+            )
+
+            artist = self.score_axis.axvspan(
+                x_start,
+                x_end,
+                alpha=self.candidate_alpha,
+                visible=self.control_visibility[
+                    "cleaned_candidates"
+                ],
+                zorder=2,
+            )
+
+            self.cleaned_candidate_artists.append(
+                artist
+            )
+
+    @staticmethod
+    def _find_positive_runs(
+        mask: np.ndarray,
+    ) -> list[tuple[int, int]]:
+        """Return inclusive runs of true values."""
+
+        boolean_mask = np.asarray(
+            mask,
+            dtype=bool,
+        )
+
+        runs: list[
+            tuple[int, int]
+        ] = []
+
+        start_index: int | None = None
+
+        for index, value in enumerate(
+            boolean_mask
+        ):
+            if value:
+                if start_index is None:
+                    start_index = index
+
+            elif start_index is not None:
+                runs.append(
+                    (
+                        start_index,
+                        index - 1,
+                    )
+                )
+
+                start_index = None
+
+        if start_index is not None:
+            runs.append(
+                (
+                    start_index,
+                    boolean_mask.size - 1,
+                )
+            )
+
+        return runs
+
+    def _resolve_run_bounds(
+        self,
+        start_index: int,
+        end_index: int,
+    ) -> tuple[float, float]:
+        """Convert inclusive signal indices into display coordinates."""
+
+        if self.x_positions.size > 1:
+            spacing = float(
+                np.median(
+                    np.diff(
+                        self.x_positions
+                    )
+                )
+            )
+        else:
+            spacing = 1.0
+
+        half_spacing = spacing / 2.0
+
+        x_start = float(
+            self.x_positions[
+                start_index
+            ]
+            - half_spacing
+        )
+
+        x_end = float(
+            self.x_positions[
+                end_index
+            ]
+            + half_spacing
+        )
+
+        return (
+            x_start,
+            x_end,
+        )
+
+    def _create_controls(
+        self,
+    ) -> None:
+        """Create visibility controls and numerical status display."""
+
+        self.control_axis.set_title(
+            "Detector display",
+            pad=15,
+        )
+
+        self.control_axis.set_xticks([])
+        self.control_axis.set_yticks([])
+
+        available_controls = [
+            "detected_intervals",
+            "raw_candidates",
+            "cleaned_candidates",
+            "threshold",
+        ]
+
+        if "structural" in self.group_scores:
+            available_controls.append(
+                "structural_score"
+            )
+
+        if (
+            "hypertransmission"
+            in self.group_scores
+        ):
+            available_controls.append(
+                "hypertransmission_score"
+            )
+
+        self.available_controls = tuple(
+            available_controls
+        )
+
+        check_axis = self.control_axis.inset_axes(
+            [
+                0.05,
+                0.55,
+                0.90,
+                0.36,
+            ]
+        )
+
+        check_axis.set_title(
+            "Show / hide",
+            fontsize=10,
+        )
+
+        labels = tuple(
+            self.CONTROL_LABELS[
+                name
+            ]
+            for name in self.available_controls
+        )
+
+        active = tuple(
+            self.control_visibility[
+                name
+            ]
+            for name in self.available_controls
+        )
+
+        self.check_buttons = CheckButtons(
+            check_axis,
+            labels,
+            active,
+        )
+
+        self.check_buttons.on_clicked(
+            self._toggle_control
+        )
+
+        self.status_text = (
+            self.control_axis.text(
+                0.5,
+                0.32,
+                self._default_status_message(),
+                ha="center",
+                va="center",
+                transform=(
+                    self.control_axis.transAxes
+                ),
+                fontsize=9,
+                wrap=True,
+            )
+        )
+
+        self.control_axis.text(
+            0.5,
+            0.085,
+            (
+                "Move the cursor across either\n"
+                "panel to inspect the score.\n\n"
+                "Highlighted scan regions come\n"
+                "from the cleaned detection mask."
+            ),
+            ha="center",
+            va="center",
+            transform=(
+                self.control_axis.transAxes
+            ),
+            fontsize=8,
+        )
+
+    def _toggle_control(
+        self,
+        label: str,
+    ) -> None:
+        """Toggle one detector visualization element."""
+
+        control_name = next(
+            (
+                name
+                for name in self.available_controls
+                if self.CONTROL_LABELS[
+                    name
+                ] == label
+            ),
+            None,
+        )
+
+        if control_name is None:
+            return
+
+        new_visibility = (
+            not self.control_visibility[
+                control_name
+            ]
+        )
+
+        self.control_visibility[
+            control_name
+        ] = new_visibility
+
+        if control_name == "detected_intervals":
+            self._set_artists_visible(
+                self.interval_artists,
+                new_visibility,
+            )
+
+        elif control_name == "raw_candidates":
+            self._set_artists_visible(
+                self.raw_candidate_artists,
+                new_visibility,
+            )
+
+        elif control_name == "cleaned_candidates":
+            self._set_artists_visible(
+                self.cleaned_candidate_artists,
+                new_visibility,
+            )
+
+        elif control_name == "threshold":
+            self.threshold_artist.set_visible(
+                new_visibility
+            )
+
+        elif control_name == "structural_score":
+            if (
+                self.structural_score_artist
+                is not None
+            ):
+                self.structural_score_artist.set_visible(
+                    new_visibility
+                )
+
+        elif control_name == (
+            "hypertransmission_score"
+        ):
+            if (
+                self.hypertransmission_score_artist
+                is not None
+            ):
+                self.hypertransmission_score_artist.set_visible(
+                    new_visibility
+                )
+
+        self._refresh_score_legend()
+
+        self.status_text.set_text(
+            self._default_status_message()
+        )
+
+        self.figure.canvas.draw_idle()
+
+    @staticmethod
+    def _set_artists_visible(
+        artists: list[Any],
+        visible: bool,
+    ) -> None:
+        """Set visibility for a collection of Matplotlib artists."""
+
+        for artist in artists:
+            artist.set_visible(
+                visible
+            )
+
+    def _refresh_score_legend(
+        self,
+    ) -> None:
+        """Refresh the score-panel legend using visible line artists."""
+
+        handles: list[Any] = []
+        labels: list[str] = []
+
+        candidate_artists = [
+            self.combined_score_artist,
+            self.threshold_artist,
+            self.structural_score_artist,
+            self.hypertransmission_score_artist,
+        ]
+
+        for artist in candidate_artists:
+            if (
+                artist is not None
+                and artist.get_visible()
+            ):
+                handles.append(
+                    artist
+                )
+
+                labels.append(
+                    artist.get_label()
+                )
+
+        existing_legend = (
+            self.score_axis.get_legend()
+        )
+
+        if existing_legend is not None:
+            existing_legend.remove()
+
+        if handles:
+            self.score_axis.legend(
+                handles,
+                labels,
+                loc="upper right",
+            )
+
+    def _handle_mouse_motion(
+        self,
+        event: Any,
+    ) -> None:
+        """Display numerical detector values at the cursor position."""
+
+        if event.inaxes not in {
+            self.scan_axis,
+            self.score_axis,
+        }:
+            return
+
+        if event.xdata is None:
+            return
+
+        image_width = self.image.shape[1]
+
+        x_coordinate = float(
+            np.clip(
+                event.xdata,
+                0,
+                image_width - 1,
+            )
+        )
+
+        nearest_index = int(
+            np.argmin(
+                np.abs(
+                    self.x_positions
+                    - x_coordinate
+                )
+            )
+        )
+
+        resolved_x = float(
+            self.x_positions[
+                nearest_index
+            ]
+        )
+
+        self.scan_cursor_line.set_xdata(
+            [
+                resolved_x,
+                resolved_x,
+            ]
+        )
+
+        self.score_cursor_line.set_xdata(
+            [
+                resolved_x,
+                resolved_x,
+            ]
+        )
+
+        self.scan_cursor_line.set_visible(
+            True
+        )
+
+        self.score_cursor_line.set_visible(
+            True
+        )
+
+        score_value = float(
+            self.score[
+                nearest_index
+            ]
+        )
+
+        raw_positive = bool(
+            self.raw_mask[
+                nearest_index
+            ]
+        )
+
+        cleaned_positive = bool(
+            self.cleaned_mask[
+                nearest_index
+            ]
+        )
+
+        lines = [
+            f"x = {resolved_x:.1f}",
+            f"Combined score: {score_value:.4f}",
+            f"Threshold: {self.threshold:.4f}",
+            (
+                "Raw candidate: "
+                f"{'yes' if raw_positive else 'no'}"
+            ),
+            (
+                "Cleaned detection: "
+                f"{'yes' if cleaned_positive else 'no'}"
+            ),
+        ]
+
+        if "structural" in self.group_scores:
+            structural_value = float(
+                self.group_scores[
+                    "structural"
+                ][
+                    nearest_index
+                ]
+            )
+
+            lines.append(
+                f"Structural: {structural_value:.4f}"
+            )
+
+        if (
+            "hypertransmission"
+            in self.group_scores
+        ):
+            transmission_value = float(
+                self.group_scores[
+                    "hypertransmission"
+                ][
+                    nearest_index
+                ]
+            )
+
+            lines.append(
+                "Hypertransmission: "
+                f"{transmission_value:.4f}"
+            )
+
+        self.status_text.set_text(
+            "\n".join(
+                lines
+            )
+        )
+
+        self.figure.canvas.draw_idle()
+
+    def _handle_axes_leave(
+        self,
+        event: Any,
+    ) -> None:
+        """Hide cursor lines after leaving an image or score panel."""
+
+        if event.inaxes not in {
+            self.scan_axis,
+            self.score_axis,
+        }:
+            return
+
+        self.scan_cursor_line.set_visible(
+            False
+        )
+
+        self.score_cursor_line.set_visible(
+            False
+        )
+
+        self.status_text.set_text(
+            self._default_status_message()
+        )
+
+        self.figure.canvas.draw_idle()
+
+    def _default_status_message(
+        self,
+    ) -> str:
+        """Create the default detector summary text."""
+
+        return (
+            f"Scoring mode: "
+            f"{self.detection_result.scoring_mode}\n"
+            f"Threshold: {self.threshold:.3f}\n"
+            f"Raw positive positions: "
+            f"{int(self.raw_mask.sum())}\n"
+            f"Cleaned positive positions: "
+            f"{int(self.cleaned_mask.sum())}\n"
+            f"Detected intervals: "
+            f"{len(self.detection_result.intervals)}"
+        )
+
+    @property
+    def active_controls(
+        self,
+    ) -> list[str]:
+        """Return the currently visible detector elements."""
+
+        return [
+            name
+            for name in self.available_controls
+            if self.control_visibility[
+                name
+            ]
+        ]
+
+    def show(
+        self,
+    ) -> None:
+        """Display the interactive detector visualization."""
+
+        plt.show()
+
+def create_barcode_score_viewer(
+    image: np.ndarray,
+    detection_result: Any,
+    **kwargs: Any,
+) -> BarcodeScoreViewer:
+    """
+    Create an interactive barcode-score visualization.
+
+    Parameters
+    ----------
+    image:
+        Two-dimensional preprocessed or denoised scan.
+    detection_result:
+        DetectionResult returned by ``detect_barcoding``.
+    **kwargs:
+        Additional BarcodeScoreViewer configuration.
+
+    Returns
+    -------
+    BarcodeScoreViewer
+        Interactive scan, score, threshold, and interval viewer.
+    """
+
+    return BarcodeScoreViewer(
+        image=image,
+        detection_result=detection_result,
         **kwargs,
     )
