@@ -716,67 +716,882 @@ Once reliable localization has been achieved, quantitative measurements of barco
 
 Finally, the developed methods will be validated against the clinician-generated ground truth to assess localization accuracy, measurement consistency, and clinical interpretability.
 
-\section{Extraction and Measurement of Manual Markings}
+\section{Proposed Sliding-Window Barcoding Detection Framework}
 
-To establish a quantitative baseline for subsequent image analysis, a manual annotation dataset was first constructed from optical coherence tomography (OCT) scans. Representative cases corresponding to the fastest and slowest progressing eyes were identified by the clinical collaborators. Using the Heidelberg HEYEX software, retinal specialists manually annotated two clinically relevant features on selected B-scans:
+\subsection{Overview}
+The proposed method is an interpretable, classical image-analysis approach for
+identifying horizontal regions of an OCT B-scan that exhibit barcode-like
+vertical transmission patterns. Rather than classifying individual image pixels,
+the method evaluates a sequence of overlapping vertical windows that span the
+full depth of the processed sub-Bruch's membrane (BM) region, like a convolutional layer
+
+For each horizontal window, several mathematical features are calculated to
+describe:
 
 \begin{enumerate}
-    \item Regions exhibiting barcoding artifacts, and
-    \item Regions corresponding to external atrophy (EA).
+    \item the degree of vertical organization,
+    \item the repetition or periodicity of vertical structures,
+    \item the intensity or amplitude of hypertransmission,
+    \item the persistence of column-like structures with depth, and
+    \item the spatial heterogeneity of the image texture.
 \end{enumerate}
 
-These annotations were exported as JPEG images containing the original OCT scan overlaid with colored measurement segments. Red and yellow measurement lines were used to distinguish between the two annotation types, while the numerical measurement values remained embedded only within the HEYEX interface. Consequently, an automated procedure was required to recover the annotation geometry directly from the exported images.
+The features are standardized and combined into a single continuous barcode
+score. Horizontal positions whose score exceeds a selected threshold are marked
+as candidate barcoding regions. Short detections are removed and nearby
+detections may be merged to produce contiguous barcode intervals.
 
-\subsection{Automatic Extraction of Manual Annotations}
+The complete workflow is:
 
-The objective of the extraction algorithm was to identify every manually drawn measurement segment and estimate its length in image pixels. Because the exported JPEGs contain interface elements, text labels, and other colored graphics in addition to the OCT image itself, the extraction procedure consisted of several stages designed to progressively isolate the clinician-generated markings.
+\begin{center}
+\texttt{.E2E}
+$\rightarrow$
+\texttt{B-scan}
+$\rightarrow$
+\texttt{flattening}
+$\rightarrow$
+\texttt{sub-region crop}
+$\rightarrow$
+\texttt{normalization}
+$\rightarrow$
+\texttt{denoising}
+$\rightarrow$
+\texttt{feature engineering}
+$\rightarrow$
+\texttt{weighted score}
+$\rightarrow$
+\texttt{intervals}.
+\end{center}
 
-The first step was localization of the OCT B-scan within the exported image. Rather than processing the full screenshot, the OCT display panel was cropped using fixed interface boundaries, substantially reducing the search space and eliminating unrelated graphical elements.
-
-Within the cropped OCT image, colored annotations were isolated using HSV thresholding. Separate color masks were constructed for the red and yellow overlays, producing binary images containing only candidate annotation pixels. Since the measurement segments are predominantly horizontal, morphological filtering with a horizontal structuring element was applied to suppress isolated noise while reinforcing elongated horizontal structures.
-
-Connected-component analysis was subsequently performed on each binary mask. Initially, individual measurement lines frequently appeared fragmented into multiple connected components. Investigation revealed that this fragmentation was not caused by breaks in the annotations themselves, but rather by nearby measurement text that was rendered in the same color as the corresponding annotation. The text labels were therefore detected as additional connected components.
-
-To address this issue, a geometric filtering procedure was developed. Components satisfying the following criteria were removed:
-
+\subsection{E2E Loading and B-Scan Selection}
+Each Heidelberg E2E file is imported as a volumetric OCT scan. If the analysis
+is intended to compare subjects, the central B-scan is selected separately for
+each volume using
+\[
+i_{\mathrm{center}}
+=
+\left\lfloor
+\frac{N_{\mathrm{B\text{-}scans}}}{2}
+\right\rfloor,
+\]
+where:
 \begin{itemize}
-    \item located vertically above another component,
-    \item sufficiently close in vertical distance,
-    \item overlapping horizontally with a longer component, and
-    \item substantially shorter than the underlying horizontal segment.
+    \item \(N_{\mathrm{B\text{-}scans}}\) is the total number of B-scans in the
+    volume,
+    \item \(i_{\mathrm{center}}\) is the zero-based index of the selected
+    central scan, and
+    \item \(\lfloor \cdot \rfloor\) denotes rounding downward to the nearest
+    integer.
+\end{itemize}
+This definition allows volumes containing different numbers of B-scans to be
+processed consistently. For within-volume validation, the same preprocessing
+configuration can instead be applied across all B-scans in one selected
+volume.
+
+\subsection{Flattening to Bruch's Membrane}
+The BM boundary is represented by one vertical coordinate for each horizontal
+image column: $b(x),$ where \(x\) is the horizontal column position, and \(b(x)\) is the detected BM row at column \(x\).
+A common reference row is selected, typically the median BM position:
+\[
+b_{\mathrm{ref}}
+=
+\operatorname{median}_{x}
+\left\{
+b(x)
+\right\}.
+\]
+Each column is shifted vertically by
+\[
+\Delta(x)
+=
+b_{\mathrm{ref}}-b(x).
+\]
+The purpose of this operation is to transform the curved BM boundary into a
+horizontal line. After flattening, the same vertical coordinate represents
+approximately the same anatomical depth below BM across all horizontal
+positions.
+
+Flattening is important because the proposed detector measures vertical
+persistence and orientation. Without flattening, natural retinal curvature
+could be incorrectly interpreted as directional or heterogeneous image
+structure.
+
+
+\subsection{Sub-BM Region of Interest}
+After flattening, a fixed-depth region is extracted beginning at BM:
+\[
+I_{\mathrm{ROI}}
+=
+I_{\mathrm{flat}}
+\left[
+b_{\mathrm{ref}}:
+b_{\mathrm{ref}}+D-1,\,
+:
+\right],
+\]
+where:
+\begin{itemize}
+    \item \(I_{\mathrm{flat}}\) is the flattened B-scan,
+    \item \(D\) is the selected depth below BM,
+    \item \(I_{\mathrm{ROI}}\) is the processed sub-BM region.
 \end{itemize}
 
-This heuristic successfully removed measurement text while preserving the underlying annotation. Remaining adjacent horizontal components were then merged into single measurement segments, yielding one connected component per clinician annotation.
+The initial configuration uses D=150 pixels so the resulting image is $\mathbb{R}^{150 \times 512}$
+with:
 
-For each recovered segment, the algorithm recorded the horizontal start coordinate, end coordinate, color classification, and pixel length. These measurements formed the basis of the subsequent quantitative analysis.
+\begin{itemize}
+    \item rows representing depth below BM,
+    \item columns representing horizontal retinal position.
+\end{itemize}
 
-\subsection{Toward Physical Measurement Recovery}
+\subsection{Intensity Normalization}
+Intensity normalization is used to reduce variation caused by image brightness,
+contrast, and acquisition conditions. Two normalization families may be
+evaluated.
 
-Although pixel lengths can be recovered directly from the exported images, the clinically relevant quantities are expressed in microns within the HEYEX software. To recover physical distances, metadata stored within the proprietary Heidelberg \texttt{.E2E} files was investigated using the \texttt{eyepy} package.
+\subsubsection{Whole-ROI Z-Score Normalization}
 
-Each B-scan provides acquisition metadata including image dimensions, scan positions, acquisition time, and several calibration-related fields. In particular, the metadata contains multiple candidate quantities describing scan geometry, including scan endpoints, image dimensions, and undocumented calibration parameters.
+For whole-ROI z-score normalization,
 
-An initial investigation suggested that one undocumented metadata field may correspond to a physical scan width. However, this quantity varied across B-scans despite nearly identical acquisition geometry, indicating that its interpretation remains unclear. Consequently, a reliable conversion from exported JPEG pixel lengths to physical distances could not yet be established using metadata alone.
+\[
+Z(z,x)
+=
+\frac{
+I_{\mathrm{ROI}}(z,x)-\mu_{\mathrm{ROI}}
+}{
+\sigma_{\mathrm{ROI}}+\varepsilon
+},
+\]
 
-At present, pixel-based measurements can be recovered automatically, while the mapping to physical units remains an open calibration problem requiring further investigation.
+where:
 
-\subsection{Future Investigation}
+\begin{itemize}
+    \item \(I_{\mathrm{ROI}}(z,x)\) is the intensity at depth \(z\) and
+    horizontal position \(x\),
+    \item \(\mu_{\mathrm{ROI}}\) is the mean intensity across all pixels in the
+    sub-BM ROI,
+    \item \(\sigma_{\mathrm{ROI}}\) is the standard deviation of all ROI
+    intensities,
+    \item \(\varepsilon\) is a small positive constant that prevents division
+    by zero,
+    \item \(Z(z,x)\) is the normalized intensity.
+\end{itemize}
 
-Several avenues remain for improving the annotation extraction pipeline. First, additional validation will be performed across a substantially larger collection of manually annotated scans to assess robustness under varying image quality, annotation density, and acquisition settings.
+After z-score normalization:
 
-Second, alternative strategies for recovering physical measurements will be explored. Rather than relying solely on undocumented metadata fields, future work will investigate direct calibration using native OCT image geometry, known scan dimensions, or empirical calibration against measurements reported within the HEYEX software.
+\begin{itemize}
+    \item \(Z=0\) represents the average ROI intensity,
+    \item \(Z>0\) represents brighter-than-average regions,
+    \item \(Z<0\) represents darker-than-average regions.
+\end{itemize}
 
-Finally, the extracted annotation dataset will serve as ground truth for subsequent automated segmentation models, providing paired image--measurement data for learning clinically relevant biomarkers directly from OCT scans.
+Z-score normalization is useful when the detector combines several mathematical
+features whose scales should be comparable.
 
-\subsection{Normal Autoencoder Approach}
-Instead of teaching a CNN what barcoding looks like, train an unsupervised once class model reliant on normal regions, so the model learns the distribution of a normal sub-BM appearance. At inference time, columns or windows that differ substantially recieve a high anomaly score. Use a 1D CAE across horizontal sequence or 2D CAE on patches from the flattened image
+\subsubsection{Whole-ROI Percentile Normalization}
+The previously tested percentile normalization may also be retained as an
+alternative configuration:
+\[
+I_{\mathrm{norm}}(z,x)
+=
+\operatorname{clip}
+\left(
+\frac{
+I_{\mathrm{ROI}}(z,x)-q_{\ell}
+}{
+q_{u}-q_{\ell}
+},
+0,
+1
+\right),
+\]
+where:
+\begin{itemize}
+    \item \(q_{\ell}\) is the selected lower intensity percentile,
+    \item \(q_{u}\) is the selected upper intensity percentile,
+    \item \(\operatorname{clip}(\cdot,0,1)\) restricts values to the interval
+    \([0,1]\).
+\end{itemize}
 
-It would be easier because normal regions are easier to detect and less dependent on manual markings, but it would likely pick up anything abnormal, like hypertransmission without barcoding, shadows, or other noise
+Pixels below the first percentile are mapped to 0, pixels above the
+ninety-ninth percentile are mapped to 1, and intermediate values are linearly
+rescaled.
+The normalization method will therefore be treated as a configurable
+experimental parameter:
+\begin{itemize}
+    \item z-score normalization,
+    \item 1--99 percentile normalization,
+    \item 0--100 min--max normalization,
+    \item no normalization.
+\end{itemize}
 
-\subsection{Pretrained Transfer of a 2D nnU-Net}
-Octavision3D Repo: https://github.com/Translational-Biophotonics-Laboratory/octvision3d/tree/main
 
-NNU-Net Repo: https://github.com/dkermany/nnUNetOCT/tree/b4cc9869fb406a6d6372c823427796d4a4e95a96
+\subsection{Two-Dimensional Gaussian Denoising}
+A mild Gaussian filter is applied before feature extraction to reduce speckle
+noise while preserving larger vertical structures.
+The smoothed image is
+\[
+I_{\sigma_z,\sigma_x}
+=
+G_{\sigma_z,\sigma_x}
+*
+I_{\mathrm{norm}},
+\]
+where:
+\begin{itemize}
+    \item \(G_{\sigma_z,\sigma_x}\) is a two-dimensional Gaussian kernel,
+    \item \(*\) denotes convolution,
+    \item \(\sigma_z\) controls smoothing along depth,
+    \item \(\sigma_x\) controls smoothing horizontally,
+    \item \(I_{\sigma_z,\sigma_x}\) is the denoised image.
+\end{itemize}
 
-Dataset Link: https://zenodo.org/records/14580071
+An anisotropic Gaussian configuration ($\sigma_z > \sigma_x$) may be preferable as it applies more smoothing along the vertical depth direction while applying
+less smoothing across horizontal columns. The purpose is to reduce speckle
+without excessively blurring narrow vertical barcode structures.
+
+An initial configuration may be
+\[
+\sigma_z=1.0,
+\qquad
+\sigma_x=0.5.
+\]
+These values are not treated as final and should be included in sensitivity
+testing.
+
+
+\subsection{Sliding-Window Configuration}
+The detector operates on overlapping vertical windows that span the full ROI
+depth.
+For a window centered at horizontal position \(x\), define
+\[
+W_x
+=
+I_{\sigma_z,\sigma_x}
+\left[
+0:D-1,\,
+x-r:x+r
+\right],
+\]
+where:
+\begin{itemize}
+    \item \(D\) is the ROI depth,
+    \item \(r\) is the horizontal window radius,
+    \item \(2r+1\) is the window width,
+    \item \(W_x\) is the image patch used to calculate features at position
+    \(x\).
+\end{itemize}
+For example, a 21-pixel window has
+\[
+r=10,
+\qquad
+2r+1=21.
+\]
+The first windows are therefore approximately (0,20), (1,21), and (2,22).
+Thus, the windows overlap and move horizontally by a configurable stride.
+\emph{The initial configuration is a 21 pixel window with a 1 pixel stride.}
+
+A stride of one produces one local score for approximately every horizontal
+position. Larger strides reduce computation but produce coarser localization.
+Reflection padding may be used near the left and right boundaries so that every
+column receives a full-width local window.
+
+
+\subsection{Feature 1: Vertical Orientation and Verticality}
+
+Barcode regions are expected to contain elongated structures that remain
+approximately vertical. Directional organization can be quantified using the
+structure tensor.
+Let
+\[
+I_x
+=
+\frac{\partial I}{\partial x},
+\qquad
+I_z
+=
+\frac{\partial I}{\partial z},
+\]
+where:
+\begin{itemize}
+    \item \(I_x\) is the horizontal image-intensity gradient,
+    \item \(I_z\) is the vertical image-intensity gradient,
+    \item a gradient measures how rapidly image brightness changes in a
+    particular direction.
+\end{itemize}
+The local structure tensor is
+\[
+J
+=
+\begin{bmatrix}
+\langle I_x^2\rangle
+&
+\langle I_x I_z\rangle
+\\
+\langle I_x I_z\rangle
+&
+\langle I_z^2\rangle
+\end{bmatrix},
+\]
+where:
+\begin{itemize}
+    \item \(\langle I_x^2\rangle\) is the locally averaged squared horizontal
+    gradient,
+    \item \(\langle I_z^2\rangle\) is the locally averaged squared vertical
+    gradient,
+    \item \(\langle I_xI_z\rangle\) represents interaction between the two
+    directions,
+    \item the local averaging reduces sensitivity to individual noisy pixels.
+\end{itemize}
+The structure tensor has two eigenvalues:\(\lambda_1 \geq \lambda_2 \geq 0.\) which summarize the strength of directional image variation.
+An anisotropy score is
+\[
+A
+=
+\frac{
+\lambda_1-\lambda_2
+}{
+\lambda_1+\lambda_2+\varepsilon
+}.
+\]
+Its interpretation is:
+\begin{itemize}
+    \item \(A \approx 0\): no strong preferred orientation,
+    \item \(A \approx 1\): strongly directional or elongated structure.
+\end{itemize}
+The dominant local orientation may be estimated by
+\[
+\theta
+=
+\frac{1}{2}
+\tan^{-1}
+\left(
+\frac{
+2J_{xz}
+}{
+J_{xx}-J_{zz}
+}
+\right),
+\]
+where:
+\begin{itemize}
+    \item \(J_{xx}=\langle I_x^2\rangle\),
+    \item \(J_{zz}=\langle I_z^2\rangle\),
+    \item \(J_{xz}=\langle I_xI_z\rangle\),
+    \item \(\theta\) is the estimated dominant gradient orientation.
+\end{itemize}
+Because line orientation is perpendicular to gradient orientation, the
+implementation must explicitly convert the gradient direction into the
+corresponding structural direction.
+A verticality score for window \(W_x\) may be defined as
+\[
+V(x)
+=
+\frac{1}{|W_x|}
+\sum_{(z,u)\in W_x}
+A(z,u)
+\,
+\mathbf{1}
+\left(
+\left|
+\theta_{\mathrm{line}}(z,u)
+-
+\frac{\pi}{2}
+\right|
+<
+\delta_{\theta}
+\right),
+\]
+where:
+\begin{itemize}
+    \item \(|W_x|\) is the number of pixels in the window,
+    \item \(\theta_{\mathrm{line}}\) is the estimated line orientation,
+    \item \(\pi/2\) corresponds to a vertical line,
+    \item \(\delta_{\theta}\) is the allowed angular tolerance,
+    \item \(\mathbf{1}(\cdot)\) equals 1 when the condition is true and 0
+    otherwise.
+\end{itemize}
+
+A high \(V(x)\) means that a large proportion of the window contains strongly
+oriented vertical structure.
+
+
+\subsection{Feature 2: Column Persistence With Depth}
+A barcode-like structure should persist across a meaningful portion of the
+sub-BM depth rather than appearing as an isolated bright pixel.
+For each column \(u\), define a binary candidate map:
+\[
+B(z,u)
+=
+\mathbf{1}
+\left[
+C(z,u)>\tau_C
+\right],
+\]
+where:
+\begin{itemize}
+    \item \(C(z,u)\) may represent intensity, verticality, or a combination of
+    both,
+    \item \(\tau_C\) is the threshold used to define a candidate barcode pixel.
+\end{itemize}
+The depth fraction for one column is
+\[
+P_{\mathrm{fraction}}(u)
+=
+\frac{1}{D}
+\sum_{z=0}^{D-1}
+B(z,u).
+\]
+This represents the proportion of the sub-BM depth containing candidate
+barcode signal.
+A connected-run persistence score may also be used:
+\[
+P_{\mathrm{run}}(u)
+=
+\frac{
+L_{\max}(u)
+}{
+D
+},
+\]
+where \(L_{\max}(u)\) is the longest consecutive vertical run of candidate
+pixels in column \(u\).
+The window-level persistence score is then
+\[
+P(x)
+=
+\frac{1}{2r+1}
+\sum_{u=x-r}^{x+r}
+P_{\mathrm{run}}(u).
+\]
+A high \(P(x)\) indicates that vertical signals extend consistently through
+depth across several neighboring columns.
+
+
+\subsection{Feature 3: Horizontal Periodicity}
+Barcoding may contain repeated bright and dark vertical stripes. This produces
+a repeating pattern along the horizontal direction.
+First define a one-dimensional column signal within the window:
+\[
+c_x(u)
+=
+\frac{1}{D}
+\sum_{z=0}^{D-1}
+I_{\sigma_z,\sigma_x}(z,u),
+\]
+where \(c_x(u)\) is the average intensity of column \(u\).
+The local autocorrelation at lag \(k\) is
+\[
+R_x(k)
+=
+\frac{
+\sum_u
+\left[
+c_x(u)-\overline{c}_x
+\right]
+\left[
+c_x(u+k)-\overline{c}_x
+\right]
+}{
+\sum_u
+\left[
+c_x(u)-\overline{c}_x
+\right]^2
++
+\varepsilon
+},
+\]
+where:
+\begin{itemize}
+    \item \(k\) is the horizontal lag in pixels,
+    \item \(\overline{c}_x\) is the mean column intensity in the window,
+    \item \(R_x(k)\) measures how closely the signal resembles a shifted copy
+    of itself.
+\end{itemize}
+
+If a bright-dark pattern repeats every \(k\) pixels, the autocorrelation may
+show a peak near that lag.
+A periodicity score can be defined as
+\[
+Q(x)
+=
+\max_{k\in\mathcal{K}}
+R_x(k),
+\]
+where \(\mathcal{K}\) is a clinically plausible range of stripe spacings.
+Additional periodicity descriptors may include:
+\begin{itemize}
+    \item location of the strongest autocorrelation peak,
+    \item height of the strongest peak,
+    \item consistency of multiple peak spacings,
+\end{itemize}
+A high \(Q(x)\) indicates repeated horizontal spacing of vertical structures.
+
+
+\subsection{Feature 4: Intensity Amplitude and Hypertransmission Strength}
+Barcode and atrophic regions may both appear brighter than normal tissue.
+Intensity amplitude is therefore useful but should not be used alone.
+The mean intensity in the window is
+\[
+M(x)
+=
+\frac{1}{|W_x|}
+\sum_{(z,u)\in W_x}
+I_{\sigma_z,\sigma_x}(z,u).
+\]
+A robust high-intensity measure may instead use an upper percentile (0.9)
+where \(q_{0.90}(W_x)\) is the ninetieth percentile of intensities in the
+window.
+Possible amplitude features include:
+
+\begin{itemize}
+    \item mean intensity,
+    \item median intensity,
+    \item ninetieth or ninety-fifth percentile intensity,
+    \item fraction of pixels above a bright-pixel threshold,
+    \item difference between upper and lower depth-region intensity.
+\end{itemize}
+
+Amplitude helps identify hypertransmission, but broad EA may also produce a
+high amplitude score. Therefore, amplitude should be interpreted jointly with
+verticality, persistence, and periodicity.
+
+
+\subsection{Feature 5: Spatial Heterogeneity}
+
+Spatial heterogeneity describes how much local intensity varies within the
+window. A barcode region may contain alternating bright and dark columns,
+whereas a broad EA region may be bright but comparatively smooth.
+The local variance is
+\[
+H_{\mathrm{var}}(x)
+=
+\frac{1}{|W_x|}
+\sum_{(z,u)\in W_x}
+\left[
+I(z,u)-\overline{I}_{W_x}
+\right]^2,
+\]
+where \(\overline{I}_{W_x}\) is the mean intensity within the window.
+
+The local interquartile range and coefficient of variation may be defined as
+
+\[
+H_{\mathrm{IQR}}(x)
+=
+q_{0.75}(W_x)-q_{0.25}(W_x)
+\qquad 
+H_{\mathrm{CV}}(x)
+=
+\frac{
+\operatorname{SD}(W_x)
+}{
+\left|
+\operatorname{mean}(W_x)
+\right|
++\varepsilon
+}.
+\]
+
+
+Additional heterogeneity features may include:
+
+\begin{itemize}
+    \item local entropy,
+    \item gradient energy,
+    \item peak density,
+    \item variation in column persistence and intensity
+\end{itemize}
+
+A high heterogeneity score indicates substantial local variation, but it does
+not by itself establish that the variation is periodic or vertically aligned.
+
+
+\subsection{Feature Standardization}
+
+The raw features may have different numerical scales. For example, anisotropy
+may lie between 0 and 1, while variance may be much larger. Features must
+therefore be standardized before being combined.
+A robust standardized feature is
+\[
+\widetilde{F}_j(x)
+=
+\frac{
+F_j(x)-\operatorname{median}(F_j)
+}{
+\operatorname{IQR}(F_j)+\varepsilon
+},
+\]
+where:
+\begin{itemize}
+    \item \(F_j(x)\) is feature \(j\) at horizontal position \(x\),
+    \item \(\operatorname{median}(F_j)\) is the median feature value across the
+    scan,
+    \item \(\operatorname{IQR}(F_j)\) is the feature's interquartile range,
+    \item \(\widetilde{F}_j(x)\) is the standardized feature.
+\end{itemize}
+
+Robust standardization is preferred over ordinary mean-standard deviation
+scaling because abnormal regions may produce strong outlying values.
+
+
+\subsection{Weighted Barcode Score}
+
+The standardized features are combined into a continuous barcode score:
+\[
+S(x)
+=
+w_V\widetilde{V}(x)
++
+w_P\widetilde{P}(x)
++
+w_Q\widetilde{Q}(x)
++
+w_A\widetilde{A}(x)
++
+w_H\widetilde{H}(x),
+\]
+where:
+\begin{itemize}
+    \item \(\widetilde{V}(x)\) is standardized verticality,
+    \item \(\widetilde{P}(x)\) is standardized depth persistence,
+    \item \(\widetilde{Q}(x)\) is standardized periodicity,
+    \item \(\widetilde{A}(x)\) is standardized intensity amplitude,
+    \item \(\widetilde{H}(x)\) is standardized heterogeneity,
+    \item \(w_V,w_P,w_Q,w_A,w_H\) are nonnegative feature weights.
+\end{itemize}
+For interpretability, the weights may initially be constrained to satisfy $\sum w_i = 1$.
+An initial proof-of-concept configuration could be
+\[
+w_V=0.25,
+\qquad
+w_P=0.25,
+\qquad
+w_Q=0.20,
+\qquad
+w_A=0.15,
+\qquad
+w_H=0.15.
+\]
+These values are only starting values and do not represent validated clinical
+importance.
+
+
+\subsection{Choosing and Tuning Feature Weights}
+
+Weight selection should proceed in stages.
+
+\subsubsection{Stage 1: Equal or Expert-Specified Weights}
+The first implementation should use either equal weights or simple
+clinically motivated weights. This provides an interpretable baseline and
+allows inspection of the individual feature signals.
+
+\subsubsection{Stage 2: Grid Search Against Manual Annotations}
+The manually labeled Normal, EA, and Barcoding intervals can be converted into
+column-level reference labels.
+Candidate weight combinations may be evaluated using a constrained grid search.
+Each combination is evaluated by comparing the predicted barcode mask with the
+manual reference mask.
+
+Possible performance measures include:
+
+\begin{itemize}
+    \item sensitivity, specificity, precision:
+    \[
+    \text{Sensitivity}
+    =
+    \frac{\mathrm{TP}}
+    {\mathrm{TP}+\mathrm{FN}},
+    \quad
+    \text{Specificity}
+    =
+    \frac{\mathrm{TN}}
+    {\mathrm{TN}+\mathrm{FP}},
+    \quad
+    \text{Precision}
+    =
+    \frac{\mathrm{TP}}
+    {\mathrm{TP}+\mathrm{FP}}
+    \]
+    \item or an aggregate like F1 score, intersection over union, or area under the receiver operating characteristic curve.
+    \[
+    F_1
+    =
+    2
+    \frac{
+    \text{Precision}\times\text{Sensitivity}
+    }{
+    \text{Precision}+\text{Sensitivity}
+    }
+    \]
+\end{itemize}
+The F1 score balances missed barcode regions and false-positive detections.
+
+\subsubsection{Stage 3: Learned Linear Weights}
+
+Once enough labeled scans are available, the weights can be estimated using
+logistic regression:
+\[
+\Pr(Y(x)=1)
+=
+\frac{
+1
+}{
+1+
+\exp
+\left[
+-
+\left(
+\beta_0+
+\sum_j\beta_j\widetilde{F}_j(x)
+\right)
+\right]
+},
+\]
+where:
+\begin{itemize}
+    \item \(Y(x)=1\) indicates a barcode-labeled column,
+    \item \(\beta_0\) is an intercept,
+    \item \(\beta_j\) is the learned coefficient for feature \(j\),
+    \item the resulting value is the estimated probability of barcoding.
+\end{itemize}
+Logistic regression is useful because the learned coefficients remain directly
+interpretable. A positive coefficient means that larger values of the feature
+increase the predicted probability of barcoding.
+Regularization may be used to reduce overfitting:
+\[
+\mathcal{L}_{\mathrm{penalized}}
+=
+\mathcal{L}_{\mathrm{logistic}}
++
+\lambda
+\sum_j\beta_j^2,
+\]
+where:
+\begin{itemize}
+    \item \(\mathcal{L}_{\mathrm{logistic}}\) is the logistic loss,
+    \item \(\lambda\) controls the strength of regularization,
+    \item larger \(\lambda\) discourages excessively large coefficients.
+\end{itemize}
+
+
+\subsection{Threshold Selection}
+A horizontal position is initially classified as barcode-positive when $S(x)>\tau$ where \(\tau\) is the barcode-score threshold.
+The resulting raw mask is
+\[
+B_{\mathrm{raw}}(x)
+=
+\mathbf{1}
+\left[
+S(x)>\tau
+\right].
+\]
+Threshold-selection approaches include:
+
+\begin{itemize}
+    \item maximizing the F1 score/Youden's Index $J=\text{Sensitivity}+\text{Specificity}-1.$
+    \item selecting a high percentile from normal scans,
+    \item fitting a two-component mixture model,
+    \item using a clinically specified sensitivity target.
+\end{itemize}
+
+The selected threshold is the value that maximizes \(J\) when equal importance
+is assigned to sensitivity and specificity.
+
+
+\subsection{Spatial Post-Processing}
+
+Thresholding may produce isolated positive columns or short gaps. The raw mask
+should therefore undergo simple one-dimensional spatial cleanup.
+
+The post-processing steps are:
+
+\begin{enumerate}
+    \item remove positive runs shorter than a minimum interval width,
+    \item fill negative gaps shorter than a maximum gap width,
+    \item convert the cleaned mask into contiguous horizontal intervals.
+\end{enumerate}
+
+Initial configurable values may be
+
+\[
+L_{\min}=8 \text{ pixels},
+\qquad
+G_{\max}=4 \text{ pixels},
+\]
+
+where:
+
+\begin{itemize}
+    \item \(L_{\min}\) is the minimum retained barcode interval width,
+    \item \(G_{\max}\) is the largest gap that may be filled between adjacent
+    detections.
+\end{itemize}
+
+These values should be tuned against manual annotations and evaluated through
+sensitivity analysis.
+
+
+\subsection{Final Outputs}
+
+The detector should be able to return the preprocessed image, the normalized/denoised image, plots for the features and score, the mask overlay for detected barcoding, and barcoding metrics (width, number of intervals, min and max width)
+
+The final visual display should contain:
+\begin{enumerate}
+    \item the processed sub-BM scan,
+    \item highlighted vertical regions corresponding to detected barcode
+    intervals,
+    \item the individual feature curves,
+    \item the combined barcode score,
+    \item the selected threshold.
+\end{enumerate}
+
+
+\subsection{Sensitivity and Validation Plan}
+
+The detector should be evaluated under reasonable changes to preprocessing methods, denoising parameters, and other preprocessing configurations.
+
+Validation should be performed at three levels:
+
+\begin{enumerate}
+    \item \textbf{Column level:} agreement between predicted and manually
+    labeled horizontal positions.
+    \item \textbf{Interval level:} overlap between predicted and manually
+    marked barcode regions.
+    \item \textbf{Scan level:} reproducibility across neighboring B-scans and
+    across different OCT volumes.
+\end{enumerate}
+
+Because neighboring columns and neighboring B-scans are not statistically
+independent, training and validation data should be split by subject or volume,
+not by individual image column. This prevents information from the same scan
+from appearing in both the training and evaluation sets.
+
+
+\subsection{Initial Recommended Proof-of-Concept Configuration}
+
+The initial detector configuration is:
+
+\begin{itemize}
+    \item BM flattening,
+    \item 150-pixel sub-BM crop,
+    \item whole-ROI z-score normalization,
+    \item anisotropic Gaussian denoising with
+    \(\sigma_z=1.0\) and \(\sigma_x=0.5\),
+    \item 21-pixel overlapping windows,
+    \item stride of 1 pixel,
+    \item full 150-pixel window depth,
+    \item verticality, depth persistence, periodicity, amplitude, and
+    heterogeneity features,
+    \item robust feature standardization,
+    \item interpretable weighted score,
+    \item threshold-based classification,
+    \item one-dimensional spatial cleanup.
+\end{itemize}
+
+This configuration is intended only as a reproducible starting point.
+Normalization, denoising, window dimensions, feature definitions, weights, and
+thresholds must be validated across multiple manually annotated OCT scans before
+being treated as final defaults.
+
 \end{document}
