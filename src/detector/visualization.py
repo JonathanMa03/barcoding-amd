@@ -31,7 +31,7 @@ from matplotlib.widgets import CheckButtons
 FEATURE_NAMES = (
     "verticality",
     "persistence",
-    "periodicity",
+    "continuity",
     "amplitude",
     "heterogeneity",
 )
@@ -40,7 +40,7 @@ FEATURE_NAMES = (
 DEFAULT_FEATURE_CMAPS: dict[str, str] = {
     "verticality": "Reds",
     "persistence": "Blues",
-    "periodicity": "Purples",
+    "continuity": "Purples",
     "amplitude": "Oranges",
     "heterogeneity": "Greens",
 }

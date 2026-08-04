@@ -5,7 +5,7 @@
 # - Construct overlapping horizontal sliding windows.
 # - Support configurable window width, stride, and padding.
 # - Calculate interpretable mathematical feature signals,
-#   including verticality, depth persistence, periodicity,
+#   including verticality, depth persistence, depth continuity,
 #   amplitude, and spatial heterogeneity.
 # - Standardize feature signals before combination.
 #
@@ -37,7 +37,7 @@ from scipy.ndimage import gaussian_filter
 FEATURE_NAMES = (
     "verticality",
     "persistence",
-    "periodicity",
+    "continuity",
     "amplitude",
     "heterogeneity",
 )
@@ -54,8 +54,10 @@ class FeatureSignals:
         Horizontal image positions associated with the feature values.
         With ``stride=1``, this generally contains one value per image
         column.
-    raw_features:
-        Dictionary containing the original feature signals.
+     raw_features:
+        Dictionary containing the original feature signals:
+        verticality, persistence, continuity, amplitude, and
+        heterogeneity.
     standardized_features:
         Dictionary containing robustly standardized feature signals.
     verticality_map:
@@ -804,125 +806,164 @@ def compute_persistence_feature(
     )
 
 
-def compute_periodicity_feature(
+def compute_continuity_feature(
     image_window: np.ndarray,
     *,
-    minimum_lag: int = 2,
-    maximum_lag: int | None = None,
-    use_absolute_correlation: bool = False,
+    depth_lag: int = 1,
+    summary: str = "mean",
+    minimum_row_standard_deviation: float = 1e-6,
     epsilon: float = 1e-8,
-) -> tuple[float, int, np.ndarray]:
+) -> tuple[float, np.ndarray]:
     """
-    Measure repeated horizontal structure using local autocorrelation.
+    Measure whether the horizontal intensity pattern persists with depth.
 
-    The two-dimensional window is first collapsed into a column signal
-    by averaging intensity over depth. Autocorrelation then compares that
-    signal with horizontally shifted copies of itself.
+    A barcode-like region contains vertical structures. Therefore, the
+    bright-dark pattern observed across the horizontal window should
+    remain similar as the detector moves downward through the image.
+
+    For each pair of rows separated by ``depth_lag``, this function
+    calculates the correlation between their horizontal intensity
+    patterns.
+
+    For example, with ``depth_lag=1``:
+
+        row 0 is compared with row 1
+        row 1 is compared with row 2
+        row 2 is compared with row 3
+        ...
+
+    A high positive correlation indicates that bright and dark
+    horizontal positions remain aligned across depth, which is
+    consistent with vertically continuous structures.
 
     Parameters
     ----------
     image_window:
-        Full-depth local image window.
-    minimum_lag:
-        Smallest horizontal spacing evaluated.
-    maximum_lag:
-        Largest horizontal spacing evaluated. If omitted, approximately
-        half the window width is used.
-    use_absolute_correlation:
-        Whether negative and positive correlations are treated equally.
-        This may be useful for alternating bright-dark patterns.
+        Full-depth local image window with shape
+        ``(image_depth, window_width)``.
+    depth_lag:
+        Number of depth rows separating the compared horizontal
+        intensity patterns.
+    summary:
+        Method used to summarize the row-pair correlations. Supported
+        values are ``"mean"``, ``"median"``, and ``"percentile"``.
+    minimum_row_standard_deviation:
+        Row pairs with less horizontal variation than this value are
+        excluded because correlation is not meaningful for nearly
+        constant rows.
     epsilon:
-        Numerical-stability constant.
+        Small positive value used for numerical stability.
 
     Returns
     -------
-    periodicity_score:
-        Strongest autocorrelation over the selected lag range.
-    best_lag:
-        Lag producing the strongest score.
-    correlations:
-        Autocorrelation values for all evaluated lags.
+    continuity_score:
+        Summary of valid row-to-row correlations. Larger positive values
+        indicate stronger persistence of the horizontal pattern through
+        depth.
+    row_correlations:
+        Correlation calculated for each valid pair of depth rows.
     """
     image_window = validate_feature_image(
         image_window
     )
 
-    window_width = image_window.shape[1]
+    image_depth = image_window.shape[0]
 
-    if maximum_lag is None:
-        maximum_lag = max(
-            minimum_lag,
-            window_width // 2,
-        )
-
-    maximum_lag = min(
-        int(maximum_lag),
-        window_width - 1,
-    )
-
-    if minimum_lag <= 0:
+    if depth_lag <= 0:
         raise ValueError(
-            "minimum_lag must be positive."
+            "depth_lag must be positive."
         )
 
-    if maximum_lag < minimum_lag:
+    if depth_lag >= image_depth:
         raise ValueError(
-            "maximum_lag must be greater than or equal "
-            "to minimum_lag."
+            "depth_lag must be smaller than the image-window depth."
         )
 
-    column_signal = image_window.mean(
-        axis=0
-    ).astype(np.float64)
-
-    centered_signal = (
-        column_signal
-        - column_signal.mean()
-    )
-
-    signal_variance = float(
-        np.mean(
-            centered_signal
-            * centered_signal
-        )
-    )
-
-    lags = np.arange(
-        minimum_lag,
-        maximum_lag + 1,
-        dtype=np.int32,
-    )
-
-    if signal_variance <= epsilon:
-        correlations = np.zeros(
-            lags.size,
-            dtype=np.float32,
+    if minimum_row_standard_deviation < 0:
+        raise ValueError(
+            "minimum_row_standard_deviation must be nonnegative."
         )
 
-        return (
-            0.0,
-            int(lags[0]),
-            correlations,
+    if epsilon <= 0:
+        raise ValueError(
+            "epsilon must be positive."
         )
 
-    correlations = []
+    summary = summary.lower()
 
-    for lag in lags:
-        left = centered_signal[
-            :-lag
-        ]
+    valid_summaries = {
+        "mean",
+        "median",
+        "percentile",
+    }
 
-        right = centered_signal[
-            lag:
-        ]
+    if summary not in valid_summaries:
+        raise ValueError(
+            "continuity summary must be one of "
+            f"{sorted(valid_summaries)}."
+        )
+
+    row_correlations: list[float] = []
+
+    for first_row_index in range(
+        image_depth - depth_lag
+    ):
+        second_row_index = (
+            first_row_index
+            + depth_lag
+        )
+
+        first_row = np.asarray(
+            image_window[
+                first_row_index,
+                :,
+            ],
+            dtype=np.float64,
+        )
+
+        second_row = np.asarray(
+            image_window[
+                second_row_index,
+                :,
+            ],
+            dtype=np.float64,
+        )
+
+        first_centered = (
+            first_row
+            - first_row.mean()
+        )
+
+        second_centered = (
+            second_row
+            - second_row.mean()
+        )
+
+        first_standard_deviation = float(
+            first_centered.std()
+        )
+
+        second_standard_deviation = float(
+            second_centered.std()
+        )
+
+        if (
+            first_standard_deviation
+            < minimum_row_standard_deviation
+            or second_standard_deviation
+            < minimum_row_standard_deviation
+        ):
+            continue
 
         denominator = (
             np.sqrt(
                 np.sum(
-                    left * left
+                    first_centered
+                    * first_centered
                 )
                 * np.sum(
-                    right * right
+                    second_centered
+                    * second_centered
                 )
             )
             + epsilon
@@ -930,49 +971,54 @@ def compute_periodicity_feature(
 
         correlation = float(
             np.sum(
-                left * right
+                first_centered
+                * second_centered
             )
             / denominator
         )
 
-        correlations.append(
+        row_correlations.append(
             correlation
         )
 
+    if not row_correlations:
+        return (
+            0.0,
+            np.empty(
+                0,
+                dtype=np.float32,
+            ),
+        )
+
     correlations_array = np.asarray(
-        correlations,
+        row_correlations,
         dtype=np.float32,
     )
 
-    ranking_values = (
-        np.abs(
-            correlations_array
+    if summary == "mean":
+        continuity_score = float(
+            np.mean(
+                correlations_array
+            )
         )
-        if use_absolute_correlation
-        else correlations_array
-    )
 
-    best_index = int(
-        np.argmax(
-            ranking_values
+    elif summary == "median":
+        continuity_score = float(
+            np.median(
+                correlations_array
+            )
         )
-    )
 
-    best_score = float(
-        ranking_values[
-            best_index
-        ]
-    )
-
-    best_lag = int(
-        lags[
-            best_index
-        ]
-    )
+    else:
+        continuity_score = float(
+            np.percentile(
+                correlations_array,
+                75.0,
+            )
+        )
 
     return (
-        best_score,
-        best_lag,
+        continuity_score,
         correlations_array,
     )
 
@@ -1304,9 +1350,9 @@ def extract_feature_signals(
     persistence_minimum_verticality: float = 0.0,
     persistence_method: str = "longest_run",
     persistence_summary: str = "mean",
-    periodicity_minimum_lag: int = 2,
-    periodicity_maximum_lag: int | None = None,
-    periodicity_use_absolute_correlation: bool = False,
+    continuity_depth_lag: int = 1,
+    continuity_summary: str = "mean",
+    continuity_minimum_row_standard_deviation: float = 1e-6,
     amplitude_statistic: str = "mean",
     amplitude_percentile: float = 90.0,
     heterogeneity_method: str = "column_std",
@@ -1411,7 +1457,6 @@ def extract_feature_signals(
         for feature_name in FEATURE_NAMES
     }
 
-    periodicity_best_lags: list[int] = []
 
     for center_x in x_positions:
         image_window = extract_window(
@@ -1458,19 +1503,18 @@ def extract_feature_signals(
         )
 
         (
-            periodicity_value,
-            best_lag,
+            continuity_value,
             _,
-        ) = compute_periodicity_feature(
+        ) = compute_continuity_feature(
             image_window,
-            minimum_lag=(
-                periodicity_minimum_lag
+            depth_lag=(
+                continuity_depth_lag
             ),
-            maximum_lag=(
-                periodicity_maximum_lag
+            summary=(
+                continuity_summary
             ),
-            use_absolute_correlation=(
-                periodicity_use_absolute_correlation
+            minimum_row_standard_deviation=(
+                continuity_minimum_row_standard_deviation
             ),
         )
 
@@ -1508,9 +1552,9 @@ def extract_feature_signals(
         )
 
         feature_storage[
-            "periodicity"
+            "continuity"
         ].append(
-            periodicity_value
+            continuity_value
         )
 
         feature_storage[
@@ -1525,9 +1569,7 @@ def extract_feature_signals(
             heterogeneity_value
         )
 
-        periodicity_best_lags.append(
-            best_lag
-        )
+        
 
     raw_features = {
         feature_name: np.asarray(
@@ -1616,25 +1658,20 @@ def extract_feature_signals(
                 persistence_signal.mean()
             ),
         },
-        "periodicity": {
-            "minimum_lag": int(
-                periodicity_minimum_lag
+        "continuity": {
+            "definition": (
+                "correlation_between_horizontal_patterns_"
+                "at_separated_depth_rows"
             ),
-            "maximum_lag": (
-                int(
-                    periodicity_maximum_lag
-                )
-                if periodicity_maximum_lag
-                is not None
-                else None
+            "depth_lag": int(
+                continuity_depth_lag
             ),
-            "use_absolute_correlation": bool(
-                periodicity_use_absolute_correlation
+            "summary": (
+                continuity_summary.lower()
             ),
-            "best_lags": [
-                int(value)
-                for value in periodicity_best_lags
-            ],
+            "minimum_row_standard_deviation": float(
+                continuity_minimum_row_standard_deviation
+            ),
         },
         "amplitude": {
             "statistic": (
