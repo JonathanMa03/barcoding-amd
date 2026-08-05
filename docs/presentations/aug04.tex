@@ -1,0 +1,862 @@
+\documentclass[aspectratio=169]{beamer}
+
+% --------------------------------------------------
+% Theme and appearance
+% --------------------------------------------------
+
+\usetheme{Madrid}
+\usecolortheme{default}
+
+\setbeamertemplate{navigation symbols}{}
+\setbeamertemplate{caption}[numbered]
+
+% --------------------------------------------------
+% Packages
+% --------------------------------------------------
+
+\usepackage[T1]{fontenc}
+\usepackage{lmodern}
+\usepackage{amsmath}
+\usepackage{amssymb}
+\usepackage{booktabs}
+\usepackage{array}
+\usepackage{graphicx}
+\usepackage{multicol}
+\usepackage{xcolor}
+
+% --------------------------------------------------
+% Title information
+% --------------------------------------------------
+
+\title{Barcoding Score Test}
+\subtitle{An Interpretable Sliding-Window Detection Concept}
+\author{Jonathan Ma}
+\institute{Johns Hopkins University}
+\date{\today}
+
+% --------------------------------------------------
+% Helpful commands
+% --------------------------------------------------
+
+\newcommand{\feature}[1]{\textbf{#1}}
+\newcommand{\code}[1]{\texttt{#1}}
+
+\begin{document}
+
+% ==================================================
+% Title
+% ==================================================
+
+\begin{frame}
+    \titlepage
+\end{frame}
+
+% ==================================================
+% Overview
+% ==================================================
+
+\begin{frame}{Barcoding Score Test}
+
+\textbf{Objective}
+Develop an interpretable, classical image-analysis detector that assigns a
+continuous barcoding score to each horizontal position of a processed OCT
+B-scan.
+\vspace{0.4cm}
+
+\textbf{General workflow}
+\[
+\text{E2E volume}
+\rightarrow
+\text{Preprocess \& Denoise}
+\rightarrow
+\text{Feature Engineering}
+\rightarrow
+\text{Barcoding Score}
+\]
+
+\vspace{0.4cm}
+
+The initial detector evaluates two forms of evidence:
+
+\begin{itemize}
+    \item \textbf{Structural evidence}: vertical organization and repeated
+    spatial texture.
+    \item \textbf{Hypertransmission evidence}: brightness and persistence
+    through depth.
+\end{itemize}
+
+\vspace{0.2cm}
+
+This first run is intended as a proof of concept. No final clinical threshold,
+feature weights, or parameter values have yet been tuned.
+
+\end{frame}
+
+% ==================================================
+% Preprocessing
+% ==================================================
+
+\section{Preprocessing}
+
+\begin{frame}{Preprocessing Pipeline}
+
+For each selected E2E volume:
+
+\begin{enumerate}
+    \item Load, then Select the center B-scan using
+    \[
+    i_{\mathrm{center}}
+    =
+    \left\lfloor
+    \frac{N_{\mathrm{B\text{-}scans}}}{2}
+    \right\rfloor.
+    \]
+    \item Retrieve the BM boundary and interpolate missing boundary coordinates.
+    \item Flatten the image so BM lies on one horizontal reference row.
+    \item Crop a fixed region extending 150 pixels below BM.
+    \item Apply whole-ROI z-score normalization.
+    \item Apply mild anisotropic Gaussian denoising.
+\end{enumerate}
+
+\vspace{0.2cm}
+
+The resulting detector input has approximate dimensions $150(h) \times 512(w)$
+
+\end{frame}
+
+\begin{frame}{Whole-ROI Z-Score Normalization}
+
+After flattening, the entire  sub-BM region is normalized using
+\[
+Z(z,x)
+=
+\frac{
+I_{\mathrm{ROI}}(z,x)-\mu_{\mathrm{ROI}}
+}{
+\sigma_{\mathrm{ROI}}+\varepsilon
+},
+\]
+where: \(I_{\mathrm{ROI}}(z,x)\) is the intensity and \(\varepsilon=10^{-8}\) prevents division by zero.
+
+\vspace{0.3cm}
+
+For the first test scan:
+
+\[
+\mu_{\mathrm{ROI}} \approx 60.98,
+\qquad
+\sigma_{\mathrm{ROI}} \approx 44.73.
+\]
+
+\vspace{0.3cm}
+
+Normalization is performed once over the whole ROI; the sliding-window features
+do not renormalize each window.
+
+\end{frame}
+
+\begin{frame}{Gaussian (Pseeudo-ImageJ) Denoising }
+
+A two-dimensional anisotropic Gaussian filter is applied after normalization:
+
+\[
+I_{\sigma_z,\sigma_x}
+=
+G_{\sigma_z,\sigma_x}
+*
+Z,
+\]
+
+where:
+
+\begin{itemize}
+    \item \(G_{\sigma_z,\sigma_x}\) is a Gaussian smoothing kernel,
+    \item \(*\) denotes convolution,
+    \item \(\sigma_z\) controls smoothing along depth, 1.0 first used
+    \item \(\sigma_x\) controls smoothing horizontally, 0.5 first used
+\end{itemize}
+
+\vspace{0.3cm}
+
+\textbf{Reason for asymmetric smoothing}
+
+\begin{itemize}
+    \item More smoothing is applied through depth to reduce OCT speckle.
+    \item Less horizontal smoothing is applied to avoid erasing narrow
+    vertical stripe boundaries.
+    \item The observed denoising effect was intentionally subtle rather than
+    strongly blurring the scan.
+\end{itemize}
+
+\end{frame}
+
+\begin{frame}{Preprocessing Visualization}
+
+\begin{center}
+\textbf{preprocess\_bscan(volume, index, config)}
+\end{center}
+
+\end{frame}
+
+\begin{frame}{Sliding-Window Configuration}
+
+The detector uses overlapping vertical windows that span the complete
+150-pixel depth.
+
+For a window centered at horizontal position \(x\),
+\[
+W_x
+=
+I
+\left[
+0:149,\,
+x-r:x+r
+\right],
+\]
+where the initial window radius is r=10. Therefore,
+
+\[
+\text{window width}=2r+1=21 \text{ pixels}.
+\]
+
+\vspace{0.3cm}
+
+The initial stride is a single pixel, so the windows are:
+\[
+(0,\ldots,20),
+\quad
+(1,\ldots,21),
+\quad
+(2,\ldots,22),
+\quad \ldots
+\]
+
+Each window produces one feature vector assigned to its center position.
+Reflection padding is used at the horizontal image boundaries. The first and
+last 10 score positions are later excluded from detection to reduce edge
+artifacts.
+
+\end{frame}
+
+% ==================================================
+% Structural features
+% ==================================================
+
+\section{Structural Feature Building}
+
+\begin{frame}{Structural Feature 1: Verticality}
+
+Verticality is calculated using a \textbf{structure tensor}, which summarizes
+the direction of local image-intensity changes.
+
+Let
+\[
+I_x=\frac{\partial I}{\partial x},
+\qquad
+I_z=\frac{\partial I}{\partial z},
+\]
+where:
+\begin{itemize}
+    \item \(I_x\) measures horizontal brightness change,
+    \item \(I_z\) measures brightness change through depth.
+\end{itemize}
+The local structure tensor is
+\[
+J
+=
+\begin{bmatrix}
+\langle I_x^2\rangle & \langle I_xI_z\rangle \\
+\langle I_xI_z\rangle & \langle I_z^2\rangle
+\end{bmatrix}.
+\]
+
+Its eigenvalues satisfy $\lambda_1\geq \lambda_2\geq 0$. We calculate an anisotropy score as
+\[
+A
+=
+\frac{
+\lambda_1-\lambda_2
+}{
+\lambda_1+\lambda_2+\varepsilon
+}.
+\]
+\end{frame}
+
+\begin{frame}{Verticality: Interpretation}
+
+The anisotropy score describes how strongly the local texture prefers one
+direction, with greater values indicating strong orientation
+A vertical line usually produces strong horizontal intensity changes.
+Therefore, the verticality map combines:
+
+\begin{itemize}
+    \item the strength of directional organization;
+    \item agreement with the orientation expected from a vertical structure.
+\end{itemize}
+
+The window-level verticality score is the mean verticality across all pixels in
+the local 150-by-21 window.
+
+\vspace{0.3cm}
+
+\textbf{Observed first-run behavior}
+
+\begin{itemize}
+    \item Verticality rose around visibly prominent vertical transmission
+    columns.
+    \item It was one of the strongest and most spatially interpretable
+    features.
+    \item Strong edge responses were also observed, motivating edge exclusion.
+\end{itemize}
+
+\end{frame}
+
+\begin{frame}{Structural Feature 2: Depth Continuity}
+
+Depth continuity measures whether the horizontal bright--dark pattern remains
+aligned as the image is traversed downward.
+
+For each pair of neighboring depth rows, the detector calculates their
+horizontal correlation:
+\[
+C_z
+=
+\operatorname{corr}
+\left(
+I(z,:),
+I(z+1,:)
+\right).
+\]
+The window continuity score is the mean of the valid row-pair correlations:
+\[
+C(x)
+=
+\frac{1}{N_{\mathrm{valid}}}
+\sum_z C_z.
+\]
+\vspace{0.3cm}
+
+Here:
+\begin{itemize}
+    \item \(I(z,:)\) is the horizontal intensity pattern at depth row \(z\),
+    \item \(I(z+1,:)\) is the pattern one row deeper,
+\end{itemize}
+The initial depth lag is a single row.
+\end{frame}
+
+\begin{frame}{Depth Continuity: Interpretation}
+
+A barcode-like region contains vertical structures, so bright and dark
+horizontal positions should remain similar across successive depth rows.
+
+\vspace{0.3cm}
+
+\textbf{Interpretation}
+
+\begin{itemize}
+    \item High continuity: the same column pattern persists through depth.
+    \item Low continuity: local brightness patterns change substantially
+    between depth rows.
+    \item Negative continuity: horizontal patterns tend to reverse.
+\end{itemize}
+
+\vspace{0.3cm}
+
+\textbf{Observed first-run behavior}
+
+\begin{itemize}
+    \item Continuity aligned well with visually prominent vertical regions.
+    \item It was substantially more stable than the initially tested
+    periodicity feature.
+    \item It was strongly correlated with verticality: (r=0.917)
+    \item It was also strongly correlated with heterogeneity: (r=0.920)
+\end{itemize}
+
+These correlations motivated the grouped scoring formulation presented later.
+
+\end{frame}
+
+\begin{frame}{Structural Feature 3: Spatial Heterogeneity}
+
+Spatial heterogeneity measures how much the local horizontal column intensity
+varies inside a window.
+First, each column is summarized across depth:
+\[
+c(u)
+=
+\frac{1}{D}
+\sum_{z=0}^{D-1}
+I(z,u),
+\]
+where:
+\begin{itemize}
+    \item \(u\) is a horizontal column inside the local window,
+    \item \(D=150\) is the ROI depth,
+    \item \(c(u)\) is the average intensity of that column.
+\end{itemize}
+The initial heterogeneity measure utilizes the standard deviation across the 21 column means.
+\end{frame}
+
+\begin{frame}{Spatial Heterogeneity: Interpretation}
+
+\textbf{Interpretation}
+
+\begin{itemize}
+    \item Low heterogeneity: neighboring columns have similar average
+    intensity.
+    \item High heterogeneity: the window contains alternating brighter and
+    darker columns or abrupt spatial changes.
+\end{itemize}
+
+This may help distinguish:
+
+\begin{itemize}
+    \item broad, relatively smooth hypertransmission;
+    \item repeated or irregular vertical stripe structures.
+\end{itemize}
+
+\vspace{0.3cm}
+
+\textbf{Observed first-run behavior}
+
+Heterogeneity correlated highly with verticality (0.877) and continuity (0.920) so these three features are treated as related measurements of
+\textbf{structural organization}, not as fully independent evidence.
+
+\end{frame}
+
+% ==================================================
+% Hypertransmission features
+% ==================================================
+
+\section{Hypertransmission Feature Building}
+
+\begin{frame}{Hypertransmission Feature 1: Depth Persistence}
+
+Depth persistence measures how far candidate bright and vertically organized
+signal extends through the 150-pixel ROI.
+
+A candidate pixel is defined (loosely) using:
+
+\begin{itemize}
+    \item an intensity threshold at the 75th percentile of the processed scan;
+    \item a minimum verticality requirement of 0.20.
+\end{itemize}
+
+For each column \(u\), define a binary candidate signal whose longest-run persistence is
+
+\[
+P(u)
+=
+\frac{
+L_{\max}(u)
+}{
+D
+},
+\]
+
+where:
+
+\begin{itemize}
+    \item \(L_{\max}(u)\) is the longest uninterrupted candidate run,
+    \item \(D=150\) is the full ROI depth.
+\end{itemize}
+
+The sliding-window persistence score is the mean across the 21 columns.
+
+\end{frame}
+
+\begin{frame}{Depth Persistence: Interpretation}
+
+\textbf{Interpretation}
+
+\begin{itemize}
+    \item \(P(u)\approx 0\): little bright, vertical signal persists through
+    depth.
+    \item Larger \(P(u)\): a longer continuous candidate signal is present.
+    \item \(P(u)\approx 1\): candidate signal extends through nearly the entire
+    ROI depth.
+\end{itemize}
+
+\vspace{0.3cm}
+
+Persistence is intended to distinguish:
+
+\begin{itemize}
+    \item isolated bright pixels or shallow structures;
+    \item sustained hypertransmission columns.
+\end{itemize}
+
+\vspace{0.3cm}
+
+\textbf{Observed first-run behavior}
+
+\begin{itemize}
+    \item Persistence increased near the strongest visible transmission
+    regions.
+    \item It was strongly related to amplitude:
+    \[
+    r_{\mathrm{persistence,amplitude}}
+    =
+    0.823.
+    \]
+\end{itemize}
+
+For this reason, persistence and amplitude form the
+\textbf{hypertransmission feature group}.
+
+\end{frame}
+
+\begin{frame}{Hypertransmission Feature 2: Amplitude}
+
+Amplitude measures the average normalized intensity within each 150-by-21
+window:
+
+\[
+M(x)
+=
+\frac{1}{|W_x|}
+\sum_{(z,u)\in W_x}
+I(z,u).
+\]
+
+Here:
+
+\begin{itemize}
+    \item \(W_x\) is the window centered at horizontal position \(x\),
+    \item \(|W_x|\) is the number of pixels in the window,
+    \item \(I(z,u)\) is the normalized and denoised intensity.
+\end{itemize}
+
+\vspace{0.3cm}
+
+\textbf{Interpretation}
+
+\begin{itemize}
+    \item Higher amplitude indicates a brighter local sub-BM region.
+    \item This is consistent with stronger hypertransmission.
+    \item Amplitude alone is not sufficient for barcoding because EA may also
+    appear broadly bright.
+\end{itemize}
+
+Therefore, amplitude is combined with structural features rather than used as
+a standalone classifier.
+
+\end{frame}
+
+% ==================================================
+% Score construction
+% ==================================================
+
+\section{Barcoding Score Construction}
+
+\begin{frame}{Robust Feature Standardization}
+
+The raw feature signals have different numerical scales. Before weighting,
+each feature is robustly standardized across the scan:
+\[
+\widetilde F_j(x)
+=
+\frac{
+F_j(x)-\operatorname{median}(F_j)
+}{
+\operatorname{IQR}(F_j)+\varepsilon
+}.
+\]
+Here:
+\begin{itemize}
+    \item \(F_j(x)\) is feature \(j\) at position \(x\),
+    \item \(\operatorname{median}(F_j)\) is the median across the scan,
+    \item \(\operatorname{IQR}(F_j)\) is the 75th percentile minus the 25th
+    percentile,
+    \item \(\varepsilon=10^{-8}\) prevents division by zero.
+\end{itemize}
+The standardized values are clipped to [-5,5] to limit the influence of extreme outliers.
+
+\vspace{0.3cm}
+
+This standardization makes the component magnitudes comparable before
+constructing the weighted score.
+
+\end{frame}
+
+\begin{frame}{Individual Versus Grouped Scoring}
+
+Two scoring modes were implemented.
+
+\vspace{0.2cm}
+
+\textbf{Individual scoring}
+
+\[
+S_{\mathrm{individual}}(x)
+=
+\sum_{j=1}^{5}
+w_j\widetilde F_j(x).
+\]
+
+Each of the five features receives its own direct weight.
+
+\vspace{0.3cm}
+
+\textbf{Grouped scoring}
+
+Highly correlated features are first combined into two interpretable groups:
+\[
+S_{\mathrm{structural}}(x)
+=
+w_V\widetilde V(x)
++
+w_C\widetilde C(x)
++
+w_H\widetilde H(x),
+\]
+\[
+S_{\mathrm{hyperTD}}(x)
+=
+w_P\widetilde P(x)
++
+w_A\widetilde A(x).
+\]
+The final score is
+\[
+S(x)
+=
+w_S S_{\mathrm{structural}}(x)
++
+w_T S_{\mathrm{hyperTD}}(x).
+\]
+The grouped mode was selected as the initial default.
+
+\end{frame}
+
+\begin{frame}{Initial Individual Feature Weights}
+
+For the direct five-feature score, the initial proof-of-concept weights are:
+
+\begin{table}
+\centering
+\begin{tabular}{lc}
+\toprule
+Feature & Weight \\
+\midrule
+Verticality & 0.25 \\
+Persistence & 0.25 \\
+Continuity & 0.15 \\
+Amplitude & 0.20 \\
+Heterogeneity & 0.15 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+These weights sum to one.
+
+\vspace{0.3cm}
+
+They are not learned or clinically validated. They were chosen to:
+
+\begin{itemize}
+    \item give substantial weight to vertical geometry;
+    \item retain strong hypertransmission evidence;
+    \item reduce, but not eliminate, redundant structural contributions.
+\end{itemize}
+
+\end{frame}
+
+\begin{frame}{Initial Grouped Weights}
+
+\textbf{Within the structural group}
+\[
+S_{\mathrm{structural}}
+=
+0.45\widetilde V
++
+0.275\widetilde C
++
+0.275\widetilde H.
+\]
+\textbf{Within the hypertransmission group}
+\[
+S_{\mathrm{hyperTD}}
+=
+0.55\widetilde P
++
+0.45\widetilde A.
+\]
+\textbf{Final group combination}
+\[
+S
+=
+0.55S_{\mathrm{structural}}
++
+0.45S_{\mathrm{hyperTD}}.
+\]
+
+\vspace{0.3cm}
+
+This design reflects the first-scan correlation results:
+
+\begin{itemize}
+    \item verticality, continuity, and heterogeneity formed one highly
+    correlated structural cluster;
+    \item persistence and amplitude formed a second hypertransmission cluster.
+\end{itemize}
+
+Grouping reduces the risk of counting closely related structural evidence
+three separate times.
+
+\end{frame}
+
+\begin{frame}{Initial Threshold and Spatial Cleanup}
+
+A position is initially marked as barcode-positive when
+
+\[
+S(x) > \tau.
+\]
+
+The initial proof-of-concept threshold is $\tau=0.0$. This threshold is provisional and has not yet been selected using manual
+annotations.
+
+\vspace{0.3cm}
+
+The raw one-dimensional mask is then cleaned using a minimum positive run of 8 positions and maximum gap of 4 positions, along with clipping the first 10 and last 10 positions to account for scanner error
+
+
+The cleanup order is:
+
+\[
+\text{fill short gaps}
+\rightarrow
+\text{remove short positive runs}.
+\]
+
+The final cleaned runs are converted into contiguous horizontal detection
+intervals.
+
+\end{frame}
+
+\begin{frame}{First-Run Observations}
+
+The first scan showed encouraging qualitative agreement among multiple
+features.
+
+\vspace{0.2cm}
+
+Around the most visually prominent hypertransmission region, all engineered features increased, though how much each increases in EA over barcoding was not investigated.
+
+\vspace{0.3cm}
+
+The strongest observed feature correlations were:
+\[
+r_{\mathrm{continuity,heterogeneity}}
+=
+0.920,
+\]
+\[
+r_{\mathrm{verticality,continuity}}
+=
+0.917,
+\]
+\[
+r_{\mathrm{verticality,heterogeneity}}
+=
+0.877,
+\]
+\[
+r_{\mathrm{persistence,amplitude}}
+=
+0.823.
+\]
+These results support the grouped score design, but they are based on only one
+scan and should not yet be treated as general conclusions.
+
+\end{frame}
+
+% ==================================================
+% Future work
+% ==================================================
+
+\section{Future Work}
+
+\begin{frame}{Future Work}
+
+\begin{enumerate}
+    \item \textbf{Expand beyond binary barcoding detection}
+    \begin{itemize}
+        \item Characterize Normal, Early Atrophy, Barcoding, and possible
+        vessel-related structures.
+        \item Determine which mathematical features distinguish broad EA from
+        narrow vertical barcode patterns.
+    \end{itemize}
+
+    \item \textbf{Run the pipeline across all available scans}
+    \begin{itemize}
+        \item Process all B-scans within each E2E volume.
+        \item Compare stability across neighboring scans from the same eye.
+        \item Compare center scans and full volumes across subjects.
+    \end{itemize}
+
+    \item \textbf{Validate against manual annotations}
+    \begin{itemize}
+        \item Convert manually labeled intervals into column-level reference
+        labels.
+        \item Evaluate sensitivity, specificity, precision, F1 score, and
+        interval overlap.
+    \end{itemize}
+\end{enumerate}
+
+\end{frame}
+
+\begin{frame}{Future Weight and Threshold Tuning}
+
+After all available scans are processed, the dataset may contain at least 92*96
+scan-level examples, with some volumes containing more than 96 B-scans.
+
+\vspace{0.3cm}
+
+A logistic regression model can then estimate feature weights once more scans have been processed and reliability is assessed.
+
+Training and evaluation must be split by subject or volume rather than by
+individual image column to avoid leakage between highly related observations.
+
+Thresholds can then be selected using validation criteria such as:
+
+\begin{itemize}
+    \item F1 score;
+    \item Youden's index;
+    \item a clinically specified sensitivity target.
+\end{itemize}
+
+\end{frame}
+
+\begin{frame}{Immediate Next Steps}
+
+\begin{enumerate}
+    \item Run the current untuned configuration on additional fast and slow
+    progressor volumes.
+    \item Inspect whether the five feature signals remain interpretable across
+    different scans.
+    \item Compare grouped and individual scores.
+    \item Quantify within-volume consistency across neighboring B-scans.
+    \item Compare automatic intervals with manual Normal, EA, and Barcoding
+    labels.
+    \item Perform sensitivity analysis for:
+    \begin{itemize}
+        \item window width and stride;
+        \item Gaussian smoothing;
+        \item persistence thresholds;
+        \item feature weights;
+        \item score threshold;
+        \item spatial cleanup parameters.
+    \end{itemize}
+\end{enumerate}
+
+\vspace{0.3cm}
+
+\begin{center}
+\textbf{The current results are a proof of concept, not a finalized detector.}
+\end{center}
+
+\end{frame}
+
+\end{document}
