@@ -555,6 +555,632 @@ def compute_structure_tensor_verticality(
 
     return verticality_map, components
 
+def compute_simple_verticality_map(
+    image: np.ndarray,
+    *,
+    smoothing_sigma: float = 1.0,
+    epsilon: float = 1e-8,
+) -> tuple[np.ndarray, dict[str, np.ndarray | float]]:
+    """
+    Compute a simple verticality map using gradient-direction dominance.
+
+    A vertically oriented image structure typically produces a strong
+    horizontal intensity gradient because intensity changes while moving
+    across the structure but changes less while moving along its depth.
+
+    The verticality score is
+
+        verticality =
+            |I_x|
+            / (|I_x| + |I_z| + epsilon)
+
+    where
+
+        I_x
+            Horizontal image gradient.
+
+        I_z
+            Vertical or depth-wise image gradient.
+
+    Values approach one when the horizontal gradient dominates and
+    approach zero when the depth-wise gradient dominates.
+
+    Parameters
+    ----------
+    image:
+        Two-dimensional preprocessed image.
+    smoothing_sigma:
+        Gaussian smoothing applied before gradient calculation. A value
+        of zero disables smoothing.
+    epsilon:
+        Small positive constant used for numerical stability.
+
+    Returns
+    -------
+    verticality_map:
+        Two-dimensional float32 map with values between zero and one.
+    diagnostics:
+        Intermediate smoothed image and gradient arrays.
+    """
+    image = validate_feature_image(
+        image
+    )
+
+    if smoothing_sigma < 0:
+        raise ValueError(
+            "smoothing_sigma must be nonnegative."
+        )
+
+    if epsilon <= 0:
+        raise ValueError(
+            "epsilon must be positive."
+        )
+
+    if smoothing_sigma > 0:
+        smoothed_image = gaussian_filter(
+            image,
+            sigma=float(
+                smoothing_sigma
+            ),
+            mode="reflect",
+        ).astype(np.float32)
+
+    else:
+        smoothed_image = image.copy()
+
+    gradient_z, gradient_x = np.gradient(
+        smoothed_image
+    )
+
+    absolute_gradient_x = np.abs(
+        gradient_x
+    )
+
+    absolute_gradient_z = np.abs(
+        gradient_z
+    )
+
+    verticality_map = (
+        absolute_gradient_x
+        / (
+            absolute_gradient_x
+            + absolute_gradient_z
+            + epsilon
+        )
+    )
+
+    verticality_map = np.clip(
+        verticality_map,
+        0.0,
+        1.0,
+    ).astype(np.float32)
+
+    diagnostics: dict[
+        str,
+        np.ndarray | float,
+    ] = {
+        "smoothed_image": (
+            smoothed_image.astype(
+                np.float32
+            )
+        ),
+        "gradient_x": np.asarray(
+            gradient_x,
+            dtype=np.float32,
+        ),
+        "gradient_z": np.asarray(
+            gradient_z,
+            dtype=np.float32,
+        ),
+        "absolute_gradient_x": np.asarray(
+            absolute_gradient_x,
+            dtype=np.float32,
+        ),
+        "absolute_gradient_z": np.asarray(
+            absolute_gradient_z,
+            dtype=np.float32,
+        ),
+        "smoothing_sigma": float(
+            smoothing_sigma
+        ),
+        "epsilon": float(
+            epsilon
+        ),
+    }
+
+    return (
+        verticality_map,
+        diagnostics,
+    )
+
+def create_structural_mask(
+    verticality_map: np.ndarray,
+    *,
+    verticality_threshold: float = 0.60,
+    gradient_magnitude: np.ndarray | None = None,
+    minimum_gradient_magnitude: float | None = None,
+    minimum_component_size: int = 0,
+) -> tuple[np.ndarray, dict[str, Any]]:
+    """
+    Create a binary mask of strongly vertically organized pixels.
+
+    A pixel is initially classified as structural when
+
+        verticality >= verticality_threshold.
+
+    An optional gradient-magnitude condition can also be imposed:
+
+        gradient_magnitude >= minimum_gradient_magnitude.
+
+    This prevents nearly uniform pixels from being classified as
+    structurally meaningful based only on gradient direction.
+
+    Parameters
+    ----------
+    verticality_map:
+        Two-dimensional verticality map with values between zero and one.
+    verticality_threshold:
+        Minimum verticality required for a structural pixel.
+    gradient_magnitude:
+        Optional two-dimensional gradient-magnitude map.
+    minimum_gradient_magnitude:
+        Optional minimum gradient magnitude. This requires
+        ``gradient_magnitude``.
+    minimum_component_size:
+        Optional minimum connected-component size in pixels. Components
+        smaller than this value are removed. A value of zero disables
+        connected-component cleanup.
+
+    Returns
+    -------
+    structural_mask:
+        Two-dimensional boolean structural-pixel mask.
+    metadata:
+        Threshold settings and mask summaries.
+    """
+    verticality = np.asarray(
+        verticality_map,
+        dtype=np.float32,
+    )
+
+    if verticality.ndim != 2:
+        raise ValueError(
+            "verticality_map must be two-dimensional."
+        )
+
+    if verticality.size == 0:
+        raise ValueError(
+            "verticality_map must not be empty."
+        )
+
+    if not np.isfinite(
+        verticality
+    ).all():
+        raise ValueError(
+            "verticality_map contains non-finite values."
+        )
+
+    if not (
+        0.0
+        <= verticality_threshold
+        <= 1.0
+    ):
+        raise ValueError(
+            "verticality_threshold must lie between 0 and 1."
+        )
+
+    if minimum_component_size < 0:
+        raise ValueError(
+            "minimum_component_size must be nonnegative."
+        )
+
+    structural_mask = (
+        verticality
+        >= float(
+            verticality_threshold
+        )
+    )
+
+    resolved_gradient_threshold = None
+
+    if minimum_gradient_magnitude is not None:
+        if gradient_magnitude is None:
+            raise ValueError(
+                "gradient_magnitude must be supplied when "
+                "minimum_gradient_magnitude is used."
+            )
+
+        gradient_array = np.asarray(
+            gradient_magnitude,
+            dtype=np.float32,
+        )
+
+        if gradient_array.shape != verticality.shape:
+            raise ValueError(
+                "gradient_magnitude must have the same shape as "
+                "verticality_map."
+            )
+
+        if not np.isfinite(
+            gradient_array
+        ).all():
+            raise ValueError(
+                "gradient_magnitude contains non-finite values."
+            )
+
+        if minimum_gradient_magnitude < 0:
+            raise ValueError(
+                "minimum_gradient_magnitude must be nonnegative."
+            )
+
+        resolved_gradient_threshold = float(
+            minimum_gradient_magnitude
+        )
+
+        structural_mask &= (
+            gradient_array
+            >= resolved_gradient_threshold
+        )
+
+    if minimum_component_size > 1:
+        try:
+            from scipy.ndimage import label
+        except ImportError as exc:
+            raise ImportError(
+                "scipy is required for connected-component cleanup."
+            ) from exc
+
+        labeled_mask, number_of_components = label(
+            structural_mask
+        )
+
+        cleaned_mask = np.zeros_like(
+            structural_mask,
+            dtype=bool,
+        )
+
+        retained_components = 0
+
+        for component_id in range(
+            1,
+            number_of_components + 1,
+        ):
+            component = (
+                labeled_mask
+                == component_id
+            )
+
+            component_size = int(
+                component.sum()
+            )
+
+            if (
+                component_size
+                >= minimum_component_size
+            ):
+                cleaned_mask |= component
+                retained_components += 1
+
+        structural_mask = cleaned_mask
+
+    else:
+        number_of_components = None
+        retained_components = None
+
+    structural_mask = structural_mask.astype(
+        bool
+    )
+
+    metadata = {
+        "verticality_threshold": float(
+            verticality_threshold
+        ),
+        "minimum_gradient_magnitude": (
+            resolved_gradient_threshold
+        ),
+        "minimum_component_size": int(
+            minimum_component_size
+        ),
+        "structural_pixel_count": int(
+            structural_mask.sum()
+        ),
+        "total_pixel_count": int(
+            structural_mask.size
+        ),
+        "structural_pixel_fraction": float(
+            structural_mask.mean()
+        ),
+        "number_of_components_before_cleanup": (
+            int(number_of_components)
+            if number_of_components is not None
+            else None
+        ),
+        "number_of_components_retained": (
+            int(retained_components)
+            if retained_components is not None
+            else None
+        ),
+    }
+
+    return (
+        structural_mask,
+        metadata,
+    )
+
+def compute_column_intensity_statistics(
+    image: np.ndarray,
+    *,
+    exclusion_mask: np.ndarray | None = None,
+    upper_quantile: float = 0.90,
+    minimum_valid_pixels: int = 5,
+    empty_column_value: float = np.nan,
+) -> tuple[
+    dict[str, np.ndarray],
+    dict[str, Any],
+]:
+    """
+    Calculate column-level intensity statistics after optional exclusion.
+
+    When an exclusion mask is supplied, pixels marked ``True`` are
+    removed before calculating each column's intensity summaries.
+
+    For each horizontal column, this function calculates:
+
+    - mean intensity;
+    - median intensity;
+    - selected upper quantile;
+    - intensity standard deviation;
+    - number and fraction of valid pixels.
+
+    Parameters
+    ----------
+    image:
+        Two-dimensional normalized or denoised image.
+    exclusion_mask:
+        Optional boolean mask with the same shape as ``image``. Pixels
+        marked ``True`` are excluded. This will typically be the
+        structural-pixel mask.
+    upper_quantile:
+        Quantile calculated for each column. The default of 0.90 returns
+        the 90th percentile.
+    minimum_valid_pixels:
+        Minimum number of retained pixels required to summarize a
+        column.
+    empty_column_value:
+        Value assigned to statistics for columns containing fewer than
+        ``minimum_valid_pixels`` retained pixels.
+
+    Returns
+    -------
+    statistics:
+        Dictionary containing one-dimensional arrays:
+
+        ``mean``
+            Mean retained intensity for each column.
+
+        ``median``
+            Median retained intensity for each column.
+
+        ``upper_quantile``
+            Requested retained-intensity quantile for each column.
+
+        ``standard_deviation``
+            Standard deviation of retained intensities.
+
+        ``valid_pixel_count``
+            Number of retained pixels per column.
+
+        ``valid_pixel_fraction``
+            Fraction of depth pixels retained per column.
+
+    metadata:
+        Image dimensions, exclusion summaries, and quantile settings.
+    """
+    image_array = validate_feature_image(
+        image
+    )
+
+    image_depth, image_width = (
+        image_array.shape
+    )
+
+    if not (
+        0.0
+        <= upper_quantile
+        <= 1.0
+    ):
+        raise ValueError(
+            "upper_quantile must lie between 0 and 1."
+        )
+
+    if minimum_valid_pixels <= 0:
+        raise ValueError(
+            "minimum_valid_pixels must be positive."
+        )
+
+    if exclusion_mask is None:
+        excluded = np.zeros_like(
+            image_array,
+            dtype=bool,
+        )
+
+    else:
+        excluded = np.asarray(
+            exclusion_mask,
+            dtype=bool,
+        )
+
+        if excluded.shape != image_array.shape:
+            raise ValueError(
+                "exclusion_mask must have the same shape as image."
+            )
+
+    column_mean = np.full(
+        image_width,
+        empty_column_value,
+        dtype=np.float32,
+    )
+
+    column_median = np.full(
+        image_width,
+        empty_column_value,
+        dtype=np.float32,
+    )
+
+    column_upper_quantile = np.full(
+        image_width,
+        empty_column_value,
+        dtype=np.float32,
+    )
+
+    column_standard_deviation = np.full(
+        image_width,
+        empty_column_value,
+        dtype=np.float32,
+    )
+
+    valid_pixel_count = np.zeros(
+        image_width,
+        dtype=np.int32,
+    )
+
+    for column_index in range(
+        image_width
+    ):
+        valid_mask = ~excluded[
+            :,
+            column_index,
+        ]
+
+        valid_values = image_array[
+            valid_mask,
+            column_index,
+        ]
+
+        valid_pixel_count[
+            column_index
+        ] = int(
+            valid_values.size
+        )
+
+        if (
+            valid_values.size
+            < minimum_valid_pixels
+        ):
+            continue
+
+        column_mean[
+            column_index
+        ] = float(
+            np.mean(
+                valid_values
+            )
+        )
+
+        column_median[
+            column_index
+        ] = float(
+            np.median(
+                valid_values
+            )
+        )
+
+        column_upper_quantile[
+            column_index
+        ] = float(
+            np.quantile(
+                valid_values,
+                upper_quantile,
+            )
+        )
+
+        column_standard_deviation[
+            column_index
+        ] = float(
+            np.std(
+                valid_values
+            )
+        )
+
+    valid_pixel_fraction = (
+        valid_pixel_count.astype(
+            np.float32
+        )
+        / float(
+            image_depth
+        )
+    )
+
+    statistics = {
+        "mean": column_mean,
+        "median": column_median,
+        "upper_quantile": (
+            column_upper_quantile
+        ),
+        "standard_deviation": (
+            column_standard_deviation
+        ),
+        "valid_pixel_count": (
+            valid_pixel_count
+        ),
+        "valid_pixel_fraction": (
+            valid_pixel_fraction
+        ),
+    }
+
+    columns_with_sufficient_data = (
+        valid_pixel_count
+        >= minimum_valid_pixels
+    )
+
+    metadata = {
+        "image_shape": tuple(
+            image_array.shape
+        ),
+        "image_depth": int(
+            image_depth
+        ),
+        "image_width": int(
+            image_width
+        ),
+        "exclusion_applied": bool(
+            exclusion_mask is not None
+        ),
+        "excluded_pixel_count": int(
+            excluded.sum()
+        ),
+        "excluded_pixel_fraction": float(
+            excluded.mean()
+        ),
+        "upper_quantile": float(
+            upper_quantile
+        ),
+        "upper_percentile": float(
+            100.0
+            * upper_quantile
+        ),
+        "minimum_valid_pixels": int(
+            minimum_valid_pixels
+        ),
+        "columns_with_sufficient_data": int(
+            columns_with_sufficient_data.sum()
+        ),
+        "columns_with_insufficient_data": int(
+            (
+                ~columns_with_sufficient_data
+            ).sum()
+        ),
+        "empty_column_value": float(
+            empty_column_value
+        ),
+    }
+
+    return (
+        statistics,
+        metadata,
+    )
+
+
 
 def longest_true_run(
     values: np.ndarray,
