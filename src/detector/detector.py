@@ -728,25 +728,131 @@ def compute_grouped_score(
 def threshold_score(
     score: np.ndarray,
     threshold: float,
+    *,
+    structural_score: np.ndarray | None = None,
+    structural_threshold: float | None = None,
+    hypertransmission_score: np.ndarray | None = None,
+    hypertransmission_threshold: float | None = None,
 ) -> np.ndarray:
     """
-    Convert a continuous score into a boolean candidate mask.
+    Convert a continuous barcode score into a boolean candidate mask.
+
+    The combined score threshold is always applied:
+
+        score > threshold
+
+    Optional group-level gates may also be applied:
+
+        structural_score > structural_threshold
+
+        hypertransmission_score > hypertransmission_threshold
+
+    When both gates are supplied, a position must satisfy all three
+    requirements to be marked as a raw candidate.
+
+    Parameters
+    ----------
+    score:
+        Final combined barcode score.
+    threshold:
+        Minimum required combined score.
+    structural_score:
+        Optional structural group score.
+    structural_threshold:
+        Optional minimum structural score.
+    hypertransmission_score:
+        Optional hypertransmission group score.
+    hypertransmission_threshold:
+        Optional minimum hypertransmission score.
+
+    Returns
+    -------
+    np.ndarray
+        Boolean raw detection mask.
     """
     score = _validate_one_dimensional_signal(
         score,
         name="score",
     )
 
-    if not np.isfinite(
-        threshold
-    ):
+    if not np.isfinite(threshold):
         raise ValueError(
             "threshold must be finite."
         )
 
-    return (
+    raw_mask = (
         score > float(threshold)
     )
+
+    if structural_threshold is not None:
+        if structural_score is None:
+            raise ValueError(
+                "structural_score must be supplied when "
+                "structural_threshold is used."
+            )
+
+        if not np.isfinite(
+            structural_threshold
+        ):
+            raise ValueError(
+                "structural_threshold must be finite."
+            )
+
+        validated_structural_score = (
+            _validate_one_dimensional_signal(
+                structural_score,
+                name="structural_score",
+                expected_length=score.size,
+            )
+        )
+
+        raw_mask &= (
+            validated_structural_score
+            > float(structural_threshold)
+        )
+
+    elif structural_score is not None:
+        raise ValueError(
+            "structural_threshold must be supplied when "
+            "structural_score is supplied."
+        )
+
+    if hypertransmission_threshold is not None:
+        if hypertransmission_score is None:
+            raise ValueError(
+                "hypertransmission_score must be supplied when "
+                "hypertransmission_threshold is used."
+            )
+
+        if not np.isfinite(
+            hypertransmission_threshold
+        ):
+            raise ValueError(
+                "hypertransmission_threshold must be finite."
+            )
+
+        validated_hypertransmission_score = (
+            _validate_one_dimensional_signal(
+                hypertransmission_score,
+                name="hypertransmission_score",
+                expected_length=score.size,
+            )
+        )
+
+        raw_mask &= (
+            validated_hypertransmission_score
+            > float(
+                hypertransmission_threshold
+            )
+        )
+
+    elif hypertransmission_score is not None:
+        raise ValueError(
+            "hypertransmission_threshold must be supplied when "
+            "hypertransmission_score is supplied."
+        )
+
+    return raw_mask.astype(bool)
 
 
 def _find_boolean_runs(
@@ -1117,6 +1223,8 @@ def detect_barcoding(
     *,
     scoring_mode: str = "grouped",
     threshold: float = 1.0,
+    structural_threshold: float | None = None,
+    hypertransmission_threshold: float | None = None,
     feature_weights: Mapping[
         str,
         float,
@@ -1160,6 +1268,15 @@ def detect_barcoding(
     threshold:
         Barcode-score threshold. Positions satisfying
         ``score > threshold`` are initially marked positive.
+    structural_threshold:
+        Optional minimum structural group score. When supplied in grouped
+        mode, a position must exceed this value in addition to the
+        combined threshold.
+
+    hypertransmission_threshold:
+        Optional minimum hypertransmission group score. When supplied in
+        grouped mode, a position must exceed this value in addition to
+        the combined threshold.
     feature_weights:
         Individual feature weights used only when
         ``scoring_mode="individual"``.
@@ -1184,11 +1301,17 @@ def detect_barcoding(
         half-window edge region.
     cleanup_order:
         Either ``"fill_then_remove"`` or ``"remove_then_fill"``.
+    Notes
+    -----
+    Group thresholds are available only when ``scoring_mode="grouped"``.
+    They prevent one feature group from compensating completely for weak
+    evidence in the other group.
 
     Returns
     -------
     DetectionResult
         Score, masks, intervals, contributions, and metadata.
+
     """
     (
         x_positions,
@@ -1200,6 +1323,20 @@ def detect_barcoding(
     scoring_mode = (
         scoring_mode.lower()
     )
+    group_thresholding_requested = (
+        structural_threshold is not None
+        or hypertransmission_threshold is not None
+    )
+
+    if (
+        scoring_mode == "individual"
+        and group_thresholding_requested
+    ):
+        raise ValueError(
+            "structural_threshold and "
+            "hypertransmission_threshold may only be used when "
+            "scoring_mode='grouped'."
+        )
 
     if scoring_mode == "individual":
         (
@@ -1254,9 +1391,38 @@ def detect_barcoding(
             "'individual' or 'grouped'."
         )
 
+    if scoring_mode == "grouped":
+        structural_score_for_gate = (
+            group_scores["structural"]
+            if structural_threshold is not None
+            else None
+        )
+
+        hypertransmission_score_for_gate = (
+            group_scores["hypertransmission"]
+            if hypertransmission_threshold is not None
+            else None
+        )
+
+    else:
+        structural_score_for_gate = None
+        hypertransmission_score_for_gate = None
+
     raw_mask = threshold_score(
         score=score,
         threshold=threshold,
+        structural_score=(
+            structural_score_for_gate
+        ),
+        structural_threshold=(
+            structural_threshold
+        ),
+        hypertransmission_score=(
+            hypertransmission_score_for_gate
+        ),
+        hypertransmission_threshold=(
+            hypertransmission_threshold
+        ),
     )
 
     cleaned_mask = clean_detection_mask(
@@ -1282,6 +1448,27 @@ def detect_barcoding(
         "threshold": float(
             threshold
         ),
+        "group_thresholding": {
+            "enabled": bool(
+                group_thresholding_requested
+            ),
+            "structural_threshold": (
+                float(
+                    structural_threshold
+                )
+                if structural_threshold
+                is not None
+                else None
+            ),
+            "hypertransmission_threshold": (
+                float(
+                    hypertransmission_threshold
+                )
+                if hypertransmission_threshold
+                is not None
+                else None
+            ),
+        },
         "normalize_weights": bool(
             normalize_weights
         ),
