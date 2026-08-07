@@ -1802,13 +1802,8 @@ def detect_structural_hypertransmission(
         )
 
     resolved_config = dict(
-        STRUCTURAL_HYPERTD_V1_CONFIG
+        config
     )
-
-    if config is not None:
-        resolved_config.update(
-            config
-        )
 
     image_height, image_width = (
         image.shape

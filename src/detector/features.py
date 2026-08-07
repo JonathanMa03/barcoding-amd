@@ -34,7 +34,7 @@ from pathlib import Path
 from typing import Any, Mapping
 
 import numpy as np
-from scipy.ndimage import gaussian_filter
+from scipy.ndimage import gaussian_filter1d
 
 
 FEATURE_NAMES = (
