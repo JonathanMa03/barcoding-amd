@@ -1,27 +1,30 @@
 # features.py
 #
 # Responsibilities:
-# - Accept a preprocessed two-dimensional image.
-# - Construct overlapping horizontal sliding windows.
-# - Support configurable window width, stride, and padding.
-# - Calculate interpretable mathematical feature signals,
-#   including verticality, depth persistence, depth continuity,
-#   amplitude, and spatial heterogeneity.
-# - Standardize feature signals before combination.
+# - Accept a preprocessed two-dimensional OCT image.
+# - Calculate pixel-level verticality and gradient information.
+# - Construct structural-pixel evidence maps.
+# - Calculate structurally cleaned column-intensity summaries.
+# - Calculate local depth-continuity signals.
+# - Calculate column-level vertical-organization summaries.
+# - Support configurable signal smoothing.
+# - Retain the original sliding-window feature implementation for
+#   comparison with the structural-hypertransmission pipeline.
 #
 # Inputs:
-# - Preprocessed image or path to a preprocessed image.
-# - Sliding-window configuration.
-# - Feature-specific parameters.
+# - Preprocessed two-dimensional image
+# - Structural feature configuration
+# - Column-statistic configuration
+# - Continuity configuration
 #
 # Outputs:
-# - One feature value per horizontal location for each feature.
-# - Raw and standardized feature signals.
-# - Feature-extraction metadata.
-# - Measurement DataFrame or CSV.
+# - Pixel-level feature maps
+# - One-dimensional column-level feature signals
+# - Feature metadata and diagnostics
 #
-# This module should describe the image mathematically but should
-# not apply feature weights, thresholds, or class labels.
+# This module describes the image mathematically.
+# It must not assign barcode labels, apply detector thresholds,
+# clean binary detector masks, or extract final barcode intervals.
 
 
 from __future__ import annotations
@@ -2367,3 +2370,347 @@ def extract_feature_signals(
         ),
         metadata=metadata,
     )
+
+def smooth_finite_signal(
+    values: np.ndarray,
+    *,
+    sigma: float = 2.0,
+) -> np.ndarray:
+    """
+    Smooth a one-dimensional feature signal while preserving length.
+
+    Non-finite values are first replaced by linear interpolation before
+    Gaussian smoothing is applied.
+
+    Parameters
+    ----------
+    values:
+        One-dimensional numerical feature signal.
+    sigma:
+        Standard deviation of the one-dimensional Gaussian kernel,
+        measured in signal samples.
+
+    Returns
+    -------
+    np.ndarray
+        Smoothed float32 signal with the same length as the input.
+    """
+    values = np.asarray(
+        values,
+        dtype=np.float32,
+    )
+
+    if values.ndim != 1:
+        raise ValueError(
+            "values must be one-dimensional."
+        )
+
+    if values.size == 0:
+        raise ValueError(
+            "values must not be empty."
+        )
+
+    if sigma < 0:
+        raise ValueError(
+            "sigma must be nonnegative."
+        )
+
+    finite = np.isfinite(
+        values
+    )
+
+    if not finite.any():
+        raise ValueError(
+            "values contains no finite observations."
+        )
+
+    filled = values.copy()
+
+    if not finite.all():
+        positions = np.arange(
+            values.size
+        )
+
+        filled[
+            ~finite
+        ] = np.interp(
+            positions[~finite],
+            positions[finite],
+            values[finite],
+        )
+
+    if sigma == 0:
+        return filled.astype(
+            np.float32
+        )
+
+    return gaussian_filter1d(
+        filled,
+        sigma=float(sigma),
+        mode="nearest",
+    ).astype(np.float32)
+
+def compute_local_depth_continuity(
+    image: np.ndarray,
+    *,
+    window_width: int = 15,
+    depth_lag: int = 4,
+    minimum_row_standard_deviation: float = 1e-6,
+) -> np.ndarray:
+    """
+    Calculate local persistence of horizontal intensity structure through depth.
+
+    For each horizontal position, a local window is extracted. Intensity
+    patterns separated by ``depth_lag`` rows are correlated, and the
+    median valid correlation across depth is returned.
+
+    Conceptually,
+
+        C(x) = median_z corr(
+            I(z, W_x),
+            I(z + lag, W_x)
+        )
+
+    where
+
+        x:
+            Horizontal image position.
+
+        W_x:
+            Local horizontal neighborhood centered at x.
+
+        z:
+            Depth coordinate.
+
+        lag:
+            Number of rows separating the two compared depth profiles.
+
+    Higher values indicate that the same horizontal intensity pattern
+    persists through depth.
+
+    Parameters
+    ----------
+    image:
+        Two-dimensional preprocessed OCT image.
+    window_width:
+        Odd horizontal width of the local comparison window.
+    depth_lag:
+        Number of rows separating compared depth profiles.
+    minimum_row_standard_deviation:
+        Rows with less variation than this value are skipped because
+        correlation is unstable for nearly constant signals.
+
+    Returns
+    -------
+    np.ndarray
+        One continuity value per horizontal image column.
+    """
+    image = np.asarray(
+        image,
+        dtype=np.float32,
+    )
+
+    if image.ndim != 2:
+        raise ValueError(
+            "image must be two-dimensional."
+        )
+
+    if image.size == 0:
+        raise ValueError(
+            "image must not be empty."
+        )
+
+    if (
+        window_width <= 1
+        or window_width % 2 == 0
+    ):
+        raise ValueError(
+            "window_width must be an odd integer greater than one."
+        )
+
+    if not (
+        1
+        <= depth_lag
+        < image.shape[0]
+    ):
+        raise ValueError(
+            "depth_lag must be between 1 and image depth - 1."
+        )
+
+    if minimum_row_standard_deviation < 0:
+        raise ValueError(
+            "minimum_row_standard_deviation must be nonnegative."
+        )
+
+    radius = (
+        window_width // 2
+    )
+
+    padded_image = np.pad(
+        image,
+        (
+            (0, 0),
+            (radius, radius),
+        ),
+        mode="reflect",
+    )
+
+    continuity = np.full(
+        image.shape[1],
+        np.nan,
+        dtype=np.float32,
+    )
+
+    for horizontal_position in range(
+        image.shape[1]
+    ):
+        local_window = padded_image[
+            :,
+            horizontal_position:
+            horizontal_position
+            + window_width,
+        ]
+
+        correlations: list[float] = []
+
+        for depth_position in range(
+            image.shape[0]
+            - depth_lag
+        ):
+            first_row = local_window[
+                depth_position
+            ]
+
+            second_row = local_window[
+                depth_position
+                + depth_lag
+            ]
+
+            if (
+                np.std(first_row)
+                < minimum_row_standard_deviation
+                or
+                np.std(second_row)
+                < minimum_row_standard_deviation
+            ):
+                continue
+
+            correlation = np.corrcoef(
+                first_row,
+                second_row,
+            )[0, 1]
+
+            if np.isfinite(
+                correlation
+            ):
+                correlations.append(
+                    float(correlation)
+                )
+
+        if correlations:
+            continuity[
+                horizontal_position
+            ] = float(
+                np.median(
+                    correlations
+                )
+            )
+
+    return continuity
+
+def compute_column_verticality_statistics(
+    verticality_map: np.ndarray,
+    *,
+    structural_mask: np.ndarray | None = None,
+    upper_quantile: float = 0.90,
+) -> dict[str, np.ndarray]:
+    """
+    Summarize vertical organization through depth for every image column.
+
+    Parameters
+    ----------
+    verticality_map:
+        Two-dimensional verticality map with the same shape as the
+        processed image.
+    structural_mask:
+        Optional Boolean map identifying pixels considered strongly
+        vertical and sufficiently high-gradient.
+    upper_quantile:
+        Verticality quantile calculated through depth for each column.
+
+    Returns
+    -------
+    dict[str, np.ndarray]
+        Dictionary containing:
+
+        ``mean``
+            Mean verticality through depth.
+
+        ``upper_quantile``
+            Requested upper verticality quantile through depth.
+
+        ``strong_vertical_fraction``
+            Fraction of depth pixels marked in ``structural_mask``.
+            Returned as NaN when no structural mask is supplied.
+    """
+    verticality = np.asarray(
+        verticality_map,
+        dtype=np.float32,
+    )
+
+    if verticality.ndim != 2:
+        raise ValueError(
+            "verticality_map must be two-dimensional."
+        )
+
+    if not (
+        0.0
+        <= upper_quantile
+        <= 1.0
+    ):
+        raise ValueError(
+            "upper_quantile must lie between 0 and 1."
+        )
+
+    mean_verticality = np.mean(
+        verticality,
+        axis=0,
+    ).astype(np.float32)
+
+    upper_verticality = np.quantile(
+        verticality,
+        upper_quantile,
+        axis=0,
+    ).astype(np.float32)
+
+    if structural_mask is None:
+        strong_vertical_fraction = np.full(
+            verticality.shape[1],
+            np.nan,
+            dtype=np.float32,
+        )
+
+    else:
+        mask = np.asarray(
+            structural_mask,
+            dtype=bool,
+        )
+
+        if mask.shape != verticality.shape:
+            raise ValueError(
+                "structural_mask must have the same shape "
+                "as verticality_map."
+            )
+
+        strong_vertical_fraction = np.mean(
+            mask,
+            axis=0,
+        ).astype(np.float32)
+
+    return {
+        "mean": mean_verticality,
+        "upper_quantile": upper_verticality,
+        "strong_vertical_fraction": (
+            strong_vertical_fraction
+        ),
+    }

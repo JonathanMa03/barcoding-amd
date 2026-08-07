@@ -1,58 +1,32 @@
 # detector.py
 #
 # Responsibilities:
-# - Validate and apply feature weights.
-# - Support individual-feature and grouped-feature scoring.
-# - Calculate the combined barcode score.
-# - Threshold the continuous score.
-# - Remove short positive runs.
-# - Fill short gaps between detections.
-# - Extract contiguous horizontal detection intervals.
-# - Return a structured detection result.
-#
-# Scoring modes:
-#
-# 1. Individual scoring
-#    Each standardized feature is multiplied by its own weight:
-#
-#        verticality
-#        persistence
-#        continuity
-#        amplitude
-#        heterogeneity
-#
-# 2. Grouped scoring
-#    Correlated features are first combined into two interpretable groups:
-#
-#        structural group:
-#            verticality
-#            continuity
-#            heterogeneity
-#
-#        hypertransmission group:
-#            persistence
-#            amplitude
-#
-#    The two group scores are then combined using group-level weights.
+# - Apply detector rules to mathematical feature signals.
+# - Support the original weighted-score detector.
+# - Run the structural-hypertransmission detector.
+# - Calculate scan-relative robust thresholds.
+# - Construct intensity, continuity, and vertical-refinement masks.
+# - Fill short gaps and remove short positive runs.
+# - Extract contiguous horizontal candidate intervals.
+# - Return complete structured detector results and metadata.
 #
 # Future responsibilities:
-# - Tune feature weights against manual annotations.
-# - Learn weights using logistic regression.
-# - Select detection thresholds using validation data.
+# - Tune thresholds against manual annotations.
+# - Learn detector parameters using regression/classification.
+# - Compare classical and learned detector variants.
 #
 # Inputs:
-# - Feature signals.
-# - Feature or group weights.
-# - Threshold and spatial-cleanup parameters.
+# - Preprocessed and denoised two-dimensional OCT image
+# - Detector configuration
 #
 # Outputs:
-# - Combined score.
-# - Optional group-level scores.
-# - Raw and cleaned masks.
-# - Contiguous detection intervals.
-# - Detector metadata.
+# - Mathematical feature signals
+# - Intermediate detector masks
+# - Final barcode candidate mask
+# - Contiguous candidate intervals
+# - Thresholds and detector metadata
 #
-# This module should not load data or produce figures.
+# This module must not load E2E data, preprocess scans, or produce figures.
 
 
 from __future__ import annotations
@@ -61,6 +35,15 @@ from dataclasses import dataclass
 from typing import Any, Mapping
 
 import numpy as np
+
+from src.detector.features import (
+    compute_column_intensity_statistics,
+    compute_column_verticality_statistics,
+    compute_local_depth_continuity,
+    compute_simple_verticality_map,
+    create_structural_mask,
+    smooth_finite_signal,
+)
 
 
 FEATURE_NAMES = (
@@ -1562,4 +1545,765 @@ def detect_barcoding(
         ),
         group_scores=group_scores,
         metadata=metadata,
+    )
+
+@dataclass(frozen=True)
+class CandidateInterval:
+    """
+    One contiguous horizontal candidate barcode interval.
+
+    Attributes
+    ----------
+    start:
+        Inclusive leftmost image column.
+    end:
+        Inclusive rightmost image column.
+    width:
+        Number of detected image columns in the interval.
+    """
+
+    start: int
+    end: int
+    width: int
+
+@dataclass
+class StructuralHyperTDDetectorResult:
+    """
+    Complete output from the structural-hypertransmission detector.
+
+    The result contains all intermediate feature representations so that
+    individual detector stages can later be inspected without rerunning
+    the pipeline.
+    """
+
+    image_shape: tuple[int, int]
+
+    verticality_map: np.ndarray
+    gradient_magnitude: np.ndarray
+    structural_mask: np.ndarray
+
+    column_median: np.ndarray
+    column_q90: np.ndarray
+
+    continuity: np.ndarray
+    strong_vertical_fraction: np.ndarray
+
+    intensity_mask: np.ndarray
+    continuity_mask: np.ndarray
+    barcode_mask: np.ndarray
+
+    intervals: list[CandidateInterval]
+
+    thresholds: dict[str, float]
+
+    metadata: dict[str, Any]
+
+def find_boolean_runs(
+    mask: np.ndarray,
+    *,
+    target_value: bool = True,
+) -> list[tuple[int, int]]:
+    """
+    Return inclusive start/end coordinates for contiguous Boolean runs.
+    """
+    mask = np.asarray(
+        mask,
+        dtype=bool,
+    )
+
+    if mask.ndim != 1:
+        raise ValueError(
+            "mask must be one-dimensional."
+        )
+
+    runs: list[
+        tuple[int, int]
+    ] = []
+
+    run_start: int | None = None
+
+    for position, value in enumerate(
+        mask
+    ):
+        if bool(value) == bool(
+            target_value
+        ):
+            if run_start is None:
+                run_start = position
+
+        elif run_start is not None:
+            runs.append(
+                (
+                    run_start,
+                    position - 1,
+                )
+            )
+
+            run_start = None
+
+    if run_start is not None:
+        runs.append(
+            (
+                run_start,
+                mask.size - 1,
+            )
+        )
+
+    return runs
+
+def clean_column_mask(
+    mask: np.ndarray,
+    *,
+    minimum_positive_run: int = 5,
+    maximum_negative_gap: int = 2,
+) -> np.ndarray:
+    """
+    Fill short gaps and remove short positive detector runs.
+
+    Gap filling occurs before removal of short positive runs.
+    """
+    cleaned = np.asarray(
+        mask,
+        dtype=bool,
+    ).copy()
+
+    if cleaned.ndim != 1:
+        raise ValueError(
+            "mask must be one-dimensional."
+        )
+
+    if minimum_positive_run < 1:
+        raise ValueError(
+            "minimum_positive_run must be positive."
+        )
+
+    if maximum_negative_gap < 0:
+        raise ValueError(
+            "maximum_negative_gap must be nonnegative."
+        )
+
+    for start, end in find_boolean_runs(
+        cleaned,
+        target_value=False,
+    ):
+        gap_length = (
+            end - start + 1
+        )
+
+        touches_edge = (
+            start == 0
+            or end == cleaned.size - 1
+        )
+
+        if (
+            not touches_edge
+            and gap_length
+            <= maximum_negative_gap
+        ):
+            cleaned[
+                start:
+                end + 1
+            ] = True
+
+    for start, end in find_boolean_runs(
+        cleaned,
+        target_value=True,
+    ):
+        run_length = (
+            end - start + 1
+        )
+
+        if (
+            run_length
+            < minimum_positive_run
+        ):
+            cleaned[
+                start:
+                end + 1
+            ] = False
+
+    return cleaned
+
+def extract_candidate_intervals(
+    mask: np.ndarray,
+) -> list[CandidateInterval]:
+    """
+    Convert a final detector mask into contiguous candidate intervals.
+    """
+    intervals: list[
+        CandidateInterval
+    ] = []
+
+    for start, end in find_boolean_runs(
+        mask,
+        target_value=True,
+    ):
+        intervals.append(
+            CandidateInterval(
+                start=int(start),
+                end=int(end),
+                width=int(
+                    end - start + 1
+                ),
+            )
+        )
+
+    return intervals
+
+def detect_structural_hypertransmission(
+    image: np.ndarray,
+    *,
+    config: dict[str, Any] | None = None,
+) -> StructuralHyperTDDetectorResult:
+    """
+    Detect candidate barcoding regions from a preprocessed OCT scan.
+
+    The detector follows four stages:
+
+    1. Construct a gradient-gated structural exclusion mask.
+    2. Identify intensity-based hypertransmission candidates.
+    3. Refine candidates using depth continuity.
+    4. Refine persistent hypertransmission using vertical organization.
+
+    Parameters
+    ----------
+    image:
+        Two-dimensional normalized and denoised sub-layer OCT image.
+    config:
+        Optional detector configuration. If omitted, the frozen
+        ``STRUCTURAL_HYPERTD_V1_CONFIG`` configuration is used.
+
+    Returns
+    -------
+    StructuralHyperTDDetectorResult
+        Complete detector output including feature maps, masks,
+        thresholds, intervals, and metadata.
+    """
+    image = np.asarray(
+        image,
+        dtype=np.float32,
+    )
+
+    if image.ndim != 2:
+        raise ValueError(
+            "image must be two-dimensional."
+        )
+
+    if image.size == 0:
+        raise ValueError(
+            "image must not be empty."
+        )
+
+    if not np.isfinite(
+        image
+    ).all():
+        raise ValueError(
+            "image contains non-finite values."
+        )
+
+    resolved_config = dict(
+        STRUCTURAL_HYPERTD_V1_CONFIG
+    )
+
+    if config is not None:
+        resolved_config.update(
+            config
+        )
+
+    image_height, image_width = (
+        image.shape
+    )
+
+    edge_margin = int(
+        resolved_config[
+            "edge_margin"
+        ]
+    )
+
+    if (
+        edge_margin < 0
+        or 2 * edge_margin >= image_width
+    ):
+        raise ValueError(
+            "edge_margin is invalid for the supplied image width."
+        )
+
+    # ==========================================================
+    # 1. Pixel-level verticality and structural exclusion
+    # ==========================================================
+
+    (
+        verticality_map,
+        verticality_diagnostics,
+    ) = compute_simple_verticality_map(
+        image=image,
+        smoothing_sigma=float(
+            resolved_config[
+                "verticality_smoothing_sigma"
+            ]
+        ),
+    )
+
+    gradient_magnitude = np.hypot(
+        verticality_diagnostics[
+            "gradient_x"
+        ],
+        verticality_diagnostics[
+            "gradient_z"
+        ],
+    ).astype(np.float32)
+
+    finite_gradient_values = (
+        gradient_magnitude[
+            np.isfinite(
+                gradient_magnitude
+            )
+        ]
+    )
+
+    gradient_threshold = float(
+        np.quantile(
+            finite_gradient_values,
+            float(
+                resolved_config[
+                    "gradient_quantile"
+                ]
+            ),
+        )
+    )
+
+    (
+        structural_mask,
+        structural_metadata,
+    ) = create_structural_mask(
+        verticality_map=(
+            verticality_map
+        ),
+        gradient_magnitude=(
+            gradient_magnitude
+        ),
+        verticality_threshold=float(
+            resolved_config[
+                "verticality_threshold"
+            ]
+        ),
+        minimum_gradient_magnitude=(
+            gradient_threshold
+        ),
+        minimum_component_size=int(
+            resolved_config[
+                "minimum_component_size"
+            ]
+        ),
+    )
+
+    # ==========================================================
+    # 2. Structurally cleaned column intensity
+    # ==========================================================
+
+    (
+        column_statistics,
+        column_metadata,
+    ) = compute_column_intensity_statistics(
+        image=image,
+        exclusion_mask=(
+            structural_mask
+        ),
+        upper_quantile=float(
+            resolved_config[
+                "column_upper_quantile"
+            ]
+        ),
+        minimum_valid_pixels=int(
+            resolved_config[
+                "minimum_valid_pixels"
+            ]
+        ),
+    )
+
+    smoothing_sigma = float(
+        resolved_config[
+            "signal_smoothing_sigma"
+        ]
+    )
+
+    column_median = smooth_finite_signal(
+        column_statistics[
+            "median"
+        ],
+        sigma=smoothing_sigma,
+    )
+
+    column_q90 = smooth_finite_signal(
+        column_statistics[
+            "upper_quantile"
+        ],
+        sigma=smoothing_sigma,
+    )
+
+    reference_columns = np.ones(
+        image_width,
+        dtype=bool,
+    )
+
+    if edge_margin > 0:
+        reference_columns[
+            :edge_margin
+        ] = False
+
+        reference_columns[
+            -edge_margin:
+        ] = False
+
+    median_reference = (
+        column_median[
+            reference_columns
+        ]
+    )
+
+    q90_reference = (
+        column_q90[
+            reference_columns
+        ]
+    )
+
+    median_reference_center = float(
+        np.median(
+            median_reference
+        )
+    )
+
+    median_reference_iqr = float(
+        np.quantile(
+            median_reference,
+            0.75,
+        )
+        - np.quantile(
+            median_reference,
+            0.25,
+        )
+    )
+
+    q90_reference_center = float(
+        np.median(
+            q90_reference
+        )
+    )
+
+    q90_reference_iqr = float(
+        np.quantile(
+            q90_reference,
+            0.75,
+        )
+        - np.quantile(
+            q90_reference,
+            0.25,
+        )
+    )
+
+    median_threshold = (
+        median_reference_center
+        + float(
+            resolved_config[
+                "median_iqr_multiplier"
+            ]
+        )
+        * median_reference_iqr
+    )
+
+    q90_threshold = (
+        q90_reference_center
+        + float(
+            resolved_config[
+                "q90_iqr_multiplier"
+            ]
+        )
+        * q90_reference_iqr
+    )
+
+    intensity_mask = (
+        (
+            column_median
+            > median_threshold
+        )
+        &
+        (
+            column_q90
+            > q90_threshold
+        )
+    )
+
+    if edge_margin > 0:
+        intensity_mask[
+            :edge_margin
+        ] = False
+
+        intensity_mask[
+            -edge_margin:
+        ] = False
+
+    intensity_mask = clean_column_mask(
+        intensity_mask,
+        minimum_positive_run=int(
+            resolved_config[
+                "minimum_positive_run"
+            ]
+        ),
+        maximum_negative_gap=int(
+            resolved_config[
+                "maximum_negative_gap"
+            ]
+        ),
+    )
+
+    # ==========================================================
+    # 3. Depth continuity
+    # ==========================================================
+
+    continuity_raw = (
+        compute_local_depth_continuity(
+            image=image,
+            window_width=int(
+                resolved_config[
+                    "continuity_window_width"
+                ]
+            ),
+            depth_lag=int(
+                resolved_config[
+                    "continuity_depth_lag"
+                ]
+            ),
+            minimum_row_standard_deviation=float(
+                resolved_config[
+                    "continuity_minimum_row_standard_deviation"
+                ]
+            ),
+        )
+    )
+
+    continuity = smooth_finite_signal(
+        continuity_raw,
+        sigma=smoothing_sigma,
+    )
+
+    continuity_threshold = float(
+        np.quantile(
+            continuity[
+                reference_columns
+            ],
+            float(
+                resolved_config[
+                    "continuity_quantile"
+                ]
+            ),
+        )
+    )
+
+    continuity_mask = (
+        intensity_mask
+        &
+        (
+            continuity
+            > continuity_threshold
+        )
+    )
+
+    if edge_margin > 0:
+        continuity_mask[
+            :edge_margin
+        ] = False
+
+        continuity_mask[
+            -edge_margin:
+        ] = False
+
+    continuity_mask = clean_column_mask(
+        continuity_mask,
+        minimum_positive_run=int(
+            resolved_config[
+                "minimum_positive_run"
+            ]
+        ),
+        maximum_negative_gap=int(
+            resolved_config[
+                "maximum_negative_gap"
+            ]
+        ),
+    )
+
+    # ==========================================================
+    # 4. Vertical-organization refinement
+    # ==========================================================
+
+    verticality_statistics = (
+        compute_column_verticality_statistics(
+            verticality_map=(
+                verticality_map
+            ),
+            structural_mask=(
+                structural_mask
+            ),
+            upper_quantile=0.90,
+        )
+    )
+
+    strong_vertical_fraction = (
+        smooth_finite_signal(
+            verticality_statistics[
+                "strong_vertical_fraction"
+            ],
+            sigma=smoothing_sigma,
+        )
+    )
+
+    vertical_fraction_threshold = float(
+        np.quantile(
+            strong_vertical_fraction[
+                reference_columns
+            ],
+            float(
+                resolved_config[
+                    "vertical_fraction_quantile"
+                ]
+            ),
+        )
+    )
+
+    barcode_mask = (
+        continuity_mask
+        &
+        (
+            strong_vertical_fraction
+            > vertical_fraction_threshold
+        )
+    )
+
+    if edge_margin > 0:
+        barcode_mask[
+            :edge_margin
+        ] = False
+
+        barcode_mask[
+            -edge_margin:
+        ] = False
+
+    barcode_mask = clean_column_mask(
+        barcode_mask,
+        minimum_positive_run=int(
+            resolved_config[
+                "minimum_positive_run"
+            ]
+        ),
+        maximum_negative_gap=int(
+            resolved_config[
+                "maximum_negative_gap"
+            ]
+        ),
+    )
+
+    intervals = (
+        extract_candidate_intervals(
+            barcode_mask
+        )
+    )
+
+    thresholds = {
+        "gradient": (
+            gradient_threshold
+        ),
+        "column_median": (
+            median_threshold
+        ),
+        "column_q90": (
+            q90_threshold
+        ),
+        "continuity": (
+            continuity_threshold
+        ),
+        "vertical_fraction": (
+            vertical_fraction_threshold
+        ),
+    }
+
+    metadata = {
+        "detector_version": (
+            "structural_hypertd_v1"
+        ),
+        "image_shape": tuple(
+            int(value)
+            for value in image.shape
+        ),
+        "config": dict(
+            resolved_config
+        ),
+        "number_of_intervals": int(
+            len(intervals)
+        ),
+        "total_detected_columns": int(
+            barcode_mask.sum()
+        ),
+        "structural_pixel_fraction": float(
+            structural_mask.mean()
+        ),
+        "intensity_candidate_columns": int(
+            intensity_mask.sum()
+        ),
+        "continuity_candidate_columns": int(
+            continuity_mask.sum()
+        ),
+        "final_candidate_columns": int(
+            barcode_mask.sum()
+        ),
+        "structural_metadata": (
+            structural_metadata
+        ),
+        "column_metadata": (
+            column_metadata
+        ),
+    }
+
+    return StructuralHyperTDDetectorResult(
+        image_shape=(
+            image_height,
+            image_width,
+        ),
+        verticality_map=(
+            verticality_map
+        ),
+        gradient_magnitude=(
+            gradient_magnitude
+        ),
+        structural_mask=(
+            structural_mask
+        ),
+        column_median=(
+            column_median
+        ),
+        column_q90=(
+            column_q90
+        ),
+        continuity=(
+            continuity
+        ),
+        strong_vertical_fraction=(
+            strong_vertical_fraction
+        ),
+        intensity_mask=(
+            intensity_mask
+        ),
+        continuity_mask=(
+            continuity_mask
+        ),
+        barcode_mask=(
+            barcode_mask
+        ),
+        intervals=(
+            intervals
+        ),
+        thresholds=(
+            thresholds
+        ),
+        metadata=(
+            metadata
+        ),
     )
