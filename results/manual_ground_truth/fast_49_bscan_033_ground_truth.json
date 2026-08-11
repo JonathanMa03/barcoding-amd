@@ -1,0 +1,29 @@
+{
+  "subject_id": 49,
+  "progression_group": "fast",
+  "bscan_index": 33,
+  "image_shape": [
+    150,
+    512
+  ],
+  "annotations": [
+    {
+      "label": "Barcoding",
+      "x_start": 199.25370054461666,
+      "x_end": 351.38809786342694,
+      "width_pixels": 152.13439731881027
+    },
+    {
+      "label": "Normal",
+      "x_start": 353.86182790113116,
+      "x_end": 508.46995525764567,
+      "width_pixels": 154.6081273565145
+    },
+    {
+      "label": "Normal",
+      "x_start": 0.11843250942605721,
+      "x_end": 197.39840301633853,
+      "width_pixels": 197.2799705069125
+    }
+  ]
+}
