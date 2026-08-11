@@ -310,4 +310,4 @@ results/manual_annotations/
 
 # Optional: ignore generated training artifacts if you ever remove the line above
 # external/OCTAVE/nnUNet_preprocessed/
-# external/OCTAVE/nnUNet_results/
+# external/OCTAVE/nnUNet_results/results/
