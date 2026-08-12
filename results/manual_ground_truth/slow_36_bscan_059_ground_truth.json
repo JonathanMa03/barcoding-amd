@@ -1,0 +1,29 @@
+{
+  "subject_id": 36,
+  "progression_group": "slow",
+  "bscan_index": 59,
+  "image_shape": [
+    150,
+    512
+  ],
+  "annotations": [
+    {
+      "label": "Early Atrophy (EA)",
+      "x_start": 207.29332316715545,
+      "x_end": 230.17532601591955,
+      "width_pixels": 22.882002848764103
+    },
+    {
+      "label": "Normal",
+      "x_start": 232.03062354419774,
+      "x_end": 505.9962252199414,
+      "width_pixels": 273.96560167574364
+    },
+    {
+      "label": "Normal",
+      "x_start": 3.2105950565563433,
+      "x_end": 204.81959312945122,
+      "width_pixels": 201.60899807289488
+    }
+  ]
+}

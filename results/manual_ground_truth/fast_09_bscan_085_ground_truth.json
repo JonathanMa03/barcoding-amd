@@ -1,0 +1,41 @@
+{
+  "subject_id": 9,
+  "progression_group": "fast",
+  "bscan_index": 85,
+  "image_shape": [
+    150,
+    512
+  ],
+  "annotations": [
+    {
+      "label": "Barcoding",
+      "x_start": 130.6076919983243,
+      "x_end": 246.25457126099707,
+      "width_pixels": 115.64687926267277
+    },
+    {
+      "label": "Normal",
+      "x_start": 1.3552975282781716,
+      "x_end": 129.9892594888982,
+      "width_pixels": 128.63396196062
+    },
+    {
+      "label": "Barcoding",
+      "x_start": 353.2433953917051,
+      "x_end": 429.9290265605363,
+      "width_pixels": 76.68563116883115
+    },
+    {
+      "label": "Uncertain",
+      "x_start": 249.3467338081274,
+      "x_end": 352.006530372853,
+      "width_pixels": 102.65979656472558
+    },
+    {
+      "label": "Normal",
+      "x_start": 440.44237922077923,
+      "x_end": 507.23309023879347,
+      "width_pixels": 66.79071101801424
+    }
+  ]
+}

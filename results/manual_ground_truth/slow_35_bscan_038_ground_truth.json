@@ -1,0 +1,53 @@
+{
+  "subject_id": 35,
+  "progression_group": "slow",
+  "bscan_index": 38,
+  "image_shape": [
+    150,
+    512
+  ],
+  "annotations": [
+    {
+      "label": "Early Atrophy (EA)",
+      "x_start": 111.43628420611647,
+      "x_end": 155.96342488479263,
+      "width_pixels": 44.52714067867616
+    },
+    {
+      "label": "Barcoding",
+      "x_start": 183.79288780896525,
+      "x_end": 275.3208992040218,
+      "width_pixels": 91.52801139505658
+    },
+    {
+      "label": "Vessel / Structural",
+      "x_start": 356.3355579388354,
+      "x_end": 372.4148031839129,
+      "width_pixels": 16.079245245077516
+    },
+    {
+      "label": "Normal",
+      "x_start": 374.88853322161714,
+      "x_end": 510.3252527859238,
+      "width_pixels": 135.43671956430666
+    },
+    {
+      "label": "Normal",
+      "x_start": 277.17619673229996,
+      "x_end": 352.624962882279,
+      "width_pixels": 75.44876614997906
+    },
+    {
+      "label": "Normal",
+      "x_start": 0.11843250942605721,
+      "x_end": 109.58098667783831,
+      "width_pixels": 109.46255416841225
+    },
+    {
+      "label": "Normal",
+      "x_start": 156.58185739421867,
+      "x_end": 181.93759028068706,
+      "width_pixels": 25.355732886468388
+    }
+  ]
+}

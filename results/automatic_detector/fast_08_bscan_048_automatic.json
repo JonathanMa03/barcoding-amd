@@ -1,0 +1,62 @@
+{
+  "subject_id": 8,
+  "progression_group": "fast",
+  "bscan_index": 48,
+  "number_of_intervals": 2,
+  "total_detected_width_pixels": 36,
+  "intervals": [
+    {
+      "x_start": 148,
+      "x_end": 167,
+      "width_pixels": 20
+    },
+    {
+      "x_start": 197,
+      "x_end": 212,
+      "width_pixels": 16
+    }
+  ],
+  "thresholds": {
+    "gradient": 0.13009315729141235,
+    "column_median": -0.03912931680679321,
+    "column_q90": 1.4697800874710083,
+    "continuity": 0.389075368642807,
+    "vertical_fraction": 0.11413668096065521
+  },
+  "detector_config": {
+    "verticality_smoothing_sigma": 1.0,
+    "verticality_threshold": 0.6,
+    "gradient_quantile": 0.8,
+    "minimum_component_size": 0,
+    "column_upper_quantile": 0.9,
+    "minimum_valid_pixels": 5,
+    "signal_smoothing_sigma": 2.0,
+    "median_iqr_multiplier": 1.0,
+    "q90_iqr_multiplier": 0.5,
+    "continuity_window_width": 15,
+    "continuity_depth_lag": 4,
+    "continuity_minimum_row_standard_deviation": 1e-06,
+    "continuity_quantile": 0.6,
+    "vertical_fraction_quantile": 0.7,
+    "minimum_positive_run": 5,
+    "maximum_negative_gap": 2,
+    "edge_margin": 10
+  },
+  "preprocessing_config": {
+    "layer_name": "BM",
+    "reference_row": null,
+    "flatten_fill_value": 0.0,
+    "depth_below_layer": 150,
+    "include_boundary": true,
+    "require_full_depth": false,
+    "crop_fill_value": 0.0,
+    "normalization_method": "zscore",
+    "lower_percentile": 1.0,
+    "upper_percentile": 99.0,
+    "denoise_method": "gaussian",
+    "gaussian_sigma": [
+      1.0,
+      0.5
+    ]
+  }
+}
