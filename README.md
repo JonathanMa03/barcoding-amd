@@ -375,6 +375,13 @@ models in `phenotype_config`. Each class has:
   manual annotations. These should normally remain unchanged unless the model
   is recalibrated.
 
+`structural_veto` is a third calibrated model trained on the manual
+`Vessel / Structural` annotations. It removes likely vessel-shadow columns
+after EA/barcoding gap filling. Its probability threshold and cleanup settings
+can be adjusted independently; higher thresholds make the veto more
+conservative. `margin_columns` expands each excluded vessel run laterally to
+cover the surrounding shadow; its default is two columns.
+
 When both models select the same column, the detector compares each model's
 probability relative to its threshold and assigns the stronger class.
 

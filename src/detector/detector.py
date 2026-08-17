@@ -94,7 +94,19 @@ CALIBRATED_PHENOTYPE_V1_CONFIG: dict[str, Any] = {
         "intercept": -3.7314556500,
         "probability_threshold": 0.50,
         "minimum_positive_run": 5,
-        "maximum_negative_gap": 2,
+        "maximum_negative_gap": 5,
+    },
+    "structural_veto": {
+        "coefficients": [
+            -1.3618007916, -2.5640140041, 2.2535427084, 0.2669946986,
+            0.1147944642, 0.0660051254, -0.5903822187, 0.8551301191,
+            -1.1697073128, 0.5350187370, -0.2907996794,
+        ],
+        "intercept": -4.2657085644,
+        "probability_threshold": 0.90,
+        "minimum_positive_run": 3,
+        "maximum_negative_gap": 1,
+        "margin_columns": 2,
     },
 }
 
@@ -267,6 +279,65 @@ def classify_ea_and_barcoding(
             maximum_negative_gap=int(class_config["maximum_negative_gap"]),
         )
 
+    # Independently calibrated vessel/structural veto. This uses the disease
+    # features plus structural-pixel fraction and intensity/structure
+    # interactions. It is applied after disease gap filling so excluded vessel
+    # columns cannot be filled back into an EA or barcoding interval.
+    structural_fraction_z = _robust_scan_standardize(
+        result.structural_mask.mean(axis=0), reference, clip
+    )
+    veto_features = np.column_stack(
+        (
+            median_z, q90_z, continuity_z, verticality_z,
+            structural_fraction_z,
+            median_z * q90_z,
+            continuity_z * verticality_z,
+            q90_z * continuity_z,
+            q90_z * verticality_z,
+            median_z * structural_fraction_z,
+            q90_z * structural_fraction_z,
+        )
+    ).astype(np.float32)
+    veto_config = resolved["structural_veto"]
+    veto_coefficients = np.asarray(veto_config["coefficients"], dtype=np.float32)
+    if veto_coefficients.shape != (veto_features.shape[1],):
+        raise ValueError("structural_veto calibration requires 11 coefficients.")
+    veto_probability = _sigmoid(
+        veto_features @ veto_coefficients + float(veto_config["intercept"])
+    )
+    veto_mask = veto_probability >= float(veto_config["probability_threshold"])
+    if edge_margin:
+        veto_mask[:edge_margin] = False
+        veto_mask[-edge_margin:] = False
+    veto_mask = clean_column_mask(
+        veto_mask,
+        minimum_positive_run=int(veto_config["minimum_positive_run"]),
+        maximum_negative_gap=int(veto_config["maximum_negative_gap"]),
+    )
+    veto_margin = int(veto_config.get("margin_columns", 0))
+    if veto_margin < 0:
+        raise ValueError("structural_veto margin_columns must be nonnegative.")
+    if veto_margin:
+        veto_mask = np.convolve(
+            veto_mask.astype(np.int8),
+            np.ones(2 * veto_margin + 1, dtype=np.int8),
+            mode="same",
+        ) > 0
+        if edge_margin:
+            veto_mask[:edge_margin] = False
+            veto_mask[-edge_margin:] = False
+    excluded_disease_columns = veto_mask & (
+        masks["barcoding"] | masks["ea"]
+    )
+    for label in ("barcoding", "ea"):
+        masks[label][veto_mask] = False
+        # Remove short remnants without reconnecting across the veto.
+        masks[label] = clean_column_mask(
+            masks[label],
+            minimum_positive_run=int(resolved[label]["minimum_positive_run"]),
+            maximum_negative_gap=0,
+        )
+
     labels = np.full(width, "normal", dtype="<U10")
     labels[masks["ea"]] = "ea"
     labels[masks["barcoding"]] = "barcoding"
@@ -278,6 +349,10 @@ def classify_ea_and_barcoding(
             label: int(mask.sum()) for label, mask in masks.items()
         },
         "overlap_columns_resolved": int(overlap.sum()),
+        "structural_veto_columns": int(veto_mask.sum()),
+        "disease_columns_removed_by_structural_veto": int(
+            excluded_disease_columns.sum()
+        ),
     }
     return labels, details
 
