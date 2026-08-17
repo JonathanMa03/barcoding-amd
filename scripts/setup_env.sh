@@ -1,16 +1,12 @@
 #!/bin/bash
 
-python -m venv .venv
-source .venv/Scripts/activate
+python3 -m venv .venv
 
-#Windows use Scripts instead of bin
+.venv/bin/python -m pip install --upgrade pip
+.venv/bin/python -m pip install -r requirements.txt
 
-pip install --upgrade pip
-pip install -r requirements.txt
-
-python -m ipykernel install --user \
+.venv/bin/python -m ipykernel install --user \
   --name barcoding-amd \
   --display-name "Python (barcoding-amd)"
 
-#chmod +x scripts/setup_env.sh
-# Window button + L for logout
+# Windows users should follow the PowerShell commands in README.md.
