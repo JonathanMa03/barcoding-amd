@@ -164,8 +164,7 @@
     "normal",
     "normal",
     "normal",
-    "barcoding",
-    "barcoding",
+    "normal",
     "barcoding",
     "barcoding",
     "barcoding",
@@ -259,12 +258,6 @@
     "normal",
     "normal",
     "normal",
-    "barcoding",
-    "barcoding",
-    "barcoding",
-    "barcoding",
-    "barcoding",
-    "barcoding",
     "normal",
     "normal",
     "normal",
@@ -310,7 +303,14 @@
     "normal",
     "normal",
     "normal",
-    "barcoding",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
     "barcoding",
     "barcoding",
     "barcoding",
@@ -365,8 +365,7 @@
     "normal",
     "normal",
     "normal",
-    "barcoding",
-    "barcoding",
+    "normal",
     "barcoding",
     "barcoding",
     "barcoding",
@@ -377,6 +376,7 @@
     "barcoding",
     "barcoding",
     "barcoding",
+    "normal",
     "normal",
     "normal",
     "normal",
@@ -523,19 +523,18 @@
     "normal"
   ],
   "barcoding": {
-    "number_of_intervals": 5,
+    "number_of_intervals": 4,
     "interval_widths_pixels": [
       13,
-      86,
-      6,
-      29,
-      12
+      84,
+      28,
+      10
     ],
-    "total_width_pixels": 146,
-    "mean_width_pixels": 29.2,
-    "median_width_pixels": 13.0,
-    "minimum_width_pixels": 6,
-    "maximum_width_pixels": 86,
+    "total_width_pixels": 135,
+    "mean_width_pixels": 33.75,
+    "median_width_pixels": 20.5,
+    "minimum_width_pixels": 10,
+    "maximum_width_pixels": 84,
     "intervals": [
       {
         "start": 129,
@@ -543,24 +542,19 @@
         "width_pixels": 13
       },
       {
-        "start": 155,
-        "end": 240,
-        "width_pixels": 86
+        "start": 156,
+        "end": 239,
+        "width_pixels": 84
       },
       {
-        "start": 250,
-        "end": 255,
-        "width_pixels": 6
-      },
-      {
-        "start": 301,
+        "start": 302,
         "end": 329,
-        "width_pixels": 29
+        "width_pixels": 28
       },
       {
-        "start": 356,
-        "end": 367,
-        "width_pixels": 12
+        "start": 357,
+        "end": 366,
+        "width_pixels": 10
       }
     ]
   },
@@ -582,41 +576,36 @@
         "width_pixels": 13
       },
       {
-        "start": 155,
-        "end": 240,
-        "width_pixels": 86
+        "start": 156,
+        "end": 239,
+        "width_pixels": 84
       },
       {
-        "start": 250,
-        "end": 255,
-        "width_pixels": 6
-      },
-      {
-        "start": 301,
+        "start": 302,
         "end": 329,
-        "width_pixels": 29
+        "width_pixels": 28
       },
       {
-        "start": 356,
-        "end": 367,
-        "width_pixels": 12
+        "start": 357,
+        "end": 366,
+        "width_pixels": 10
       }
     ],
     "ea": []
   },
   "validation_metrics": {
     "barcoding": {
-      "true_positive": 110,
+      "true_positive": 106,
       "false_positive": 1,
-      "false_negative": 85,
+      "false_negative": 89,
       "true_negative": 211,
-      "precision": 0.990990990990991,
-      "recall_sensitivity": 0.5641025641025641,
+      "precision": 0.9906542056074766,
+      "recall_sensitivity": 0.5435897435897435,
       "specificity": 0.9952830188679245,
-      "accuracy": 0.7886977886977887,
-      "f1_dice": 0.7189542483660131,
-      "intersection_over_union": 0.5612244897959183,
-      "predicted_fraction": 0.2727272727272727,
+      "accuracy": 0.7788697788697788,
+      "f1_dice": 0.7019867549668874,
+      "intersection_over_union": 0.5408163265306123,
+      "predicted_fraction": 0.2628992628992629,
       "target_fraction": 0.47911547911547914,
       "number_of_scored_columns": 407,
       "number_of_ignored_columns": 105
@@ -665,7 +654,7 @@
     "maximum_negative_gap": 2,
     "edge_margin": 10,
     "phenotype_config": {
-      "version": "manual_ground_truth_v1",
+      "version": "manual_ground_truth_v2",
       "feature_clip": 5.0,
       "barcoding": {
         "coefficients": [
@@ -679,8 +668,8 @@
           0.21842969
         ],
         "intercept": -0.7472072021,
-        "probability_threshold": 0.5,
-        "minimum_positive_run": 5,
+        "probability_threshold": 0.55,
+        "minimum_positive_run": 8,
         "maximum_negative_gap": 4
       },
       "ea": {
@@ -696,7 +685,7 @@
         ],
         "intercept": -3.73145565,
         "probability_threshold": 0.5,
-        "minimum_positive_run": 5,
+        "minimum_positive_run": 12,
         "maximum_negative_gap": 5
       },
       "structural_veto": {
@@ -742,9 +731,9 @@
     "label_rule": "independent calibrated EA and barcoding classifiers",
     "phenotype_classification": {
       "mode": "independent_calibrated",
-      "version": "manual_ground_truth_v1",
+      "version": "manual_ground_truth_v2",
       "config": {
-        "version": "manual_ground_truth_v1",
+        "version": "manual_ground_truth_v2",
         "feature_clip": 5.0,
         "barcoding": {
           "coefficients": [
@@ -758,8 +747,8 @@
             0.21842969
           ],
           "intercept": -0.7472072021,
-          "probability_threshold": 0.5,
-          "minimum_positive_run": 5,
+          "probability_threshold": 0.55,
+          "minimum_positive_run": 8,
           "maximum_negative_gap": 4
         },
         "ea": {
@@ -775,7 +764,7 @@
           ],
           "intercept": -3.73145565,
           "probability_threshold": 0.5,
-          "minimum_positive_run": 5,
+          "minimum_positive_run": 12,
           "maximum_negative_gap": 5
         },
         "structural_veto": {
@@ -800,12 +789,12 @@
         }
       },
       "positive_columns": {
-        "barcoding": 146,
+        "barcoding": 135,
         "ea": 0
       },
-      "overlap_columns_resolved": 55,
+      "overlap_columns_resolved": 25,
       "structural_veto_columns": 7,
-      "disease_columns_removed_by_structural_veto": 1
+      "disease_columns_removed_by_structural_veto": 0
     },
     "config": {
       "detector_type": "structural",
@@ -827,7 +816,7 @@
       "maximum_negative_gap": 2,
       "edge_margin": 10,
       "phenotype_config": {
-        "version": "manual_ground_truth_v1",
+        "version": "manual_ground_truth_v2",
         "feature_clip": 5.0,
         "barcoding": {
           "coefficients": [
@@ -841,8 +830,8 @@
             0.21842969
           ],
           "intercept": -0.7472072021,
-          "probability_threshold": 0.5,
-          "minimum_positive_run": 5,
+          "probability_threshold": 0.55,
+          "minimum_positive_run": 8,
           "maximum_negative_gap": 4
         },
         "ea": {
@@ -858,7 +847,7 @@
           ],
           "intercept": -3.73145565,
           "probability_threshold": 0.5,
-          "minimum_positive_run": 5,
+          "minimum_positive_run": 12,
           "maximum_negative_gap": 5
         },
         "structural_veto": {
@@ -884,9 +873,9 @@
       }
     },
     "label_counts": {
-      "normal": 366,
+      "normal": 377,
       "ea": 0,
-      "barcoding": 146
+      "barcoding": 135
     }
   }
 }
