@@ -418,6 +418,17 @@ The detector JSON metadata reports how many columns were rejected by local
 support and feature voting, how many complete intervals failed lesion-level
 confidence, and how many columns were covered by the dark-shadow veto.
 
+Calibration v4 adds an explicit `normal_rejection` model after the independent
+EA and barcoding decisions. It estimates the probability that each column is
+normal from the same eleven scan-relative intensity and structural features
+used by the anatomical rejection stage. A provisional probability threshold
+of `0.50` is used; normal evidence must persist for at least 5 columns, and
+gaps up to 2 columns may be joined. The provisional coefficients were fitted
+on clean preprocessed PNG development scans. Results produced directly from
+E2E data should be used to decide whether these coefficients and the `0.85`
+threshold transfer adequately. Set `phenotype_config["normal_rejection"]` to
+`None` to disable this stage for an A/B comparison.
+
 The JSON output contains one `normal`, `ea`, or `barcoding` label per column,
 detected intervals, thresholds, label counts, and the detector configuration.
 EA and barcoding are exploratory research labels, not validated clinical
