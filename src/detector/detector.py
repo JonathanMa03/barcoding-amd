@@ -69,6 +69,36 @@ STRUCTURAL_HYPERTD_V1_CONFIG: dict[str, Any] = {
 }
 
 
+# Calibrated from the ten manually annotated scans in
+# results/manual_ground_truth. Features are scan-relative robust z-scores of
+# median intensity, upper-quantile intensity, continuity, and verticality plus
+# four interaction terms. Uncertain and vessel/structural columns were omitted.
+CALIBRATED_PHENOTYPE_V1_CONFIG: dict[str, Any] = {
+    "version": "manual_ground_truth_v1",
+    "feature_clip": 5.0,
+    "barcoding": {
+        "coefficients": [
+            0.6117391630, 0.1454392649, 0.7673515320, 1.0921305536,
+            -0.0490887583, -0.3096769051, -0.2179212661, 0.2184296900,
+        ],
+        "intercept": -0.7472072021,
+        "probability_threshold": 0.50,
+        "minimum_positive_run": 5,
+        "maximum_negative_gap": 4,
+    },
+    "ea": {
+        "coefficients": [
+            1.0465434165, -0.1273403760, 3.2427409899, 1.5450418232,
+            0.4774340083, -0.8479847255, 0.8649305178, -0.7666487310,
+        ],
+        "intercept": -3.7314556500,
+        "probability_threshold": 0.50,
+        "minimum_positive_run": 5,
+        "maximum_negative_gap": 2,
+    },
+}
+
+
 @dataclass
 class DetectorOutput:
     """Common detector output with per-column EA/barcoding/normal labels."""
@@ -88,20 +118,27 @@ def run_detector(image: np.ndarray, config: Mapping[str, Any]) -> DetectorOutput
     rules, not a validated clinical diagnosis.
     """
     detector_type = str(config.get("detector_type", "structural")).lower()
+    phenotype_config = dict(
+        config.get("phenotype_config", CALIBRATED_PHENOTYPE_V1_CONFIG)
+    )
     if "detector_options" in config:
         detector_options = dict(config["detector_options"])
     else:
         detector_options = {
             key: value for key, value in config.items()
-            if key not in {"detector_type", "feature_options"}
+            if key not in {
+                "detector_type", "feature_options", "phenotype_config",
+            }
         }
     if detector_type == "structural":
         result = detect_structural_hypertransmission(
             image, config={**STRUCTURAL_HYPERTD_V1_CONFIG, **detector_options}
         )
-        labels = np.full(image.shape[1], "normal", dtype="<U10")
-        labels[result.intensity_mask] = "ea"
-        labels[result.barcode_mask] = "barcoding"
+        labels, phenotype_details = classify_ea_and_barcoding(
+            result,
+            config=phenotype_config,
+            edge_margin=int(detector_options.get("edge_margin", 10)),
+        )
     elif detector_type == "weighted":
         from src.detector.features import extract_feature_signals
 
@@ -112,6 +149,7 @@ def run_detector(image: np.ndarray, config: Mapping[str, Any]) -> DetectorOutput
         labels = np.full(result.cleaned_mask.size, "normal", dtype="<U10")
         labels[result.raw_mask] = "ea"
         labels[result.cleaned_mask] = "barcoding"
+        phenotype_details = {"mode": "legacy_weighted"}
     else:
         raise ValueError("detector_type must be 'structural' or 'weighted'.")
 
@@ -120,7 +158,8 @@ def run_detector(image: np.ndarray, config: Mapping[str, Any]) -> DetectorOutput
         labels=labels,
         result=result,
         metadata={
-            "label_rule": "normal -> EA candidate -> final barcoding",
+            "label_rule": "independent calibrated EA and barcoding classifiers",
+            "phenotype_classification": phenotype_details,
             "config": dict(config),
             "label_counts": {
                 name: int(np.count_nonzero(labels == name))
@@ -128,6 +167,119 @@ def run_detector(image: np.ndarray, config: Mapping[str, Any]) -> DetectorOutput
             },
         },
     )
+
+
+def _robust_scan_standardize(
+    values: np.ndarray,
+    reference_columns: np.ndarray,
+    clip: float,
+) -> np.ndarray:
+    reference = np.asarray(values, dtype=np.float32)[reference_columns]
+    center = float(np.median(reference))
+    scale = float(np.quantile(reference, 0.75) - np.quantile(reference, 0.25))
+    standardized = (np.asarray(values, dtype=np.float32) - center) / (scale + 1e-6)
+    return np.clip(standardized, -clip, clip).astype(np.float32)
+
+
+def _sigmoid(values: np.ndarray) -> np.ndarray:
+    values = np.clip(values, -30.0, 30.0)
+    return (1.0 / (1.0 + np.exp(-values))).astype(np.float32)
+
+
+def classify_ea_and_barcoding(
+    result: Any,
+    *,
+    config: Mapping[str, Any] | None = None,
+    edge_margin: int = 10,
+) -> tuple[np.ndarray, dict[str, Any]]:
+    """Run independent calibrated EA and barcoding classifiers."""
+    resolved = {
+        **CALIBRATED_PHENOTYPE_V1_CONFIG,
+        **({} if config is None else config),
+    }
+    width = int(result.image_shape[1])
+    reference = np.ones(width, dtype=bool)
+    if edge_margin:
+        reference[:edge_margin] = False
+        reference[-edge_margin:] = False
+
+    clip = float(resolved["feature_clip"])
+    median_z, q90_z, continuity_z, verticality_z = [
+        _robust_scan_standardize(signal, reference, clip)
+        for signal in (
+            result.column_median,
+            result.column_q90,
+            result.continuity,
+            result.strong_vertical_fraction,
+        )
+    ]
+    features = np.column_stack(
+        (
+            median_z, q90_z, continuity_z, verticality_z,
+            median_z * q90_z,
+            continuity_z * verticality_z,
+            q90_z * continuity_z,
+            q90_z * verticality_z,
+        )
+    ).astype(np.float32)
+
+    probabilities: dict[str, np.ndarray] = {}
+    masks: dict[str, np.ndarray] = {}
+    for label in ("barcoding", "ea"):
+        class_config = resolved[label]
+        coefficients = np.asarray(class_config["coefficients"], dtype=np.float32)
+        if coefficients.shape != (features.shape[1],):
+            raise ValueError(f"{label} calibration requires 8 coefficients.")
+        probability = _sigmoid(
+            features @ coefficients + float(class_config["intercept"])
+        )
+        mask = probability >= float(class_config["probability_threshold"])
+        if edge_margin:
+            mask[:edge_margin] = False
+            mask[-edge_margin:] = False
+        mask = clean_column_mask(
+            mask,
+            minimum_positive_run=int(class_config["minimum_positive_run"]),
+            maximum_negative_gap=int(class_config["maximum_negative_gap"]),
+        )
+        probabilities[label] = probability
+        masks[label] = mask
+
+    overlap = masks["barcoding"] & masks["ea"]
+    if overlap.any():
+        barcode_margin = probabilities["barcoding"] / float(
+            resolved["barcoding"]["probability_threshold"]
+        )
+        ea_margin = probabilities["ea"] / float(
+            resolved["ea"]["probability_threshold"]
+        )
+        choose_barcode = overlap & (barcode_margin >= ea_margin)
+        masks["ea"][choose_barcode] = False
+        masks["barcoding"][overlap & ~choose_barcode] = False
+
+    # Resolving overlaps can split a previously valid run. Reapply each
+    # class's cleanup so final reported intervals still honor its settings.
+    for label in ("barcoding", "ea"):
+        class_config = resolved[label]
+        masks[label] = clean_column_mask(
+            masks[label],
+            minimum_positive_run=int(class_config["minimum_positive_run"]),
+            maximum_negative_gap=int(class_config["maximum_negative_gap"]),
+        )
+
+    labels = np.full(width, "normal", dtype="<U10")
+    labels[masks["ea"]] = "ea"
+    labels[masks["barcoding"]] = "barcoding"
+    details = {
+        "mode": "independent_calibrated",
+        "version": resolved["version"],
+        "config": resolved,
+        "positive_columns": {
+            label: int(mask.sum()) for label, mask in masks.items()
+        },
+        "overlap_columns_resolved": int(overlap.sum()),
+    }
+    return labels, details
 
 
 def detect_hypertransmission(
@@ -151,19 +303,21 @@ def detect_ea(
     result = detect_structural_hypertransmission(
         image, config=None if config is None else dict(config)
     )
-    return (result.intensity_mask & ~result.barcode_mask).copy()
+    labels, _ = classify_ea_and_barcoding(result)
+    return labels == "ea"
 
 
 def save_detector_output(output: DetectorOutput, output_path: str | Path) -> Path:
     """Write the portable detector summary and intervals as JSON."""
-    intervals = []
-    for interval in output.result.intervals:
-        values = vars(interval)
-        intervals.append({key: _json_value(value) for key, value in values.items()})
+    intervals_by_class = {
+        label: _intervals_from_labels(output.labels, label)
+        for label in ("barcoding", "ea")
+    }
     payload = {
         "detector_type": output.detector_type,
         "labels": output.labels.tolist(),
-        "intervals": intervals,
+        "intervals": intervals_by_class["barcoding"],
+        "intervals_by_class": intervals_by_class,
         "metadata": output.metadata,
         "thresholds": getattr(output.result, "thresholds", {}),
     }
@@ -172,6 +326,17 @@ def save_detector_output(output: DetectorOutput, output_path: str | Path) -> Pat
     with output_path.open("w", encoding="utf-8") as stream:
         json.dump(payload, stream, indent=2, default=_json_value)
     return output_path.resolve()
+
+
+def _intervals_from_labels(labels: np.ndarray, target: str) -> list[dict[str, int]]:
+    mask = np.asarray(labels) == target
+    padded = np.pad(mask.astype(np.int8), (1, 1))
+    starts = np.flatnonzero(np.diff(padded) == 1)
+    ends = np.flatnonzero(np.diff(padded) == -1) - 1
+    return [
+        {"start": int(start), "end": int(end), "width_pixels": int(end - start + 1)}
+        for start, end in zip(starts, ends)
+    ]
 
 
 def _json_value(value: Any) -> Any:

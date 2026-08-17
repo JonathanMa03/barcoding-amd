@@ -364,6 +364,20 @@ Structural detector parameters:
   detections; `0` disables gap filling.
 - `edge_margin`: number of columns excluded at both lateral image edges.
 
+EA and barcoding classification is performed by two independent calibrated
+models in `phenotype_config`. Each class has:
+
+- `probability_threshold`: minimum class probability; increasing it improves
+  selectivity while generally reducing recall.
+- `minimum_positive_run`: minimum retained interval width for that class.
+- `maximum_negative_gap`: largest internal gap joined for that class.
+- `coefficients` and `intercept`: fitted calibration values derived from the
+  manual annotations. These should normally remain unchanged unless the model
+  is recalibrated.
+
+When both models select the same column, the detector compares each model's
+probability relative to its threshold and assigns the stronger class.
+
 The JSON output contains one `normal`, `ea`, or `barcoding` label per column,
 detected intervals, thresholds, label counts, and the detector configuration.
 EA and barcoding are exploratory research labels, not validated clinical

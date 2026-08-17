@@ -1,13 +1,18 @@
 """Run EA/barcoding/normal detector rules using the configuration below."""
 
 from pathlib import Path
+from copy import deepcopy
 import sys
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
-from src.detector.detector import run_detector, save_detector_output
+from src.detector.detector import (
+    CALIBRATED_PHENOTYPE_V1_CONFIG,
+    run_detector,
+    save_detector_output,
+)
 from src.preprocess.preprocessing import load_preprocessed_scan
 
 
@@ -36,6 +41,10 @@ DETECTOR_CONFIG = {
     "minimum_positive_run": 5,
     "maximum_negative_gap": 2,
     "edge_margin": 10,
+    # Two independent EA/barcoding classifiers calibrated against the manual
+    # annotations. Coefficients normally remain fixed. Probability thresholds
+    # and interval cleanup settings can be adjusted per class below.
+    "phenotype_config": deepcopy(CALIBRATED_PHENOTYPE_V1_CONFIG),
 }
 
 
