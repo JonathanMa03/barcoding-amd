@@ -97,6 +97,7 @@ barcoding-amd/
 │   ├── batch_preprocess_e2e.py        # Batch E2E loading + preprocessing
 │   ├── preprocess_data.py             # Preprocess one loaded artifact
 │   ├── run_detector.py                # Run detector on one processed scan
+│   ├── validation_test.py              # Run all 10 manually selected scans
 │   ├── extract_numerical_results.py    # Quantify EA/barcoding intervals
 │   ├── evaluate_detector.py           # Compare output with annotations
 │   └── visualize_detector.py          # Save detector overlay figure
@@ -200,6 +201,10 @@ CONFIG = {
         "selection": "center",  # or "index"
         "bscan_index": None,     # set an integer when selection="index"
         "layer_name": "BM",
+    },
+    "source_metadata": {
+        "progression_group": "fast",
+        "subject_id": 8,
     },
 }
 ```
@@ -400,8 +405,8 @@ python scripts/extract_numerical_results.py
 ```
 
 Edit `CONFIG` in that script if the detector output is stored elsewhere. By
-default it reads `results/pipeline/detections.json` and writes
-`results/pipeline/numerical_results.json`. The output contains the number of
+default it reads `results/pipeline/detections.json` and writes a metadata-based
+name such as `results/pipeline/fast_08_bscan_048_automatic.json`. The output contains the number of
 intervals, each interval's inclusive start/end columns and width in pixels,
 total width, and mean, median, minimum, and maximum width for both EA and
 barcoding.
@@ -423,7 +428,12 @@ detection paths describe the same B-scan:
 CONFIG = {
     "preprocessed_path": Path("results/pipeline/preprocessed_scan.npz"),
     "detection_path": Path("results/pipeline/detections.json"),
-    "output_path": Path("results/pipeline/detection_plot.png"),
+    "output_directory": Path("results/pipeline"),
+    "identity_overrides": {
+        "progression_group": None,
+        "subject_id": None,
+        "bscan_index": None,
+    },
     "title": "EA and barcoding detector output",
     "colors": {"ea": "tab:orange", "barcoding": "tab:red"},
     "figure_options": {"figsize": (12, 4), "dpi": 150},
@@ -436,9 +446,17 @@ Run:
 python scripts/visualize_detector.py
 ```
 
-The script saves a grayscale preprocessed B-scan with transparent EA and
+The script saves a metadata-based filename such as
+`fast_08_bscan_048_automatic.png`, matching its numerical-results JSON. It
+shows a grayscale preprocessed B-scan with transparent EA and
 barcoding interval overlays. `colors`, `figsize`, `dpi`, title, and output path
 can be changed without modifying plotting code.
+
+The B-scan number is read from the processed artifact, so each patient can use
+a different selected scan. When loading E2E data, set `source_metadata` in
+`scripts/load_data.py` with `progression_group` and `subject_id`. Subject ID is
+also inferred from E2E names such as `ea8.E2E`. If older artifacts lack this
+metadata, set `identity_overrides` in the numerical and visualization scripts.
 
 ## Optional evaluation
 
@@ -454,6 +472,30 @@ specificity, accuracy, F1/Dice, intersection over union, and detected/target
 fractions. Barcoding and EA are scored separately. Columns annotated as
 `Uncertain` or `Vessel / Structural` are excluded from scoring rather than
 treated as negative examples.
+
+### Ten-scan validation workflow
+
+To run the complete workflow on the ten patient-specific scans listed in
+`results/manual_ground_truth/`, place the corresponding E2E files under
+`data/heyex/meta/` with names such as `ea8.E2E`, then run:
+
+```bash
+python scripts/validation_test.py
+```
+
+The script reads each subject ID, progression group, and distinct B-scan index
+from the manual JSON—not from a shared hardcoded scan number. It performs E2E
+loading, preprocessing, calibrated detection, numerical quantification,
+ground-truth evaluation, and plotting. Paired files are saved under
+`results/automatic_detector/`, for example:
+
+```text
+fast_08_bscan_048_automatic.json
+fast_08_bscan_048_automatic.png
+```
+
+`validation_manifest.json` records processed, skipped, and failed cases.
+`overwrite` and `continue_on_error` can be changed in `VALIDATION_CONFIG`.
 
 ## Package responsibilities
 

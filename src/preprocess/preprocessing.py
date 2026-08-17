@@ -123,6 +123,9 @@ def preprocess_loaded_scan(
         gaussian_mode=gaussian_mode,
     )
     metadata = dict(scan.metadata)
+    metadata.setdefault("source_type", scan.source_type)
+    metadata.setdefault("source_path", str(scan.source_path))
+    metadata.setdefault("bscan_index", scan.bscan_index)
     metadata["preprocessing"] = {
         "layer_name": layer_name,
         "flattened": bool(should_flatten),

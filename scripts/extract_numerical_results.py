@@ -12,11 +12,18 @@ if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
 from src.evaluation.quantification import quantify_detection_labels
+from src.evaluation.result_naming import automatic_result_stem, resolve_result_identity
 
 
 CONFIG = {
     "detection_path": Path("results/pipeline/detections.json"),
-    "output_path": Path("results/pipeline/numerical_results.json"),
+    "output_directory": Path("results/pipeline"),
+    # Use these only when identity was not stored during loading.
+    "identity_overrides": {
+        "progression_group": None,
+        "subject_id": None,
+        "bscan_index": None,
+    },
 }
 
 
@@ -32,10 +39,19 @@ def main() -> None:
         raise KeyError("Detector output does not contain a 'labels' array.")
 
     results = quantify_detection_labels(labels)
+    source_metadata = detection.get("metadata", {}).get("source", {})
+    identity = resolve_result_identity(
+        source_metadata,
+        overrides=CONFIG.get("identity_overrides"),
+    )
+    results.update(identity)
     results["source_detection_path"] = str(detection_path.resolve())
     results["detector_type"] = detection.get("detector_type")
 
-    output_path = Path(CONFIG["output_path"]).with_suffix(".json")
+    output_path = (
+        Path(CONFIG["output_directory"])
+        / f"{automatic_result_stem(identity)}.json"
+    )
     output_path.parent.mkdir(parents=True, exist_ok=True)
     with output_path.open("w", encoding="utf-8") as stream:
         json.dump(results, stream, indent=2)

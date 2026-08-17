@@ -51,6 +51,10 @@ DETECTOR_CONFIG = {
 def main() -> None:
     processed = load_preprocessed_scan(PIPELINE_CONFIG["input_path"])
     detected = run_detector(processed.image, DETECTOR_CONFIG)
+    detected.metadata["source"] = {
+        **processed.metadata,
+        "bscan_index": processed.bscan_index,
+    }
     output = save_detector_output(detected, PIPELINE_CONFIG["output_path"])
     print(f"Detected labels {detected.metadata['label_counts']} -> {output}")
 
