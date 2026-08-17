@@ -74,7 +74,7 @@ STRUCTURAL_HYPERTD_V1_CONFIG: dict[str, Any] = {
 # median intensity, upper-quantile intensity, continuity, and verticality plus
 # four interaction terms. Uncertain and vessel/structural columns were omitted.
 CALIBRATED_PHENOTYPE_V1_CONFIG: dict[str, Any] = {
-    "version": "manual_ground_truth_v1",
+    "version": "manual_ground_truth_v2",
     "feature_clip": 5.0,
     "barcoding": {
         "coefficients": [
@@ -82,8 +82,8 @@ CALIBRATED_PHENOTYPE_V1_CONFIG: dict[str, Any] = {
             -0.0490887583, -0.3096769051, -0.2179212661, 0.2184296900,
         ],
         "intercept": -0.7472072021,
-        "probability_threshold": 0.50,
-        "minimum_positive_run": 5,
+        "probability_threshold": 0.55,
+        "minimum_positive_run": 8,
         "maximum_negative_gap": 4,
     },
     "ea": {
@@ -93,7 +93,7 @@ CALIBRATED_PHENOTYPE_V1_CONFIG: dict[str, Any] = {
         ],
         "intercept": -3.7314556500,
         "probability_threshold": 0.50,
-        "minimum_positive_run": 5,
+        "minimum_positive_run": 12,
         "maximum_negative_gap": 5,
     },
     "structural_veto": {

@@ -390,6 +390,11 @@ cover the surrounding shadow; its default is two columns.
 When both models select the same column, the detector compares each model's
 probability relative to its threshold and assigns the stronger class.
 
+Calibration v2 uses a barcoding probability threshold of `0.55` with an
+8-column minimum interval and an EA threshold of `0.50` with a 12-column
+minimum interval. These settings were selected to reduce the false-positive
+fragmentation observed across the ten validation scans.
+
 The JSON output contains one `normal`, `ea`, or `barcoding` label per column,
 detected intervals, thresholds, label counts, and the detector configuration.
 EA and barcoding are exploratory research labels, not validated clinical
