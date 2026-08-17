@@ -430,7 +430,9 @@ python scripts/evaluate_detector.py
 
 Available metrics include confusion counts, precision, sensitivity/recall,
 specificity, accuracy, F1/Dice, intersection over union, and detected/target
-fractions.
+fractions. Barcoding and EA are scored separately. Columns annotated as
+`Uncertain` or `Vessel / Structural` are excluded from scoring rather than
+treated as negative examples.
 
 ## Package responsibilities
 

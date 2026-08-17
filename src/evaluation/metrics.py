@@ -42,12 +42,46 @@ def load_ground_truth_mask(
     return intervals_to_mask(payload.get("annotations", []), width, labels=labels)
 
 
-def evaluate_detection(predicted: np.ndarray, target: np.ndarray) -> dict[str, float | int]:
+def load_ground_truth_masks(
+    json_path: str | Path,
+    *,
+    width: int | None = None,
+    target_labels: Iterable[str] = ("Barcoding",),
+    ignored_labels: Iterable[str] = ("Uncertain", "Vessel / Structural"),
+) -> tuple[np.ndarray, np.ndarray]:
+    """Load a target mask and valid-scoring mask from manual annotations."""
+    with Path(json_path).open("r", encoding="utf-8") as stream:
+        payload = json.load(stream)
+    if width is None:
+        width = int(payload["image_shape"][1])
+    annotations = payload.get("annotations", [])
+    target = intervals_to_mask(annotations, width, labels=target_labels)
+    ignored = intervals_to_mask(annotations, width, labels=ignored_labels)
+    return target, ~ignored
+
+
+def evaluate_detection(
+    predicted: np.ndarray,
+    target: np.ndarray,
+    *,
+    valid_mask: np.ndarray | None = None,
+) -> dict[str, float | int]:
     """Calculate confusion counts, overlap, and classification metrics."""
     predicted = np.asarray(predicted, dtype=bool)
     target = np.asarray(target, dtype=bool)
     if predicted.ndim != 1 or target.ndim != 1 or predicted.shape != target.shape:
         raise ValueError("predicted and target must be same-length 1D masks.")
+
+    if valid_mask is None:
+        valid = np.ones(predicted.shape, dtype=bool)
+    else:
+        valid = np.asarray(valid_mask, dtype=bool)
+        if valid.shape != predicted.shape:
+            raise ValueError("valid_mask must have the same shape as predicted.")
+    predicted = predicted[valid]
+    target = target[valid]
+    if predicted.size == 0:
+        raise ValueError("No valid columns remain after applying valid_mask.")
 
     tp = int(np.count_nonzero(predicted & target))
     fp = int(np.count_nonzero(predicted & ~target))
@@ -72,4 +106,6 @@ def evaluate_detection(predicted: np.ndarray, target: np.ndarray) -> dict[str, f
         "intersection_over_union": ratio(tp, tp + fp + fn),
         "predicted_fraction": float(predicted.mean()),
         "target_fraction": float(target.mean()),
+        "number_of_scored_columns": int(predicted.size),
+        "number_of_ignored_columns": int(valid.size - predicted.size),
     }
