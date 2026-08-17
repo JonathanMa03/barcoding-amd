@@ -81,6 +81,9 @@
     "normal",
     "normal",
     "normal",
+    "normal",
+    "normal",
+    "normal",
     "barcoding",
     "barcoding",
     "barcoding",
@@ -90,9 +93,7 @@
     "barcoding",
     "barcoding",
     "barcoding",
-    "barcoding",
-    "barcoding",
-    "barcoding",
+    "normal",
     "normal",
     "normal",
     "normal",
@@ -225,8 +226,6 @@
     "ea",
     "ea",
     "ea",
-    "ea",
-    "ea",
     "barcoding",
     "barcoding",
     "barcoding",
@@ -257,11 +256,50 @@
     "barcoding",
     "barcoding",
     "barcoding",
-    "ea",
-    "ea",
-    "ea",
-    "ea",
-    "ea",
+    "barcoding",
+    "barcoding",
+    "barcoding",
+    "barcoding",
+    "barcoding",
+    "barcoding",
+    "barcoding",
+    "barcoding",
+    "barcoding",
+    "barcoding",
+    "barcoding",
+    "barcoding",
+    "barcoding",
+    "barcoding",
+    "barcoding",
+    "barcoding",
+    "barcoding",
+    "barcoding",
+    "barcoding",
+    "barcoding",
+    "barcoding",
+    "barcoding",
+    "barcoding",
+    "barcoding",
+    "barcoding",
+    "barcoding",
+    "barcoding",
+    "barcoding",
+    "barcoding",
+    "barcoding",
+    "barcoding",
+    "barcoding",
+    "barcoding",
+    "barcoding",
+    "barcoding",
+    "barcoding",
+    "barcoding",
+    "barcoding",
+    "barcoding",
+    "barcoding",
+    "barcoding",
+    "barcoding",
+    "barcoding",
+    "barcoding",
     "normal",
     "normal",
     "normal",
@@ -273,44 +311,6 @@
     "normal",
     "normal",
     "normal",
-    "barcoding",
-    "barcoding",
-    "barcoding",
-    "barcoding",
-    "barcoding",
-    "barcoding",
-    "barcoding",
-    "barcoding",
-    "barcoding",
-    "barcoding",
-    "barcoding",
-    "barcoding",
-    "barcoding",
-    "barcoding",
-    "barcoding",
-    "barcoding",
-    "barcoding",
-    "barcoding",
-    "barcoding",
-    "barcoding",
-    "barcoding",
-    "barcoding",
-    "barcoding",
-    "barcoding",
-    "barcoding",
-    "barcoding",
-    "barcoding",
-    "normal",
-    "normal",
-    "normal",
-    "normal",
-    "normal",
-    "normal",
-    "normal",
-    "normal",
-    "normal",
-    "normal",
-    "barcoding",
     "barcoding",
     "barcoding",
     "barcoding",
@@ -523,130 +523,108 @@
     "normal"
   ],
   "barcoding": {
-    "number_of_intervals": 4,
+    "number_of_intervals": 3,
     "interval_widths_pixels": [
-      12,
-      30,
-      27,
-      47
+      9,
+      74,
+      46
     ],
-    "total_width_pixels": 116,
-    "mean_width_pixels": 29.0,
-    "median_width_pixels": 28.5,
-    "minimum_width_pixels": 12,
-    "maximum_width_pixels": 47,
+    "total_width_pixels": 129,
+    "mean_width_pixels": 43.0,
+    "median_width_pixels": 46.0,
+    "minimum_width_pixels": 9,
+    "maximum_width_pixels": 74,
     "intervals": [
       {
-        "start": 72,
+        "start": 75,
         "end": 83,
-        "width_pixels": 12
+        "width_pixels": 9
       },
       {
-        "start": 218,
-        "end": 247,
-        "width_pixels": 30
-      },
-      {
-        "start": 264,
+        "start": 217,
         "end": 290,
-        "width_pixels": 27
+        "width_pixels": 74
       },
       {
-        "start": 301,
+        "start": 302,
         "end": 347,
-        "width_pixels": 47
+        "width_pixels": 46
       }
     ]
   },
   "ea": {
-    "number_of_intervals": 2,
+    "number_of_intervals": 1,
     "interval_widths_pixels": [
-      15,
-      5
+      13
     ],
-    "total_width_pixels": 20,
-    "mean_width_pixels": 10.0,
-    "median_width_pixels": 10.0,
-    "minimum_width_pixels": 5,
-    "maximum_width_pixels": 15,
+    "total_width_pixels": 13,
+    "mean_width_pixels": 13.0,
+    "median_width_pixels": 13.0,
+    "minimum_width_pixels": 13,
+    "maximum_width_pixels": 13,
     "intervals": [
       {
-        "start": 203,
-        "end": 217,
-        "width_pixels": 15
-      },
-      {
-        "start": 248,
-        "end": 252,
-        "width_pixels": 5
+        "start": 204,
+        "end": 216,
+        "width_pixels": 13
       }
     ]
   },
   "intervals_by_class": {
     "barcoding": [
       {
-        "start": 72,
+        "start": 75,
         "end": 83,
-        "width_pixels": 12
+        "width_pixels": 9
       },
       {
-        "start": 218,
-        "end": 247,
-        "width_pixels": 30
-      },
-      {
-        "start": 264,
+        "start": 217,
         "end": 290,
-        "width_pixels": 27
+        "width_pixels": 74
       },
       {
-        "start": 301,
+        "start": 302,
         "end": 347,
-        "width_pixels": 47
+        "width_pixels": 46
       }
     ],
     "ea": [
       {
-        "start": 203,
-        "end": 217,
-        "width_pixels": 15
-      },
-      {
-        "start": 248,
-        "end": 252,
-        "width_pixels": 5
+        "start": 204,
+        "end": 216,
+        "width_pixels": 13
       }
     ]
   },
   "validation_metrics": {
     "barcoding": {
-      "true_positive": 104,
-      "false_positive": 12,
-      "false_negative": 50,
-      "true_negative": 346,
-      "precision": 0.896551724137931,
-      "recall_sensitivity": 0.6753246753246753,
-      "specificity": 0.9664804469273743,
-      "accuracy": 0.87890625,
-      "f1_dice": 0.7703703703703704,
-      "intersection_over_union": 0.6265060240963856,
-      "predicted_fraction": 0.2265625,
+      "true_positive": 120,
+      "false_positive": 9,
+      "false_negative": 34,
+      "true_negative": 349,
+      "precision": 0.9302325581395349,
+      "recall_sensitivity": 0.7792207792207793,
+      "specificity": 0.9748603351955307,
+      "accuracy": 0.916015625,
+      "f1_dice": 0.8480565371024735,
+      "intersection_over_union": 0.7361963190184049,
+      "predicted_fraction": 0.251953125,
       "target_fraction": 0.30078125,
       "number_of_scored_columns": 512,
       "number_of_ignored_columns": 0
     },
     "ea": {
       "true_positive": 0,
-      "false_positive": 20,
+      "false_positive": 13,
       "false_negative": 0,
-      "true_negative": 492,
+      "true_negative": 499,
       "precision": 0.0,
       "recall_sensitivity": 0.0,
-      "specificity": 0.9609375,
-      "accuracy": 0.9609375,
+      "specificity": 0.974609375,
+      "accuracy": 0.974609375,
       "f1_dice": 0.0,
       "intersection_over_union": 0.0,
-      "predicted_fraction": 0.0390625,
+      "predicted_fraction": 0.025390625,
       "target_fraction": 0.0,
       "number_of_scored_columns": 512,
       "number_of_ignored_columns": 0
@@ -679,7 +657,7 @@
     "maximum_negative_gap": 2,
     "edge_margin": 10,
     "phenotype_config": {
-      "version": "manual_ground_truth_v2",
+      "version": "manual_ground_truth_v3_contextual",
       "feature_clip": 5.0,
       "barcoding": {
         "coefficients": [
@@ -695,7 +673,22 @@
         "intercept": -0.7472072021,
         "probability_threshold": 0.55,
         "minimum_positive_run": 8,
-        "maximum_negative_gap": 4
+        "maximum_negative_gap": 4,
+        "spatial_context": {
+          "smoothing_sigma": 2.0,
+          "raw_probability_weight": 0.65,
+          "support_radius": 5,
+          "support_probability_margin": 0.1,
+          "minimum_local_support": 0.55,
+          "minimum_interval_mean_probability": 0.52,
+          "minimum_interval_peak_probability": 0.68,
+          "minimum_feature_votes": 2,
+          "feature_vote_thresholds": {
+            "median": 0.0,
+            "continuity": 0.0,
+            "verticality": 0.0
+          }
+        }
       },
       "ea": {
         "coefficients": [
@@ -711,7 +704,22 @@
         "intercept": -3.73145565,
         "probability_threshold": 0.5,
         "minimum_positive_run": 12,
-        "maximum_negative_gap": 5
+        "maximum_negative_gap": 5,
+        "spatial_context": {
+          "smoothing_sigma": 2.5,
+          "raw_probability_weight": 0.6,
+          "support_radius": 7,
+          "support_probability_margin": 0.1,
+          "minimum_local_support": 0.6,
+          "minimum_interval_mean_probability": 0.48,
+          "minimum_interval_peak_probability": 0.62,
+          "minimum_feature_votes": 3,
+          "feature_vote_thresholds": {
+            "median": 0.0,
+            "continuity": 0.0,
+            "verticality": -0.25
+          }
+        }
       },
       "structural_veto": {
         "coefficients": [
@@ -731,7 +739,15 @@
         "probability_threshold": 0.9,
         "minimum_positive_run": 3,
         "maximum_negative_gap": 1,
-        "margin_columns": 2
+        "margin_columns": 2,
+        "dark_shadow": {
+          "enabled": true,
+          "q90_z_maximum": -1.0,
+          "continuity_z_minimum": 0.25,
+          "minimum_positive_run": 3,
+          "maximum_negative_gap": 2,
+          "margin_columns": 3
+        }
       }
     }
   },
@@ -756,9 +772,9 @@
     "label_rule": "independent calibrated EA and barcoding classifiers",
     "phenotype_classification": {
       "mode": "independent_calibrated",
-      "version": "manual_ground_truth_v2",
+      "version": "manual_ground_truth_v3_contextual",
       "config": {
-        "version": "manual_ground_truth_v2",
+        "version": "manual_ground_truth_v3_contextual",
         "feature_clip": 5.0,
         "barcoding": {
           "coefficients": [
@@ -774,7 +790,22 @@
           "intercept": -0.7472072021,
           "probability_threshold": 0.55,
           "minimum_positive_run": 8,
-          "maximum_negative_gap": 4
+          "maximum_negative_gap": 4,
+          "spatial_context": {
+            "smoothing_sigma": 2.0,
+            "raw_probability_weight": 0.65,
+            "support_radius": 5,
+            "support_probability_margin": 0.1,
+            "minimum_local_support": 0.55,
+            "minimum_interval_mean_probability": 0.52,
+            "minimum_interval_peak_probability": 0.68,
+            "minimum_feature_votes": 2,
+            "feature_vote_thresholds": {
+              "median": 0.0,
+              "continuity": 0.0,
+              "verticality": 0.0
+            }
+          }
         },
         "ea": {
           "coefficients": [
@@ -790,7 +821,22 @@
           "intercept": -3.73145565,
           "probability_threshold": 0.5,
           "minimum_positive_run": 12,
-          "maximum_negative_gap": 5
+          "maximum_negative_gap": 5,
+          "spatial_context": {
+            "smoothing_sigma": 2.5,
+            "raw_probability_weight": 0.6,
+            "support_radius": 7,
+            "support_probability_margin": 0.1,
+            "minimum_local_support": 0.6,
+            "minimum_interval_mean_probability": 0.48,
+            "minimum_interval_peak_probability": 0.62,
+            "minimum_feature_votes": 3,
+            "feature_vote_thresholds": {
+              "median": 0.0,
+              "continuity": 0.0,
+              "verticality": -0.25
+            }
+          }
         },
         "structural_veto": {
           "coefficients": [
@@ -810,16 +856,37 @@
           "probability_threshold": 0.9,
           "minimum_positive_run": 3,
           "maximum_negative_gap": 1,
-          "margin_columns": 2
+          "margin_columns": 2,
+          "dark_shadow": {
+            "enabled": true,
+            "q90_z_maximum": -1.0,
+            "continuity_z_minimum": 0.25,
+            "minimum_positive_run": 3,
+            "maximum_negative_gap": 2,
+            "margin_columns": 3
+          }
         }
       },
       "positive_columns": {
-        "barcoding": 116,
-        "ea": 32
+        "barcoding": 129,
+        "ea": 28
       },
-      "overlap_columns_resolved": 74,
-      "structural_veto_columns": 0,
-      "disease_columns_removed_by_structural_veto": 0
+      "overlap_columns_resolved": 61,
+      "structural_veto_columns": 12,
+      "dark_shadow_veto_columns": 12,
+      "disease_columns_removed_by_structural_veto": 2,
+      "spatial_context": {
+        "barcoding": {
+          "columns_rejected_by_local_support": 1,
+          "columns_rejected_by_feature_votes": 0,
+          "intervals_rejected_by_lesion_confidence": 0
+        },
+        "ea": {
+          "columns_rejected_by_local_support": 8,
+          "columns_rejected_by_feature_votes": 23,
+          "intervals_rejected_by_lesion_confidence": 0
+        }
+      }
     },
     "config": {
       "detector_type": "structural",
@@ -841,7 +908,7 @@
       "maximum_negative_gap": 2,
       "edge_margin": 10,
       "phenotype_config": {
-        "version": "manual_ground_truth_v2",
+        "version": "manual_ground_truth_v3_contextual",
         "feature_clip": 5.0,
         "barcoding": {
           "coefficients": [
@@ -857,7 +924,22 @@
           "intercept": -0.7472072021,
           "probability_threshold": 0.55,
           "minimum_positive_run": 8,
-          "maximum_negative_gap": 4
+          "maximum_negative_gap": 4,
+          "spatial_context": {
+            "smoothing_sigma": 2.0,
+            "raw_probability_weight": 0.65,
+            "support_radius": 5,
+            "support_probability_margin": 0.1,
+            "minimum_local_support": 0.55,
+            "minimum_interval_mean_probability": 0.52,
+            "minimum_interval_peak_probability": 0.68,
+            "minimum_feature_votes": 2,
+            "feature_vote_thresholds": {
+              "median": 0.0,
+              "continuity": 0.0,
+              "verticality": 0.0
+            }
+          }
         },
         "ea": {
           "coefficients": [
@@ -873,7 +955,22 @@
           "intercept": -3.73145565,
           "probability_threshold": 0.5,
           "minimum_positive_run": 12,
-          "maximum_negative_gap": 5
+          "maximum_negative_gap": 5,
+          "spatial_context": {
+            "smoothing_sigma": 2.5,
+            "raw_probability_weight": 0.6,
+            "support_radius": 7,
+            "support_probability_margin": 0.1,
+            "minimum_local_support": 0.6,
+            "minimum_interval_mean_probability": 0.48,
+            "minimum_interval_peak_probability": 0.62,
+            "minimum_feature_votes": 3,
+            "feature_vote_thresholds": {
+              "median": 0.0,
+              "continuity": 0.0,
+              "verticality": -0.25
+            }
+          }
         },
         "structural_veto": {
           "coefficients": [
@@ -893,14 +990,22 @@
           "probability_threshold": 0.9,
           "minimum_positive_run": 3,
           "maximum_negative_gap": 1,
-          "margin_columns": 2
+          "margin_columns": 2,
+          "dark_shadow": {
+            "enabled": true,
+            "q90_z_maximum": -1.0,
+            "continuity_z_minimum": 0.25,
+            "minimum_positive_run": 3,
+            "maximum_negative_gap": 2,
+            "margin_columns": 3
+          }
         }
       }
     },
     "label_counts": {
-      "normal": 376,
-      "ea": 20,
-      "barcoding": 116
+      "normal": 370,
+      "ea": 13,
+      "barcoding": 129
     }
   }
 }

@@ -14,7 +14,7 @@
       "json_path": "C:\\Users\\u0667281\\Desktop\\JMA\\barcoding-amd\\results\\automatic_detector\\fast_08_bscan_048_automatic.json",
       "png_path": "C:\\Users\\u0667281\\Desktop\\JMA\\barcoding-amd\\results\\automatic_detector\\fast_08_bscan_048_automatic.png",
       "barcoding_dice": 0.7053571428571429,
-      "ea_dice": 0.725
+      "ea_dice": 0.7088607594936709
     },
     {
       "progression_group": "fast",
@@ -33,7 +33,7 @@
       "status": "processed",
       "json_path": "C:\\Users\\u0667281\\Desktop\\JMA\\barcoding-amd\\results\\automatic_detector\\fast_12_bscan_038_automatic.json",
       "png_path": "C:\\Users\\u0667281\\Desktop\\JMA\\barcoding-amd\\results\\automatic_detector\\fast_12_bscan_038_automatic.png",
-      "barcoding_dice": 0.3888888888888889,
+      "barcoding_dice": 0.4444444444444444,
       "ea_dice": 0.0
     },
     {
@@ -53,7 +53,7 @@
       "status": "processed",
       "json_path": "C:\\Users\\u0667281\\Desktop\\JMA\\barcoding-amd\\results\\automatic_detector\\fast_49_bscan_033_automatic.json",
       "png_path": "C:\\Users\\u0667281\\Desktop\\JMA\\barcoding-amd\\results\\automatic_detector\\fast_49_bscan_033_automatic.png",
-      "barcoding_dice": 0.7703703703703704,
+      "barcoding_dice": 0.8480565371024735,
       "ea_dice": 0.0
     },
     {
@@ -73,7 +73,7 @@
       "status": "processed",
       "json_path": "C:\\Users\\u0667281\\Desktop\\JMA\\barcoding-amd\\results\\automatic_detector\\slow_23_bscan_043_automatic.json",
       "png_path": "C:\\Users\\u0667281\\Desktop\\JMA\\barcoding-amd\\results\\automatic_detector\\slow_23_bscan_043_automatic.png",
-      "barcoding_dice": 0.5511111111111111,
+      "barcoding_dice": 0.6228070175438597,
       "ea_dice": 0.0
     },
     {
@@ -83,8 +83,8 @@
       "status": "processed",
       "json_path": "C:\\Users\\u0667281\\Desktop\\JMA\\barcoding-amd\\results\\automatic_detector\\slow_35_bscan_038_automatic.json",
       "png_path": "C:\\Users\\u0667281\\Desktop\\JMA\\barcoding-amd\\results\\automatic_detector\\slow_35_bscan_038_automatic.png",
-      "barcoding_dice": 0.4861878453038674,
-      "ea_dice": 0.5952380952380952
+      "barcoding_dice": 0.43137254901960786,
+      "ea_dice": 0.575
     },
     {
       "progression_group": "slow",
@@ -94,7 +94,7 @@
       "json_path": "C:\\Users\\u0667281\\Desktop\\JMA\\barcoding-amd\\results\\automatic_detector\\slow_36_bscan_059_automatic.json",
       "png_path": "C:\\Users\\u0667281\\Desktop\\JMA\\barcoding-amd\\results\\automatic_detector\\slow_36_bscan_059_automatic.png",
       "barcoding_dice": 0.0,
-      "ea_dice": 0.6666666666666666
+      "ea_dice": 0.92
     },
     {
       "progression_group": "slow",
@@ -104,7 +104,7 @@
       "json_path": "C:\\Users\\u0667281\\Desktop\\JMA\\barcoding-amd\\results\\automatic_detector\\slow_47_bscan_031_automatic.json",
       "png_path": "C:\\Users\\u0667281\\Desktop\\JMA\\barcoding-amd\\results\\automatic_detector\\slow_47_bscan_031_automatic.png",
       "barcoding_dice": 0.0,
-      "ea_dice": 0.9444444444444444
+      "ea_dice": 0.9514563106796117
     }
   ]
 }
