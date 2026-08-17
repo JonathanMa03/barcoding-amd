@@ -74,7 +74,7 @@ STRUCTURAL_HYPERTD_V1_CONFIG: dict[str, Any] = {
 # median intensity, upper-quantile intensity, continuity, and verticality plus
 # four interaction terms. Uncertain and vessel/structural columns were omitted.
 CALIBRATED_PHENOTYPE_V1_CONFIG: dict[str, Any] = {
-    "version": "manual_ground_truth_v2",
+    "version": "manual_ground_truth_v3_contextual",
     "feature_clip": 5.0,
     "barcoding": {
         "coefficients": [
@@ -85,6 +85,21 @@ CALIBRATED_PHENOTYPE_V1_CONFIG: dict[str, Any] = {
         "probability_threshold": 0.55,
         "minimum_positive_run": 8,
         "maximum_negative_gap": 4,
+        "spatial_context": {
+            "smoothing_sigma": 2.0,
+            "raw_probability_weight": 0.65,
+            "support_radius": 5,
+            "support_probability_margin": 0.10,
+            "minimum_local_support": 0.55,
+            "minimum_interval_mean_probability": 0.52,
+            "minimum_interval_peak_probability": 0.68,
+            "minimum_feature_votes": 2,
+            "feature_vote_thresholds": {
+                "median": 0.0,
+                "continuity": 0.0,
+                "verticality": 0.0,
+            },
+        },
     },
     "ea": {
         "coefficients": [
@@ -95,6 +110,21 @@ CALIBRATED_PHENOTYPE_V1_CONFIG: dict[str, Any] = {
         "probability_threshold": 0.50,
         "minimum_positive_run": 12,
         "maximum_negative_gap": 5,
+        "spatial_context": {
+            "smoothing_sigma": 2.5,
+            "raw_probability_weight": 0.60,
+            "support_radius": 7,
+            "support_probability_margin": 0.10,
+            "minimum_local_support": 0.60,
+            "minimum_interval_mean_probability": 0.48,
+            "minimum_interval_peak_probability": 0.62,
+            "minimum_feature_votes": 3,
+            "feature_vote_thresholds": {
+                "median": 0.0,
+                "continuity": 0.0,
+                "verticality": -0.25,
+            },
+        },
     },
     "structural_veto": {
         "coefficients": [
@@ -107,6 +137,14 @@ CALIBRATED_PHENOTYPE_V1_CONFIG: dict[str, Any] = {
         "minimum_positive_run": 3,
         "maximum_negative_gap": 1,
         "margin_columns": 2,
+        "dark_shadow": {
+            "enabled": True,
+            "q90_z_maximum": -1.0,
+            "continuity_z_minimum": 0.25,
+            "minimum_positive_run": 3,
+            "maximum_negative_gap": 2,
+            "margin_columns": 3,
+        },
     },
 }
 
@@ -198,6 +236,106 @@ def _sigmoid(values: np.ndarray) -> np.ndarray:
     return (1.0 / (1.0 + np.exp(-values))).astype(np.float32)
 
 
+def _expand_mask(mask: np.ndarray, margin: int) -> np.ndarray:
+    """Expand positive columns by a fixed horizontal margin."""
+    if margin < 0:
+        raise ValueError("mask margin must be nonnegative.")
+    if margin == 0:
+        return np.asarray(mask, dtype=bool).copy()
+    return np.convolve(
+        np.asarray(mask, dtype=np.int8),
+        np.ones(2 * margin + 1, dtype=np.int8),
+        mode="same",
+    ) > 0
+
+
+def _contextual_candidate_mask(
+    probability: np.ndarray,
+    feature_signals: Mapping[str, np.ndarray],
+    class_config: Mapping[str, Any],
+) -> tuple[np.ndarray, np.ndarray, dict[str, int]]:
+    """Require locally persistent probability and agreement across features."""
+    context = dict(class_config.get("spatial_context", {}))
+    threshold = float(class_config["probability_threshold"])
+    sigma = float(context.get("smoothing_sigma", 0.0))
+    raw_weight = float(context.get("raw_probability_weight", 1.0))
+    if not 0.0 <= raw_weight <= 1.0:
+        raise ValueError("raw_probability_weight must be between zero and one.")
+    smoothed = (
+        smooth_finite_signal(probability, sigma=sigma)
+        if sigma > 0.0 else probability.copy()
+    )
+    contextual_probability = (
+        raw_weight * probability + (1.0 - raw_weight) * smoothed
+    ).astype(np.float32)
+
+    radius = int(context.get("support_radius", 0))
+    if radius < 0:
+        raise ValueError("support_radius must be nonnegative.")
+    support_threshold = threshold - float(
+        context.get("support_probability_margin", 0.0)
+    )
+    support = probability >= support_threshold
+    if radius:
+        local_support = np.convolve(
+            support.astype(np.float32),
+            np.ones(2 * radius + 1, dtype=np.float32) / (2 * radius + 1),
+            mode="same",
+        )
+    else:
+        local_support = support.astype(np.float32)
+    mask = (contextual_probability >= threshold) & (
+        local_support >= float(context.get("minimum_local_support", 0.0))
+    )
+
+    vote_thresholds = dict(context.get("feature_vote_thresholds", {}))
+    votes = np.zeros(probability.size, dtype=np.int16)
+    for name, vote_threshold in vote_thresholds.items():
+        if name not in feature_signals:
+            raise KeyError(f"Unknown contextual feature vote '{name}'.")
+        votes += feature_signals[name] >= float(vote_threshold)
+    minimum_votes = int(context.get("minimum_feature_votes", 0))
+    if minimum_votes < 0 or minimum_votes > len(vote_thresholds):
+        raise ValueError("minimum_feature_votes is inconsistent with vote thresholds.")
+    rejected_by_votes = mask & (votes < minimum_votes)
+    mask &= votes >= minimum_votes
+    diagnostics = {
+        "columns_rejected_by_local_support": int(
+            np.count_nonzero(
+                (contextual_probability >= threshold)
+                & (local_support < float(context.get("minimum_local_support", 0.0)))
+            )
+        ),
+        "columns_rejected_by_feature_votes": int(rejected_by_votes.sum()),
+    }
+    return mask, contextual_probability, diagnostics
+
+
+def _retain_supported_intervals(
+    mask: np.ndarray,
+    probability: np.ndarray,
+    class_config: Mapping[str, Any],
+) -> tuple[np.ndarray, int]:
+    """Reject entire weak lesions after column-level spatial cleanup."""
+    context = dict(class_config.get("spatial_context", {}))
+    minimum_mean = float(context.get("minimum_interval_mean_probability", 0.0))
+    minimum_peak = float(context.get("minimum_interval_peak_probability", 0.0))
+    retained = np.asarray(mask, dtype=bool).copy()
+    padded = np.pad(retained.astype(np.int8), (1, 1))
+    starts = np.flatnonzero(np.diff(padded) == 1)
+    ends = np.flatnonzero(np.diff(padded) == -1)
+    rejected = 0
+    for start, stop in zip(starts, ends):
+        interval_probability = probability[start:stop]
+        if (
+            float(interval_probability.mean()) < minimum_mean
+            or float(interval_probability.max()) < minimum_peak
+        ):
+            retained[start:stop] = False
+            rejected += 1
+    return retained, rejected
+
+
 def classify_ea_and_barcoding(
     result: Any,
     *,
@@ -237,15 +375,26 @@ def classify_ea_and_barcoding(
 
     probabilities: dict[str, np.ndarray] = {}
     masks: dict[str, np.ndarray] = {}
+    context_diagnostics: dict[str, dict[str, int]] = {}
+    feature_signals = {
+        "median": median_z,
+        "q90": q90_z,
+        "continuity": continuity_z,
+        "verticality": verticality_z,
+    }
     for label in ("barcoding", "ea"):
         class_config = resolved[label]
         coefficients = np.asarray(class_config["coefficients"], dtype=np.float32)
         if coefficients.shape != (features.shape[1],):
             raise ValueError(f"{label} calibration requires 8 coefficients.")
-        probability = _sigmoid(
+        raw_probability = _sigmoid(
             features @ coefficients + float(class_config["intercept"])
         )
-        mask = probability >= float(class_config["probability_threshold"])
+        mask, probability, context_details = _contextual_candidate_mask(
+            raw_probability,
+            feature_signals,
+            class_config,
+        )
         if edge_margin:
             mask[:edge_margin] = False
             mask[-edge_margin:] = False
@@ -256,6 +405,7 @@ def classify_ea_and_barcoding(
         )
         probabilities[label] = probability
         masks[label] = mask
+        context_diagnostics[label] = context_details
 
     overlap = masks["barcoding"] & masks["ea"]
     if overlap.any():
@@ -318,14 +468,41 @@ def classify_ea_and_barcoding(
     if veto_margin < 0:
         raise ValueError("structural_veto margin_columns must be nonnegative.")
     if veto_margin:
-        veto_mask = np.convolve(
-            veto_mask.astype(np.int8),
-            np.ones(2 * veto_margin + 1, dtype=np.int8),
-            mode="same",
-        ) > 0
+        veto_mask = _expand_mask(veto_mask, veto_margin)
         if edge_margin:
             veto_mask[:edge_margin] = False
             veto_mask[-edge_margin:] = False
+
+    # A second, interpretable rejection rule catches narrow dark shadows that
+    # resemble disease in continuity/verticality but lack hypertransmitted
+    # upper-quantile intensity. This complements the calibrated vessel model.
+    dark_shadow_config = dict(veto_config.get("dark_shadow", {}))
+    dark_shadow_mask = np.zeros(width, dtype=bool)
+    if bool(dark_shadow_config.get("enabled", False)):
+        dark_shadow_mask = (
+            (q90_z <= float(dark_shadow_config["q90_z_maximum"]))
+            & (
+                continuity_z
+                >= float(dark_shadow_config["continuity_z_minimum"])
+            )
+        )
+        dark_shadow_mask = clean_column_mask(
+            dark_shadow_mask,
+            minimum_positive_run=int(
+                dark_shadow_config.get("minimum_positive_run", 1)
+            ),
+            maximum_negative_gap=int(
+                dark_shadow_config.get("maximum_negative_gap", 0)
+            ),
+        )
+        dark_shadow_mask = _expand_mask(
+            dark_shadow_mask,
+            int(dark_shadow_config.get("margin_columns", 0)),
+        )
+        if edge_margin:
+            dark_shadow_mask[:edge_margin] = False
+            dark_shadow_mask[-edge_margin:] = False
+        veto_mask |= dark_shadow_mask
     excluded_disease_columns = veto_mask & (
         masks["barcoding"] | masks["ea"]
     )
@@ -337,6 +514,12 @@ def classify_ea_and_barcoding(
             minimum_positive_run=int(resolved[label]["minimum_positive_run"]),
             maximum_negative_gap=0,
         )
+        masks[label], rejected_intervals = _retain_supported_intervals(
+            masks[label], probabilities[label], resolved[label]
+        )
+        context_diagnostics[label][
+            "intervals_rejected_by_lesion_confidence"
+        ] = rejected_intervals
 
     labels = np.full(width, "normal", dtype="<U10")
     labels[masks["ea"]] = "ea"
@@ -350,9 +533,11 @@ def classify_ea_and_barcoding(
         },
         "overlap_columns_resolved": int(overlap.sum()),
         "structural_veto_columns": int(veto_mask.sum()),
+        "dark_shadow_veto_columns": int(dark_shadow_mask.sum()),
         "disease_columns_removed_by_structural_veto": int(
             excluded_disease_columns.sum()
         ),
+        "spatial_context": context_diagnostics,
     }
     return labels, details
 

@@ -395,6 +395,29 @@ Calibration v2 uses a barcoding probability threshold of `0.55` with an
 minimum interval. These settings were selected to reduce the false-positive
 fragmentation observed across the ten validation scans.
 
+Calibration v3 adds spatial and anatomical rejection after the calibrated
+column probabilities are computed:
+
+- `smoothing_sigma` and `raw_probability_weight` blend each column's score
+  with evidence from neighboring columns.
+- `support_radius`, `support_probability_margin`, and
+  `minimum_local_support` require a candidate to be surrounded by sustained
+  near-threshold evidence instead of being an isolated intensity response.
+- `feature_vote_thresholds` and `minimum_feature_votes` require agreement
+  among scan-relative median intensity, continuity, and verticality. EA uses
+  the stricter three-feature rule; barcoding retains a two-feature rule to
+  avoid the large recall loss seen with three-way agreement.
+- `minimum_interval_mean_probability` and
+  `minimum_interval_peak_probability` reject weak candidates at the whole
+  lesion level after cleanup and structural exclusion.
+- `structural_veto.dark_shadow` rejects persistent dark, continuous columns
+  that behave like vessel shadows rather than hypertransmission. Its
+  `margin_columns` setting excludes the immediate shadow boundary as well.
+
+The detector JSON metadata reports how many columns were rejected by local
+support and feature voting, how many complete intervals failed lesion-level
+confidence, and how many columns were covered by the dark-shadow veto.
+
 The JSON output contains one `normal`, `ea`, or `barcoding` label per column,
 detected intervals, thresholds, label counts, and the detector configuration.
 EA and barcoding are exploratory research labels, not validated clinical
