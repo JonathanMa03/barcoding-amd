@@ -97,6 +97,7 @@ barcoding-amd/
 │   ├── batch_preprocess_e2e.py        # Batch E2E loading + preprocessing
 │   ├── preprocess_data.py             # Preprocess one loaded artifact
 │   ├── run_detector.py                # Run detector on one processed scan
+│   ├── extract_numerical_results.py    # Quantify EA/barcoding intervals
 │   ├── evaluate_detector.py           # Compare output with annotations
 │   └── visualize_detector.py          # Save detector overlay figure
 ├── src/
@@ -367,6 +368,22 @@ The JSON output contains one `normal`, `ea`, or `barcoding` label per column,
 detected intervals, thresholds, label counts, and the detector configuration.
 EA and barcoding are exploratory research labels, not validated clinical
 diagnoses.
+
+### Extracting numerical results
+
+After running the detector, extract the EA and barcoding interval counts and
+widths with:
+
+```bash
+python scripts/extract_numerical_results.py
+```
+
+Edit `CONFIG` in that script if the detector output is stored elsewhere. By
+default it reads `results/pipeline/detections.json` and writes
+`results/pipeline/numerical_results.json`. The output contains the number of
+intervals, each interval's inclusive start/end columns and width in pixels,
+total width, and mean, median, minimum, and maximum width for both EA and
+barcoding.
 
 To run the detector on batch-preprocessed scans, set `input_path` and
 `output_path` to one artifact at a time, for example:
