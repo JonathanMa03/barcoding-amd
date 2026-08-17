@@ -9,7 +9,7 @@ import json
 import matplotlib.pyplot as plt
 import numpy as np
 from matplotlib.widgets import Button, RadioButtons, SpanSelector
-from src.barcode.model_threshold import (
+from src.detector.model_threshold import (
     extract_intensity_profile,
 )
 

@@ -155,4 +155,27 @@ Launch jupyter:
 jupyter lab
 ```
 
+## Classical detector pipeline
+
+The OCT pipeline is organized into five packages:
+
+- `src/loading/`: E2E volumes, B-scans/metadata, and JSON/PNG pairs.
+- `src/preprocess/`: flattening, cropping, normalization, and denoising.
+- `src/detector/`: hypertransmission, EA, and barcoding detector logic.
+- `src/evaluation/`: annotation loading and tuning metrics.
+- `src/visualization/`: static plots, interactive viewers, and Grad-CAM.
+
+Each stage has an editable `CONFIG` dictionary and a persisted handoff file:
+
+```bash
+python scripts/load_data.py
+python scripts/preprocess_data.py
+python scripts/run_detector.py
+python scripts/evaluate_detector.py
+python scripts/visualize_detector.py
+```
+
+The EA/barcoding/normal rules are exploratory detector categories and are not
+validated clinical diagnoses.
+
 when running on windows, once output is created, commit after setting user.name and user.email. On mac, pull from main, should show a down arrow

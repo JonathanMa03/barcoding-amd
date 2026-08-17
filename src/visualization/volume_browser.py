@@ -6,8 +6,8 @@ import matplotlib.pyplot as plt
 from matplotlib.widgets import Button
 import numpy as np
 
-from src.barcode.data import preprocess_bscan
-from src.barcode.model_threshold import extract_intensity_profile
+from src.preprocess.legacy import preprocess_bscan
+from src.detector.model_threshold import extract_intensity_profile
 
 
 class VolumeProfileBrowser:

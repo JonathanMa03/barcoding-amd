@@ -24,6 +24,8 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from pathlib import Path
+import json
 from typing import Any
 
 import numpy as np
@@ -32,10 +34,139 @@ from scipy.ndimage import (
     median_filter,
 )
 
-from src.detector.data import (
+from src.loading.data_loading import (
     inspect_volume_layers,
     load_bscan,
 )
+
+
+@dataclass
+class PreprocessedArtifact:
+    """Source-independent output passed to the detector stage."""
+
+    image: np.ndarray
+    source_image: np.ndarray
+    metadata: dict[str, Any]
+    bscan_index: int | None = None
+    layer_boundary: np.ndarray | None = None
+    flattened_image: np.ndarray | None = None
+    cropped_image: np.ndarray | None = None
+
+
+def preprocess_loaded_scan(
+    scan,
+    *,
+    layer_name: str = "BM",
+    flatten: bool | None = None,
+    reference_row: int | None = None,
+    flatten_fill_value: float = 0.0,
+    depth_below_layer: int = 150,
+    include_boundary: bool = True,
+    require_full_depth: bool = False,
+    crop_fill_value: float = 0.0,
+    normalization_method: str = "percentile",
+    lower_percentile: float = 1.0,
+    upper_percentile: float = 99.0,
+    zscore_epsilon: float = 1e-8,
+    denoise_method: str = "gaussian",
+    gaussian_sigma: float | tuple[float, float] = (1.0, 0.5),
+    median_size: int | tuple[int, int] = 3,
+    gaussian_mode: str = "reflect",
+) -> PreprocessedArtifact:
+    """Preprocess either an E2E-backed or PNG-backed :class:`LoadedScan`.
+
+    Flattening defaults to enabled when a layer boundary is present. A PNG
+    without a boundary is treated as an already selected image/ROI and still
+    receives the same normalization and denoising steps.
+    """
+    source_image = np.asarray(scan.image, dtype=np.float32)
+    if source_image.ndim != 2:
+        raise ValueError("Loaded scan image must be two-dimensional.")
+
+    should_flatten = scan.layer_boundary is not None if flatten is None else flatten
+    flattened = None
+    cropped = None
+    resolved_reference_row = None
+    working_image = source_image
+
+    if should_flatten:
+        if scan.layer_boundary is None:
+            raise ValueError("Flattening requires a layer_boundary in the loaded scan.")
+        flattened, resolved_reference_row = flatten_to_boundary(
+            source_image,
+            scan.layer_boundary,
+            reference_row=reference_row,
+            fill_value=flatten_fill_value,
+        )
+        cropped = crop_below_boundary(
+            flattened,
+            resolved_reference_row,
+            depth_below_layer=depth_below_layer,
+            include_boundary=include_boundary,
+            require_full_depth=require_full_depth,
+            fill_value=crop_fill_value,
+        )
+        working_image = cropped
+
+    normalized, normalization_metadata = normalize_image(
+        working_image,
+        method=normalization_method,
+        lower_percentile=lower_percentile,
+        upper_percentile=upper_percentile,
+        zscore_epsilon=zscore_epsilon,
+    )
+    denoised, denoising_metadata = denoise_image(
+        normalized,
+        method=denoise_method,
+        gaussian_sigma=gaussian_sigma,
+        median_size=median_size,
+        gaussian_mode=gaussian_mode,
+    )
+    metadata = dict(scan.metadata)
+    metadata["preprocessing"] = {
+        "layer_name": layer_name,
+        "flattened": bool(should_flatten),
+        "reference_row": resolved_reference_row,
+        "depth_below_layer": depth_below_layer if should_flatten else None,
+        "normalization": normalization_metadata,
+        "denoising": denoising_metadata,
+        "output_shape": list(denoised.shape),
+    }
+    return PreprocessedArtifact(
+        image=denoised,
+        source_image=source_image,
+        metadata=metadata,
+        bscan_index=scan.bscan_index,
+        layer_boundary=scan.layer_boundary,
+        flattened_image=flattened,
+        cropped_image=cropped,
+    )
+
+
+def save_preprocessed_scan(scan: PreprocessedArtifact, output_path: str | Path) -> Path:
+    """Save a preprocessed artifact for the detector script."""
+    output_path = Path(output_path).with_suffix(".npz")
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    np.savez_compressed(
+        output_path,
+        image=scan.image,
+        source_image=scan.source_image,
+        metadata=np.asarray(json.dumps(scan.metadata, default=str)),
+        bscan_index=np.asarray(-1 if scan.bscan_index is None else scan.bscan_index),
+    )
+    return output_path.resolve()
+
+
+def load_preprocessed_scan(input_path: str | Path) -> PreprocessedArtifact:
+    """Load an artifact written by :func:`save_preprocessed_scan`."""
+    with np.load(Path(input_path), allow_pickle=False) as archive:
+        index = int(archive["bscan_index"])
+        return PreprocessedArtifact(
+            image=archive["image"].astype(np.float32),
+            source_image=archive["source_image"].astype(np.float32),
+            metadata=json.loads(str(archive["metadata"])),
+            bscan_index=None if index < 0 else index,
+        )
 
 
 @dataclass

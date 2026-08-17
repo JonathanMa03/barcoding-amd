@@ -6,11 +6,11 @@ from typing import Any, Mapping, Sequence
 import matplotlib.pyplot as plt
 import numpy as np
 
-from src.barcode.data import (
+from src.preprocess.legacy import (
     load_e2e_volume,
     preprocess_bscan,
 )
-from src.barcode.model_threshold import (
+from src.detector.model_threshold import (
     extract_intensity_profile,
 )
 from matplotlib.widgets import Button

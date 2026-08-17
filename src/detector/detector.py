@@ -32,6 +32,8 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from pathlib import Path
+import json
 from typing import Any, Mapping
 
 import numpy as np
@@ -44,6 +46,140 @@ from src.detector.features import (
     create_structural_mask,
     smooth_finite_signal,
 )
+
+
+STRUCTURAL_HYPERTD_V1_CONFIG: dict[str, Any] = {
+    "verticality_smoothing_sigma": 1.0,
+    "verticality_threshold": 0.60,
+    "gradient_quantile": 0.80,
+    "minimum_component_size": 0,
+    "column_upper_quantile": 0.90,
+    "minimum_valid_pixels": 5,
+    "signal_smoothing_sigma": 2.0,
+    "median_iqr_multiplier": 1.0,
+    "q90_iqr_multiplier": 0.5,
+    "continuity_window_width": 15,
+    "continuity_depth_lag": 4,
+    "continuity_minimum_row_standard_deviation": 1e-6,
+    "continuity_quantile": 0.60,
+    "vertical_fraction_quantile": 0.70,
+    "minimum_positive_run": 5,
+    "maximum_negative_gap": 2,
+    "edge_margin": 10,
+}
+
+
+@dataclass
+class DetectorOutput:
+    """Common detector output with per-column EA/barcoding/normal labels."""
+
+    detector_type: str
+    labels: np.ndarray
+    result: Any
+    metadata: dict[str, Any]
+
+
+def run_detector(image: np.ndarray, config: Mapping[str, Any]) -> DetectorOutput:
+    """Run a configured detector and assign the three analysis labels.
+
+    For the structural detector, final candidates are ``barcoding``; earlier
+    hypertransmission candidates that fail the final vertical refinement are
+    ``ea``; remaining columns are ``normal``. These are configurable research
+    rules, not a validated clinical diagnosis.
+    """
+    detector_type = str(config.get("detector_type", "structural")).lower()
+    if "detector_options" in config:
+        detector_options = dict(config["detector_options"])
+    else:
+        detector_options = {
+            key: value for key, value in config.items()
+            if key not in {"detector_type", "feature_options"}
+        }
+    if detector_type == "structural":
+        result = detect_structural_hypertransmission(
+            image, config={**STRUCTURAL_HYPERTD_V1_CONFIG, **detector_options}
+        )
+        labels = np.full(image.shape[1], "normal", dtype="<U10")
+        labels[result.intensity_mask] = "ea"
+        labels[result.barcode_mask] = "barcoding"
+    elif detector_type == "weighted":
+        from src.detector.features import extract_feature_signals
+
+        features = extract_feature_signals(
+            image, **dict(config.get("feature_options", {}))
+        )
+        result = detect_barcoding(features, **detector_options)
+        labels = np.full(result.cleaned_mask.size, "normal", dtype="<U10")
+        labels[result.raw_mask] = "ea"
+        labels[result.cleaned_mask] = "barcoding"
+    else:
+        raise ValueError("detector_type must be 'structural' or 'weighted'.")
+
+    return DetectorOutput(
+        detector_type=detector_type,
+        labels=labels,
+        result=result,
+        metadata={
+            "label_rule": "normal -> EA candidate -> final barcoding",
+            "config": dict(config),
+            "label_counts": {
+                name: int(np.count_nonzero(labels == name))
+                for name in ("normal", "ea", "barcoding")
+            },
+        },
+    )
+
+
+def detect_hypertransmission(
+    image: np.ndarray,
+    *,
+    config: Mapping[str, Any] | None = None,
+) -> np.ndarray:
+    """Return columns passing the detector's hypertransmission stage."""
+    result = detect_structural_hypertransmission(
+        image, config=None if config is None else dict(config)
+    )
+    return result.intensity_mask.copy()
+
+
+def detect_ea(
+    image: np.ndarray,
+    *,
+    config: Mapping[str, Any] | None = None,
+) -> np.ndarray:
+    """Return EA candidates not refined into final barcoding detections."""
+    result = detect_structural_hypertransmission(
+        image, config=None if config is None else dict(config)
+    )
+    return (result.intensity_mask & ~result.barcode_mask).copy()
+
+
+def save_detector_output(output: DetectorOutput, output_path: str | Path) -> Path:
+    """Write the portable detector summary and intervals as JSON."""
+    intervals = []
+    for interval in output.result.intervals:
+        values = vars(interval)
+        intervals.append({key: _json_value(value) for key, value in values.items()})
+    payload = {
+        "detector_type": output.detector_type,
+        "labels": output.labels.tolist(),
+        "intervals": intervals,
+        "metadata": output.metadata,
+        "thresholds": getattr(output.result, "thresholds", {}),
+    }
+    output_path = Path(output_path).with_suffix(".json")
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    with output_path.open("w", encoding="utf-8") as stream:
+        json.dump(payload, stream, indent=2, default=_json_value)
+    return output_path.resolve()
+
+
+def _json_value(value: Any) -> Any:
+    if isinstance(value, np.generic):
+        return value.item()
+    if isinstance(value, np.ndarray):
+        return value.tolist()
+    return value
 
 
 FEATURE_NAMES = (
@@ -1801,9 +1937,10 @@ def detect_structural_hypertransmission(
             "image contains non-finite values."
         )
 
-    resolved_config = dict(
-        config
-    )
+    resolved_config = {
+        **STRUCTURAL_HYPERTD_V1_CONFIG,
+        **({} if config is None else config),
+    }
 
     image_height, image_width = (
         image.shape
