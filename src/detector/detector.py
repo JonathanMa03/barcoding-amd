@@ -74,7 +74,7 @@ STRUCTURAL_HYPERTD_V1_CONFIG: dict[str, Any] = {
 # median intensity, upper-quantile intensity, continuity, and verticality plus
 # four interaction terms. Uncertain and vessel/structural columns were omitted.
 CALIBRATED_PHENOTYPE_V1_CONFIG: dict[str, Any] = {
-    "version": "manual_ground_truth_v3_contextual",
+    "version": "manual_ground_truth_v4_normal_rejection",
     "feature_clip": 5.0,
     "barcoding": {
         "coefficients": [
@@ -145,6 +145,21 @@ CALIBRATED_PHENOTYPE_V1_CONFIG: dict[str, Any] = {
             "maximum_negative_gap": 2,
             "margin_columns": 3,
         },
+    },
+    # Conservative normal-vs-disease model fitted on the clean preprocessed
+    # PNG development scans. The E2E validation run is the authoritative test
+    # because plotted PNG pixels are quantized and resampled.
+    "normal_rejection": {
+        "coefficients": [
+            -0.3228315711, -0.1569702625, -1.1637328863, -1.2814972401,
+            0.0011196354, -0.5903912783, 0.5045848489, 0.0524891652,
+            -0.2756016552, 0.0663040206, -0.1230622977,
+        ],
+        "intercept": 1.0014322996,
+        "probability_threshold": 0.50,
+        "minimum_positive_run": 5,
+        "maximum_negative_gap": 2,
+        "margin_columns": 0,
     },
 }
 
@@ -503,11 +518,53 @@ def classify_ea_and_barcoding(
             dark_shadow_mask[:edge_margin] = False
             dark_shadow_mask[-edge_margin:] = False
         veto_mask |= dark_shadow_mask
-    excluded_disease_columns = veto_mask & (
+    disease_before_rejection = masks["barcoding"] | masks["ea"]
+    structural_excluded_disease_columns = veto_mask & (
         masks["barcoding"] | masks["ea"]
     )
+
+    # Explicit normal rejection is deliberately independent of the EA and
+    # barcoding models. It recognizes high-confidence normal anatomy using the
+    # same eleven scan-relative intensity/structure features as the structural
+    # model. Only sustained normal runs are allowed to veto disease.
+    normal_config = resolved.get("normal_rejection")
+    normal_probability = np.zeros(width, dtype=np.float32)
+    normal_mask = np.zeros(width, dtype=bool)
+    if normal_config is not None:
+        normal_config = dict(normal_config)
+        normal_coefficients = np.asarray(
+            normal_config["coefficients"], dtype=np.float32
+        )
+        if normal_coefficients.shape != (veto_features.shape[1],):
+            raise ValueError("normal_rejection calibration requires 11 coefficients.")
+        normal_probability = _sigmoid(
+            veto_features @ normal_coefficients
+            + float(normal_config["intercept"])
+        )
+        normal_mask = normal_probability >= float(
+            normal_config["probability_threshold"]
+        )
+        if edge_margin:
+            normal_mask[:edge_margin] = False
+            normal_mask[-edge_margin:] = False
+        normal_mask = clean_column_mask(
+            normal_mask,
+            minimum_positive_run=int(normal_config["minimum_positive_run"]),
+            maximum_negative_gap=int(normal_config["maximum_negative_gap"]),
+        )
+        normal_mask = _expand_mask(
+            normal_mask, int(normal_config.get("margin_columns", 0))
+        )
+        if edge_margin:
+            normal_mask[:edge_margin] = False
+            normal_mask[-edge_margin:] = False
+
+    normal_excluded_disease_columns = (
+        normal_mask & disease_before_rejection & ~veto_mask
+    )
+    combined_rejection_mask = veto_mask | normal_mask
     for label in ("barcoding", "ea"):
-        masks[label][veto_mask] = False
+        masks[label][combined_rejection_mask] = False
         # Remove short remnants without reconnecting across the veto.
         masks[label] = clean_column_mask(
             masks[label],
@@ -535,8 +592,17 @@ def classify_ea_and_barcoding(
         "structural_veto_columns": int(veto_mask.sum()),
         "dark_shadow_veto_columns": int(dark_shadow_mask.sum()),
         "disease_columns_removed_by_structural_veto": int(
-            excluded_disease_columns.sum()
+            structural_excluded_disease_columns.sum()
         ),
+        "normal_rejection_columns": int(normal_mask.sum()),
+        "disease_columns_removed_by_normal_rejection": int(
+            normal_excluded_disease_columns.sum()
+        ),
+        "normal_probability_summary": {
+            "minimum": float(normal_probability.min()),
+            "mean": float(normal_probability.mean()),
+            "maximum": float(normal_probability.max()),
+        },
         "spatial_context": context_diagnostics,
     }
     return labels, details

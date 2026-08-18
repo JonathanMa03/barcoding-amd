@@ -14,12 +14,16 @@ from src.loading.data_loading import load_scan, save_loaded_scan
 CONFIG = {
     # "source_path": Path("results/manual_ground_truth/fast_08_bscan_048_ground_truth.png"),
     "source_path": Path("data/heyex/meta/ea8.E2E"),
+
     # "metadata_path": Path("results/manual_ground_truth/fast_08_bscan_048_ground_truth.json"),
     "metadata_path": None,
+
     "output_path": Path("results/pipeline/loaded_scan.npz"),
+
     # E2E-only options (ignored for PNG/JSON input):
     # "e2e_options": {"selection": "center", "layer_name": "BM"},
     "e2e_options": {"selection": "index", "bscan_index": 48, "layer_name": "BM"},
+    
     # Required for automatic result filenames when it cannot be inferred from
     # an accompanying JSON file. Subject ID can also be inferred from ea8.E2E.
     "source_metadata": {"progression_group": "fast", "subject_id": 8},
