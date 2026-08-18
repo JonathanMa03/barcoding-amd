@@ -167,8 +167,12 @@ def intervals_from_labels(
         }
         for interval in quantified[label]["intervals"]:
             bounds = (int(interval["start"]), int(interval["end"]))
-            evidence = evidence_by_bounds.get(bounds)
-            if evidence is None:
+            # Hybrid evidence is currently used only for barcoding. EA can
+            # legitimately be reshaped when the final barcoding mask is
+            # applied, so requiring an exact pre-label EA interval match made
+            # otherwise valid cases fail unnecessarily.
+            evidence = evidence_by_bounds.get(bounds, {})
+            if label == "barcoding" and not evidence:
                 raise KeyError(f"Missing {label} interval evidence for {bounds}.")
             intervals.append({"label": label, **interval, **evidence})
     return intervals
