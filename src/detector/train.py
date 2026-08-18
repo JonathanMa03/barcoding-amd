@@ -1,3 +1,8 @@
+"""Experimental neural-network training helpers retained for reproducibility.
+
+This module is not used by the selected DETECTOR_CONFIG_0818 workflow.
+"""
+
 import torch
 
 

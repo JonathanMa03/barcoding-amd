@@ -1,0 +1,543 @@
+\documentclass[aspectratio=169]{beamer}
+
+\usetheme{Madrid}
+\usecolortheme{default}
+\setbeamertemplate{navigation symbols}{}
+\setbeamertemplate{caption}[numbered]
+
+\usepackage[T1]{fontenc}
+\usepackage{lmodern}
+\usepackage{booktabs}
+\usepackage{array}
+\usepackage{graphicx}
+\usepackage{xcolor}
+
+\graphicspath{{../../results/automatic_detector_gabor_depth/}
+               {../../results/adjacent_bscan_experiments/single_scan_control/}
+               {../../results/manual_ground_truth/}}
+
+\definecolor{eacolor}{RGB}{230,126,34}
+\definecolor{barcodecolor}{RGB}{190,55,55}
+\definecolor{normalcolor}{RGB}{55,130,75}
+\definecolor{mutedblue}{RGB}{48,92,145}
+\newcommand{\EA}{\textcolor{eacolor}{\textbf{EA}}}
+\newcommand{\Barcode}{\textcolor{barcodecolor}{\textbf{barcoding}}}
+\newcommand{\Normal}{\textcolor{normalcolor}{\textbf{normal}}}
+
+\title{Current State of the EA and Barcoding Detector}
+\subtitle{What happens as an OCT scan moves through the pipeline?}
+\author{Jonathan Ma}
+\institute{Johns Hopkins University}
+\date{August 18, 2026}
+
+\begin{document}
+
+\begin{frame}
+    \titlepage
+\end{frame}
+
+\begin{frame}{One Scan, One Traceable Decision Path}
+
+\begin{center}
+\large
+\textcolor{mutedblue}{Load the selected B-scan}
+$\longrightarrow$
+\textcolor{mutedblue}{Standardize the image}
+$\longrightarrow$
+\textcolor{mutedblue}{Measure visible patterns}
+
+\vspace{0.35cm}
+
+$\longrightarrow$
+\textcolor{mutedblue}{Score EA and barcoding separately}
+$\longrightarrow$
+\textcolor{mutedblue}{Reject likely structure}
+
+\vspace{0.35cm}
+
+$\longrightarrow$
+\textcolor{mutedblue}{Report intervals and confidence evidence}
+\end{center}
+
+\vspace{0.4cm}
+
+The output assigns each horizontal location to \Normal, \EA, or \Barcode.
+Adjacent positive columns become an interval whose location and width can be
+reported. Every rejection stage records why a candidate was removed.
+
+\end{frame}
+
+\begin{frame}{Step 1: Loading the Relevant Scan}
+
+\begin{columns}[T]
+\column{0.47\textwidth}
+\begin{block}{Input}
+The validation workflow opens the native HEYEX E2E volume and selects the
+patient-specific B-scan number recorded in the manual annotation.
+\end{block}
+
+\column{0.47\textwidth}
+\begin{block}{Anatomical reference}
+The scan is loaded together with its Bruch membrane (BM) boundary. This keeps
+the image and the scanner-provided retinal landmark paired throughout
+processing.
+\end{block}
+\end{columns}
+
+\vspace{0.5cm}
+
+The same loader can accept a PNG with JSON metadata, but the current validation
+results begin with E2E volumes so neighboring B-scans and BM metadata remain
+available.
+
+\end{frame}
+
+\begin{frame}{Step 2: Standardizing the B-scan}
+
+The selected preprocessing configuration is fixed across all ten cases:
+
+\begin{table}
+\centering
+\small
+\begin{tabular}{lll}
+\toprule
+\textbf{Operation} & \textbf{Selected setting} & \textbf{Result} \\
+\midrule
+Alignment & Flatten to BM & BM appears at a common depth \\
+Region retained & 150 pixels below BM & Same anatomical depth range \\
+Brightness scaling & Within-scan z-score & Relative brightness values \\
+Denoising & Gaussian $(1.0,0.5)$ & Mild noise reduction; stripes preserved \\
+Incomplete depth & Padding allowed & Scan remains processable \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+The detector receives a consistently aligned, approximately
+$150\times512$-pixel sub-BM image.
+
+\end{frame}
+
+\begin{frame}{Step 3: Turning Appearance into Measurements}
+
+At every horizontal position, the detector asks a small set of clinically
+readable questions:
+
+\begin{itemize}
+    \item Is the tissue column broadly brighter than the rest of this scan?
+    \item How bright are its brightest relevant pixels?
+    \item Does the pattern remain aligned as it extends deeper?
+    \item Does it form an organized vertical structure?
+    \item Does it contain repeated bright--dark stripe texture?
+    \item Is the brightness concentrated near BM, in the middle, or deeper?
+\end{itemize}
+
+Each measurement is expressed relative to the same scan. This allows the final
+JSON to show which visible properties supported each interval.
+
+\end{frame}
+
+\begin{frame}{The Detector Architecture}
+
+\begin{enumerate}
+    \item \textbf{Candidate scores:} independent EA and barcoding models score
+    every column from brightness, continuity, vertical organization, and their
+    combinations.
+    \item \textbf{Local context:} isolated responses are suppressed unless
+    nearby columns provide compatible evidence.
+    \item \textbf{Interval formation:} short gaps may be joined and very short
+    detections are removed.
+    \item \textbf{Structural veto:} likely vessel/structural shadows and dark
+    continuous columns are excluded.
+    \item \textbf{Barcoding confirmation:} the complete interval must pass
+    stripe-texture and near-depth brightness checks.
+    \item \textbf{Output:} remaining intervals are labeled EA or barcoding;
+    all other columns are normal.
+\end{enumerate}
+
+The stages are ordered so that a structural region cannot be filled back into
+a disease interval after it has been rejected.
+
+\end{frame}
+
+\begin{frame}{Different Criteria for EA and Barcoding}
+
+\begin{columns}[T]
+\column{0.48\textwidth}
+\begin{block}{\Barcode}
+\begin{itemize}
+    \item Probability threshold: 0.55
+    \item Minimum interval: 8 columns
+    \item Local support radius: 5 columns
+    \item Requires 2 of 3 feature votes
+    \item Gabor mean/peak: 0.40/0.50
+    \item Near-depth mean: at least 0.0
+\end{itemize}
+\end{block}
+
+\column{0.48\textwidth}
+\begin{block}{\EA}
+\begin{itemize}
+    \item Probability threshold: 0.50
+    \item Minimum interval: 12 columns
+    \item Local support radius: 7 columns
+    \item Requires all 3 feature votes
+    \item No Gabor requirement
+    \item Provisional depth gate disabled
+\end{itemize}
+\end{block}
+\end{columns}
+
+\vspace{0.2cm}
+These are phenotype-specific decisions: the best barcoding settings are not
+automatically applied to EA.
+
+\end{frame}
+
+\begin{frame}{How Likely Vessel or Structural Signal Is Rejected}
+
+Two complementary checks are applied after EA/barcoding candidates form:
+
+\begin{itemize}
+    \item A structural model combines intensity, vertical organization, and
+    the amount of structural edge signal. Its veto threshold is 0.90.
+    \item A direct dark-shadow rule identifies vertically continuous columns
+    whose upper brightness is unusually low---a pattern more consistent with
+    shadowing than hypertransmission.
+    \item Each rejected run is expanded slightly to include its immediate
+    shadow boundary.
+\end{itemize}
+
+\begin{alertblock}{Remaining challenge}
+Some reproducible normal anatomy still resembles disease. It may persist into
+neighboring scans and can also have strong texture and depth measurements.
+\end{alertblock}
+
+\end{frame}
+
+\begin{frame}{What the Gabor and Depth Checks Added}
+
+\begin{columns}[T]
+\column{0.48\textwidth}
+\begin{block}{Stripe-texture evidence}
+Three pattern widths---4, 8, and 16 pixels---are examined. A candidate must
+show repeated vertical bright--dark variation across the interval, rather than
+a single bright column.
+\end{block}
+
+\column{0.48\textwidth}
+\begin{block}{Depth evidence}
+The sub-BM image is summarized in near (0--20\%), middle (20--50\%), and deep
+(50--100\%) bands. The selected barcoding rule requires at least average
+near-band brightness.
+\end{block}
+\end{columns}
+
+\vspace{0.4cm}
+
+Together these checks preserved all 424 V3 true-positive barcoding columns
+while reducing false-positive columns from 302 to 95.
+
+\end{frame}
+
+\begin{frame}{Adjacent B-scans: Confidence, Not a Mandatory Veto}
+
+For each interval, the detector checks two neighboring B-scans on either side
+for a same-label interval at a similar horizontal location.
+
+\begin{center}
+\begin{tabular}{ll}
+\toprule
+\textbf{Observed support} & \textbf{Suggested interpretation} \\
+\midrule
+Both sides & Higher volume-consistency confidence \\
+At least one neighbor & Moderate volume-consistency confidence \\
+No neighboring match & Lower confidence; retain for now \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+Mandatory adjacency improved precision but removed true lesions. Persistent
+vessel/anatomical patterns also survived it. Adjacent support is therefore
+saved as explanatory evidence rather than used in the selected final gate.
+
+\end{frame}
+
+\begin{frame}{Validation Set and How to Read the Scores}
+
+Ten selected B-scans were manually annotated: five fast-progressing and five
+slow-progressing subjects. Uncertain and vessel/structural areas are excluded
+from scoring.
+
+\begin{columns}[T]
+\column{0.31\textwidth}
+\begin{block}{Precision}
+Of the columns marked by the detector, how many were annotated as that
+phenotype?
+\end{block}
+\column{0.31\textwidth}
+\begin{block}{Recall}
+Of the manually marked phenotype, how much did the detector recover?
+\end{block}
+\column{0.31\textwidth}
+\begin{block}{Dice}
+A combined measure of overlap, false alarms, and misses. One is perfect.
+\end{block}
+\end{columns}
+
+\vspace{0.3cm}
+\textbf{Important:} these ten scans also informed parameter selection. The
+results describe current development performance, not clinical validation.
+
+\end{frame}
+
+\begin{frame}{Current Best Aggregate Results}
+
+\begin{table}
+\centering
+\begin{tabular}{llccc}
+\toprule
+\textbf{Class} & \textbf{Configuration} & \textbf{Precision} &
+\textbf{Recall} & \textbf{Dice} \\
+\midrule
+Barcoding & V2 & 0.526 & 0.506 & 0.516 \\
+Barcoding & Contextual V3 & 0.584 & 0.520 & 0.550 \\
+Barcoding & Initial Gabor & 0.777 & 0.458 & 0.576 \\
+Barcoding & \textbf{Gabor + depth} & \textbf{0.817} & \textbf{0.520} & \textbf{0.636} \\
+\midrule
+EA & V2 & 0.369 & \textbf{0.739} & 0.492 \\
+EA & \textbf{Contextual V3} & \textbf{0.475} & 0.699 & \textbf{0.566} \\
+EA & Gabor + barcoding depth & 0.462 & 0.699 & 0.557 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+The best configuration is phenotype-specific: Gabor + depth for barcoding,
+and contextual V3 without the experimental EA depth gate for EA.
+
+\end{frame}
+
+\begin{frame}{What Worked---and What Did Not}
+
+\begin{columns}[T]
+\column{0.48\textwidth}
+\begin{block}{Useful additions}
+\begin{itemize}
+    \item Separate EA/barcoding calibration
+    \item Local spatial support
+    \item Structural and dark-shadow vetoes
+    \item Multi-scale stripe texture
+    \item Near-depth barcoding evidence
+\end{itemize}
+\end{block}
+
+\column{0.48\textwidth}
+\begin{block}{Not selected}
+\begin{itemize}
+    \item Additional learned normal model
+    \item Mandatory adjacent support
+    \item Bilateral volume veto
+    \item Conservative hybrid rejection
+    \item Balanced hybrid rejection
+\end{itemize}
+\end{block}
+\end{columns}
+
+\vspace{0.25cm}
+The hybrid rules combined absent neighbor support, short width, and weak
+texture/depth/probability. They removed true intervals faster than they removed
+false ones; the control retained the best Dice.
+
+\end{frame}
+
+\begin{frame}{Strong Barcoding Case: Fast 49, B-scan 33}
+
+\begin{columns}[T]
+\column{0.49\textwidth}
+\centering
+\includegraphics[width=\linewidth]{fast_49_bscan_033_ground_truth.png}
+
+\small Manual annotation
+
+\column{0.49\textwidth}
+\centering
+\includegraphics[width=\linewidth]{fast_49_bscan_033_automatic.png}
+
+\small Automatic output
+\end{columns}
+
+\vspace{0.2cm}
+\centering
+\Barcode: precision 0.93, recall 0.78, Dice 0.85.
+
+The detector localizes the major barcoding regions closely, with relatively
+little additional marked tissue.
+
+\end{frame}
+
+\begin{frame}{Strong EA Case: Slow 47, B-scan 31}
+
+\begin{columns}[T]
+\column{0.49\textwidth}
+\centering
+\includegraphics[width=\linewidth]{slow_47_bscan_031_ground_truth.png}
+
+\small Manual annotation
+
+\column{0.49\textwidth}
+\centering
+\includegraphics[width=\linewidth]{slow_47_bscan_031_automatic.png}
+
+\small Automatic output
+\end{columns}
+
+\vspace{0.2cm}
+\centering
+\EA: precision 1.00, recall 0.91, Dice 0.95.
+
+The automatic interval nearly reproduces the location and extent of the
+manually marked EA region.
+
+\end{frame}
+
+\begin{frame}{Weak Barcoding Case: Fast 41, B-scan 59}
+
+\begin{columns}[T]
+\column{0.49\textwidth}
+\centering
+\includegraphics[width=\linewidth]{fast_41_bscan_059_ground_truth.png}
+
+\small Manual annotation
+
+\column{0.49\textwidth}
+\centering
+\includegraphics[width=\linewidth]{fast_41_bscan_059_automatic.png}
+
+\small Automatic output
+\end{columns}
+
+\vspace{0.15cm}
+\centering
+\Barcode: precision 0.06, recall 0.06, Dice 0.06.
+
+Repeatable structural patterns survive the current veto and account for 49 of
+the 95 remaining false-positive barcoding columns across the development set.
+
+\end{frame}
+
+\begin{frame}{Another Weak Case: Fast 12, B-scan 38}
+
+\begin{columns}[T]
+\column{0.49\textwidth}
+\centering
+\includegraphics[width=\linewidth]{fast_12_bscan_038_ground_truth.png}
+
+\small Manual annotation
+
+\column{0.49\textwidth}
+\centering
+\includegraphics[width=\linewidth]{fast_12_bscan_038_automatic.png}
+
+\small Automatic output
+\end{columns}
+
+\vspace{0.15cm}
+\centering
+\Barcode Dice 0.44; a false EA interval is also marked.
+
+This case illustrates both incomplete recovery of barcoding and confusion
+between a bright structural region and EA.
+
+\end{frame}
+
+\begin{frame}{Why the Hybrid and Volume Rules Were Not Selected}
+
+\begin{table}
+\centering
+\small
+\begin{tabular}{lccc}
+\toprule
+\textbf{Barcoding rule} & \textbf{Precision} & \textbf{Recall} & \textbf{Dice} \\
+\midrule
+\textbf{Single-scan control} & 0.817 & \textbf{0.520} & \textbf{0.636} \\
+Any one neighbor & 0.872 & 0.479 & 0.618 \\
+Bilateral neighbors & \textbf{0.982} & 0.336 & 0.501 \\
+Hybrid conservative & 0.810 & 0.497 & 0.616 \\
+Hybrid balanced & 0.835 & 0.479 & 0.608 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+The conservative hybrid removed 19 true columns and no false columns. The
+balanced version removed 18 false columns but also 34 true columns. Current
+texture, depth, probability, and adjacency evidence cannot reliably distinguish
+every structural false positive from a true short lesion.
+
+\end{frame}
+
+\begin{frame}{Current Output for Each Scan}
+
+For every processed B-scan, the pipeline now produces:
+
+\begin{itemize}
+    \item a PNG overlay showing EA and barcoding intervals;
+    \item the number of intervals for each phenotype;
+    \item each interval's start, end, and width in pixels;
+    \item EA and barcoding probabilities and contextual decisions;
+    \item texture and near/middle/deep brightness evidence;
+    \item structural and dark-shadow exclusions;
+    \item matching intervals in adjacent scans and a volume-support count.
+\end{itemize}
+
+This provides a trace from the final highlighted interval back to the evidence
+that allowed it to remain.
+
+\end{frame}
+
+\begin{frame}{Future Direction}
+
+\begin{enumerate}
+    \item \textbf{Add genuinely different structural evidence.} Compare the
+    vertical brightness profile inside a candidate with neighboring normal
+    tissue. Vessel shadowing should darken deeper signal, whereas
+    hypertransmission should brighten it.
+    \item \textbf{Keep volume support as confidence.} Report bilateral,
+    one-neighbor, or unsupported status without automatically deleting a
+    lesion.
+    \item \textbf{Expand independent annotation.} Additional patients and
+    clinician review are more valuable now than further tuning on the same ten
+    scans.
+    \item \textbf{Lock and test parameters.} Evaluate the selected settings on
+    untouched subjects before interpreting them as reliable biomarkers.
+\end{enumerate}
+
+\begin{block}{Current selected state}
+Contextual V3 for EA; contextual V3 plus Gabor and near-depth evidence for
+barcoding. Adjacent evidence is explanatory, not a hard rejection rule.
+\end{block}
+
+\end{frame}
+
+\begin{frame}{Take-Home Message}
+
+\begin{itemize}
+    \item The scan moves through a transparent sequence of anatomical
+    alignment, visible feature measurement, phenotype-specific scoring, and
+    structural rejection.
+    \item Gabor texture plus near-depth evidence produced the largest barcoding
+    improvement: precision 0.817 and Dice 0.636.
+    \item EA currently performs best with contextual V3: precision 0.475,
+    recall 0.699, and Dice 0.566.
+    \item More aggressive volume and hybrid rejection increased selectivity
+    but removed too much real disease signal.
+    \item The main limitation is distinguishing persistent normal/vascular
+    anatomy from true pathology with only ten non-clinician-annotated scans.
+\end{itemize}
+
+\vspace{0.3cm}
+\centering
+\large The next improvement should add new anatomical evidence, not merely
+recombine the current scores.
+
+\end{frame}
+
+\end{document}

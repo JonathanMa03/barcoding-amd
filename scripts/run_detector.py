@@ -9,7 +9,7 @@ if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
 from src.detector.detector import (
-    CALIBRATED_PHENOTYPE_V1_CONFIG,
+    DETECTOR_CONFIG_0818,
     run_detector,
     save_detector_output,
 )
@@ -21,31 +21,9 @@ PIPELINE_CONFIG = {
     "output_path": Path("results/pipeline/detections.json"),
 }
 
-# Mirrors DETECTOR_CONFIG in pipeline_validation.ipynb.
-DETECTOR_CONFIG = {
-    "detector_type": "structural",
-    "verticality_smoothing_sigma": 1.0,
-    "verticality_threshold": 0.60,
-    "gradient_quantile": 0.80,
-    "minimum_component_size": 0,
-    "column_upper_quantile": 0.90,
-    "minimum_valid_pixels": 5,
-    "signal_smoothing_sigma": 2.0,
-    "median_iqr_multiplier": 1.0,
-    "q90_iqr_multiplier": 0.5,
-    "continuity_window_width": 15,
-    "continuity_depth_lag": 4,
-    "continuity_minimum_row_standard_deviation": 1e-6,
-    "continuity_quantile": 0.60,
-    "vertical_fraction_quantile": 0.70,
-    "minimum_positive_run": 5,
-    "maximum_negative_gap": 2,
-    "edge_margin": 10,
-    # Two independent EA/barcoding classifiers calibrated against the manual
-    # annotations. Coefficients normally remain fixed. Probability thresholds
-    # and interval cleanup settings can be adjusted per class below.
-    "phenotype_config": deepcopy(CALIBRATED_PHENOTYPE_V1_CONFIG),
-}
+# Canonical selected configuration. Edit a copied value locally for a new
+# experiment; do not mutate the shared module constant.
+DETECTOR_CONFIG = deepcopy(DETECTOR_CONFIG_0818)
 
 
 def main() -> None:

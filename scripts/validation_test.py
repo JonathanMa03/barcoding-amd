@@ -21,7 +21,7 @@ PROJECT_ROOT = Path(__file__).resolve().parents[1]
 if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
-from src.detector.detector import CALIBRATED_PHENOTYPE_V1_CONFIG, run_detector
+from src.detector.detector import DETECTOR_CONFIG_0818, run_detector
 from src.evaluation.metrics import evaluate_detection, load_ground_truth_masks
 from src.evaluation.quantification import quantify_detection_labels
 from src.evaluation.result_naming import automatic_result_stem
@@ -57,31 +57,13 @@ PREPROCESSING_CONFIG = {
 }
 
 
-DETECTOR_CONFIG = {
-    "detector_type": "structural",
-    "verticality_smoothing_sigma": 1.0,
-    "verticality_threshold": 0.60,
-    "gradient_quantile": 0.80,
-    "minimum_component_size": 0,
-    "column_upper_quantile": 0.90,
-    "minimum_valid_pixels": 5,
-    "signal_smoothing_sigma": 2.0,
-    "median_iqr_multiplier": 1.0,
-    "q90_iqr_multiplier": 0.5,
-    "continuity_window_width": 15,
-    "continuity_depth_lag": 4,
-    "continuity_minimum_row_standard_deviation": 1e-6,
-    "continuity_quantile": 0.60,
-    "vertical_fraction_quantile": 0.70,
-    "minimum_positive_run": 5,
-    "maximum_negative_gap": 2,
-    "edge_margin": 10,
-    "phenotype_config": deepcopy(CALIBRATED_PHENOTYPE_V1_CONFIG),
-}
+DETECTOR_CONFIG = deepcopy(DETECTOR_CONFIG_0818)
 
-# Optional classical-feature experiments. Keep all False for contextual v3.
-# Use a separate VALIDATION_CONFIG["output_directory"] when comparing runs.
+# Historical experiment switches retained for reproducibility. Their current
+# values reproduce DETECTOR_CONFIG_0818. New production-style validation should
+# leave these unchanged; see docs/logging/CHANGELOG.md for prior sweeps.
 EXPERIMENT_CONFIG = {
+    "enabled": False,
     "enable_gabor_gate": True,
     "gabor_minimum_interval_mean_z": 0.40,
     "gabor_minimum_interval_peak_z": 0.50,
@@ -92,6 +74,8 @@ EXPERIMENT_CONFIG = {
 
 def configure_experimental_gates() -> None:
     """Apply experiment switches to the copied phenotype configuration."""
+    if not EXPERIMENT_CONFIG["enabled"]:
+        return
     phenotype = DETECTOR_CONFIG["phenotype_config"]
     phenotype["barcoding"]["texture_context"].update({
         "enabled": bool(EXPERIMENT_CONFIG["enable_gabor_gate"]),

@@ -1,3 +1,8 @@
+"""Experimental ResNet models retained from the classification proof of concept.
+
+These models are not used by the selected DETECTOR_CONFIG_0818 workflow.
+"""
+
 import torch.nn as nn
 
 from torchvision.models import resnet50, ResNet50_Weights

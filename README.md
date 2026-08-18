@@ -1,205 +1,85 @@
-# Barcoding in Age-Related Macular Degeneration (AMD)
+# EA and barcoding detection in AMD OCT
 
-This repository contains exploratory research on detecting and quantifying barcoding (hypertransmission patterns) in optical coherence tomography (OCT) images of patients with age-related macular degeneration (AMD).
+This repository contains an interpretable research pipeline for locating and
+quantifying Early Atrophy (EA) and barcoding patterns in retinal OCT B-scans.
+It accepts native HEYEX E2E volumes or PNG/JSON pairs and produces:
 
-The project combines classical image analysis techniques, convolutional neural networks (CNNs), and explainable AI methods to investigate whether barcoding can be measured reliably and ultimately used as a prognostic marker for disease progression.
+- one `normal`, `ea`, or `barcoding` label per image column;
+- EA and barcoding interval counts, locations, and widths;
+- PNG overlays of the detected intervals;
+- JSON evidence describing feature values and rejection decisions.
 
-Author: Jonathan Ma
+The canonical detector is `DETECTOR_CONFIG_0818` in
+`src/detector/detector.py`. It uses contextual V3 for EA and contextual V3 plus
+selected Gabor-texture and near-depth evidence for barcoding. This is
+exploratory research software, not a clinically validated diagnostic system.
 
----
+Historical experiments and parameter sweeps are recorded in
+[`docs/logging/CHANGELOG.md`](docs/logging/CHANGELOG.md).
 
-## Aim
-
-The primary objective of this project is to develop computational methods for identifying and quantifying barcoding patterns observed in OCT scans of AMD patients.
-
-Current goals include:
-
-* Detecting barcoding and hypertransmission patterns in OCT images.
-* Developing quantitative measurements of barcode extent and morphology.
-* Investigating whether barcode-related features are associated with disease progression.
-
----
-
-## Data Sources
-
-### Current Dataset
-
-Retinal OCT Image Classification – 8 Classes
-
-* 24,000 OCT images
-* 8 retinal disease categories
-* Used as a proof-of-concept dataset for CNN training and explainability
-
-### Future Data
-
-The primary analysis will utilize AMD OCT scans containing:
-
-* Barcoding / hypertransmission-positive cases
-* Barcoding / hypertransmission-negative cases
-* Volume scans
-* Longitudinal progression information (when available)
-
----
-
-## Methodology
-
-### Phase 1: Exploratory Barcoding Quantification
-
-Classical image-analysis methods were used to construct an exploratory barcoding index:
-
-* Transmission profile analysis
-* Gabor filtering
-* Structure tensor analysis
-* Anisotropy measurements
-* Composite barcoding index
-
-These methods were evaluated using ROI perturbation and bootstrap sensitivity analyses.
-
-### Phase 2: CNN Proof-of-Concept
-
-A transfer-learning pipeline was developed using:
-
-* ResNet50
-* ImageNet pretrained weights
-* Layer-wise fine tuning
-* Grad-CAM explainability
-
-Results:
-
-* Frozen backbone accuracy: ~86%
-* Fine-tuned accuracy: ~93%
-
-Grad-CAM visualizations demonstrated localization of clinically meaningful retinal structures and pathology-associated regions.
-
-### Phase 3: Planned Work
-
-Future work includes:
-
-* Hypertransmission detection
-* Barcoding-positive vs. barcoding-negative classification
-* Bounding-box localization of barcode regions
-* Automated feature extraction
-* Quantification of barcode width and area
-* Progression-risk modeling
-
----
-
-## Repository Structure
+## Repository layout
 
 ```text
 barcoding-amd/
-├── data/                              # Local data (ignored by Git)
-│   └── heyex/meta/                    # Suggested location for E2E files
-├── notebooks/                         # Exploration and validation notebooks
-├── results/                           # Generated artifacts and figures
-├── scripts/
-│   ├── load_data.py                   # Load one E2E scan or JSON/PNG pair
-│   ├── batch_preprocess_e2e.py        # Batch E2E loading + preprocessing
-│   ├── preprocess_data.py             # Preprocess one loaded artifact
-│   ├── run_detector.py                # Run detector on one processed scan
-│   ├── validation_test.py              # Run all 10 manually selected scans
-│   ├── extract_numerical_results.py    # Quantify EA/barcoding intervals
-│   ├── evaluate_detector.py           # Compare output with annotations
-│   └── visualize_detector.py          # Save detector overlay figure
+├── data/heyex/meta/              # Suggested local E2E location
+├── scripts/                      # Terminal workflow and experiments
 ├── src/
-│   ├── loading/                       # E2E and JSON/PNG loading
-│   ├── preprocess/                    # Flatten, crop, normalize, denoise
-│   ├── detector/                      # Detector and feature logic
-│   ├── evaluation/                    # Metrics and annotations
-│   └── visualization/                 # Plotting, viewers, and Grad-CAM
-├── .gitignore
-├── LICENSE
-├── README.md
-└── requirements.txt
+│   ├── loading/                  # E2E and PNG/JSON loading
+│   ├── preprocess/               # Flatten, crop, normalize, denoise
+│   ├── detector/                 # Features, selected detector, experiments
+│   ├── evaluation/               # Annotation and metric utilities
+│   └── visualization/            # Detection plots and viewers
+├── results/                      # Generated outputs and validation data
+├── docs/logging/                 # Experiment history
+├── docs/notes/                   # Detailed technical notes
+└── docs/presentations/           # Project slide decks
 ```
 
----
+## 1. Environment setup
 
-## Current Status
-
-### Completed:
-
-* OCT dataset acquisition and inspection
-* CNN training with transfer learning
-* Model evaluation
-* Grad-CAM explainability analysis
-* Initial barcoding quantification experiments
-
-### In Progress:
-
-* Acquisition of barcoding-positive and barcoding-negative AMD volume scans
-* Development of automated barcoding detection pipelines
-* Hypertransmission localization and quantification
-
----
-
-## 1. Environment setup from scratch
-
-Python 3.10 or newer is recommended. Run all commands from the repository
-root.
-
-Clone the repository:
+Python 3.10 or newer is recommended. Run commands from the repository root.
 
 ```bash
 git clone https://github.com/JonathanMa03/barcoding-amd.git
 cd barcoding-amd
-```
-
-Create a virtual environment:
-
-```bash
 python3 -m venv .venv
-```
-
-Activate it on macOS or Linux:
-
-```bash
 source .venv/bin/activate
+python -m pip install --upgrade pip
+python -m pip install -r requirements.txt
+python scripts/check_setup.py
 ```
 
-Activate it in Windows PowerShell:
+On Windows PowerShell, activate with:
 
 ```powershell
 .venv\Scripts\Activate.ps1
 ```
 
-Install the dependencies:
+## 2. Canonical single-scan workflow
 
-```bash
-python -m pip install --upgrade pip
-python -m pip install -r requirements.txt
+The standard terminal workflow is:
+
+```text
+load_data.py → preprocess_data.py → run_detector.py
+             → extract_numerical_results.py → visualize_detector.py
 ```
 
-Optionally register the environment as a Jupyter kernel:
+Each script contains a small editable path/configuration dictionary near the
+top. The detector itself should normally remain `DETECTOR_CONFIG_0818`.
 
-```bash
-python -m ipykernel install --user --name barcoding-amd --display-name "Python (barcoding-amd)"
-```
+### Step A: Load an E2E B-scan
 
-Verify the installation:
-
-```bash
-python scripts/check_setup.py
-```
-
-After activation, commands can use `python`. Without activation, use
-`.venv/bin/python` on macOS/Linux or `.venv\Scripts\python.exe` on Windows.
-
-## 2. Loading data and choosing a processing scope
-
-### Process one source
-
-Edit `CONFIG` in `scripts/load_data.py`. For an E2E volume, select either its
-central B-scan or an explicit index:
+Place E2E volumes under `data/heyex/meta/`. Edit `CONFIG` in
+`scripts/load_data.py`:
 
 ```python
 CONFIG = {
-    "source_path": Path("data/heyex/meta/example.E2E"),
+    "source_path": Path("data/heyex/meta/ea8.E2E"),
     "metadata_path": None,
     "output_path": Path("results/pipeline/loaded_scan.npz"),
     "e2e_options": {
-        "selection": "center",  # or "index"
-        "bscan_index": None,     # set an integer when selection="index"
+        "selection": "index",
+        "bscan_index": 48,
         "layer_name": "BM",
     },
     "source_metadata": {
@@ -209,7 +89,18 @@ CONFIG = {
 }
 ```
 
-For a PNG with a JSON metadata or annotation file:
+Then run:
+
+```bash
+python scripts/load_data.py
+```
+
+To load the middle scan automatically, use `"selection": "center"` and set
+`bscan_index` to `None`.
+
+### PNG + JSON input
+
+The same loader accepts an image with its metadata or annotation JSON:
 
 ```python
 CONFIG = {
@@ -220,103 +111,37 @@ CONFIG = {
 }
 ```
 
-Run:
+PNG images without a retinal boundary are treated as already selected or
+cropped images. Normalization and denoising still run.
 
-```bash
-python scripts/load_data.py
-```
+### Step B: Preprocess
 
-The output is a compressed `.npz` artifact containing the image, source
-metadata, B-scan index, and retinal-layer boundary when available.
-
-### Batch-load and preprocess E2E data
-
-`scripts/batch_preprocess_e2e.py` loads and preprocesses without creating a
-separate loaded artifact for each scan. Put E2E files in `data/heyex/meta/`,
-then choose one `BATCH_CONFIG["mode"]`:
-
-- `"volume_all_scans"`: every B-scan from the E2E file in `volume_path`.
-- `"all_volumes_selected_scan"`: one center or indexed B-scan from every E2E
-  file in `input_directory`.
-- `"all_volumes_all_scans"`: every B-scan from every E2E file.
-
-The relevant batch options are:
-
-- `volume_path`: the single E2E file used by `volume_all_scans`.
-- `input_directory`: directory searched by the two all-volume modes.
-- `recursive`: search nested directories when `True`.
-- `scan_selection`: `"center"` or `"index"` for the selected-scan mode.
-- `selected_bscan_index`: index used when `scan_selection="index"`.
-- `output_directory`: root directory for processed `.npz` artifacts.
-- `overwrite`: replace existing scan artifacts when `True`; otherwise skip.
-- `continue_on_error`: record failed scans and continue when `True`.
-
-Run:
-
-```bash
-python scripts/batch_preprocess_e2e.py
-```
-
-Outputs are grouped by volume:
-
-```text
-results/batch_preprocessed/
-├── volume_name/
-│   ├── bscan_0000.npz
-│   ├── bscan_0001.npz
-│   └── ...
-└── manifest.json
-```
-
-The manifest records the source file, B-scan index, output path, output shape,
-and whether each scan was processed, skipped, or failed.
-
-## 3. Preprocessing configuration
-
-For a single loaded artifact, edit `PIPELINE_CONFIG` and
-`PREPROCESSING_CONFIG` in `scripts/preprocess_data.py`, then run:
+Edit the paths in `scripts/preprocess_data.py`, then run:
 
 ```bash
 python scripts/preprocess_data.py
 ```
 
-For batch E2E preprocessing, edit the identically named
-`PREPROCESSING_CONFIG` in `scripts/batch_preprocess_e2e.py`. These settings
-mirror `pipeline_validation.ipynb`:
+The selected preprocessing settings are:
 
-- `layer_name`: annotated retinal boundary used for alignment, normally
-  `"BM"` for Bruch's membrane. The selected layer must exist in the E2E file.
-- `reference_row`: row to which the boundary is flattened. `None` uses the
-  median boundary location. A larger number positions the flattened boundary
-  lower in the image.
-- `flatten_fill_value`: value inserted into empty pixels created by vertically
-  shifting image columns.
-- `depth_below_layer`: number of rows retained at and below the flattened
-  boundary. Larger values include more deep tissue and choroid.
-- `include_boundary`: include the boundary row when `True`; start one row below
-  it when `False`.
-- `require_full_depth`: raise an error if the requested crop is unavailable
-  when `True`; pad a shallow crop when `False`.
-- `crop_fill_value`: value used for padded crop rows.
-- `normalization_method`: `"zscore"`, `"percentile"`, `"minmax"`, or
-  `"none"`. Z-score normalization centers and scales by standard deviation;
-  percentile and min-max normalization produce values in `[0, 1]`.
-- `lower_percentile`: lower clipping percentile used only by percentile
-  normalization. Increasing it ignores more dark outliers.
-- `upper_percentile`: upper clipping percentile used only by percentile
-  normalization. Lowering it clips more bright outliers.
-- `denoise_method`: `"gaussian"`, `"median"`, or `"none"`.
-- `gaussian_sigma`: Gaussian smoothing strength as either one value or
-  `(depth_sigma, horizontal_sigma)`. Larger values remove more noise but blur
-  finer structures.
+| Parameter | Selected value | Meaning |
+|---|---:|---|
+| `layer_name` | `"BM"` | Anatomical boundary used for alignment |
+| `reference_row` | `None` | Flatten to the scan's median BM row |
+| `depth_below_layer` | `150` | Retain 150 rows at and below BM |
+| `include_boundary` | `True` | Include the BM row in the crop |
+| `require_full_depth` | `False` | Pad a shallow crop instead of failing |
+| `normalization_method` | `"zscore"` | Express brightness relative to the scan |
+| `denoise_method` | `"gaussian"` | Apply mild Gaussian denoising |
+| `gaussian_sigma` | `(1.0, 0.5)` | Smooth more through depth than horizontally |
 
-The preprocessing API also supports `zscore_epsilon`, `median_size`, and
-`gaussian_mode` when those methods need further control. The resulting artifact
-defaults to `results/pipeline/preprocessed_scan.npz`.
+Other supported normalization methods are `percentile`, `minmax`, and `none`.
+Other denoising choices are `median` and `none`. These alternatives are not
+part of the selected workflow.
 
-## 4. Running and configuring the detector
+### Step C: Run `DETECTOR_CONFIG_0818`
 
-Edit `PIPELINE_CONFIG` and `DETECTOR_CONFIG` in `scripts/run_detector.py`:
+Edit only the input and output paths in `scripts/run_detector.py`:
 
 ```python
 PIPELINE_CONFIG = {
@@ -331,294 +156,133 @@ Run:
 python scripts/run_detector.py
 ```
 
-Structural detector parameters:
+The script imports a deep copy of the selected configuration:
 
-- `detector_type`: `"structural"` runs the structural-hypertransmission
-  pipeline. `"weighted"` selects the alternative weighted-feature detector.
-- `verticality_smoothing_sigma`: smoothing before image-gradient calculation.
-  Larger values reduce speckle but can blur fine vertical structures.
-- `verticality_threshold`: minimum vertical organization required for a pixel
-  to enter the structural mask. Larger values are more selective.
-- `gradient_quantile`: gradient-magnitude quantile used to retain structural
-  pixels. Larger values retain only stronger edges.
-- `minimum_component_size`: minimum structural connected-component area in
-  pixels; `0` disables component-size filtering.
-- `column_upper_quantile`: upper intensity statistic calculated from each
-  structurally cleaned column. Larger values emphasize its brightest pixels.
-- `minimum_valid_pixels`: minimum number of non-structural pixels required for
-  a column-level intensity estimate.
-- `signal_smoothing_sigma`: Gaussian smoothing applied to one-dimensional
-  column signals. Larger values suppress short local changes.
-- `median_iqr_multiplier`: number of reference IQRs added to the median-column
-  baseline. Larger values require stronger hypertransmission.
-- `q90_iqr_multiplier`: equivalent IQR multiplier for the upper-quantile
-  intensity signal.
-- `continuity_window_width`: horizontal width used to evaluate local depth
-  continuity.
-- `continuity_depth_lag`: maximum vertical displacement considered when
-  matching neighboring columns.
-- `continuity_minimum_row_standard_deviation`: numerical floor that prevents
-  unstable correlation in nearly constant image regions.
-- `continuity_quantile`: scan-relative continuity threshold. Larger values
-  retain fewer, more continuous candidates.
-- `vertical_fraction_quantile`: scan-relative threshold for the fraction of
-  vertically organized pixels in candidate columns.
-- `minimum_positive_run`: minimum retained horizontal detection length in
-  columns.
-- `maximum_negative_gap`: largest internal negative gap filled between nearby
-  detections; `0` disables gap filling.
-- `edge_margin`: number of columns excluded at both lateral image edges.
-- `texture_options`: multi-scale Gabor measurement settings. The default
-  wavelengths `(4, 8, 16)` pixels target narrow, medium, and broader vertical
-  stripe spacing. `horizontal_sigma_factor=0.60` controls horizontal filter
-  width, `depth_sigma=12` requires texture to persist through depth, and
-  `signal_smoothing_sigma=2` smooths the resulting column signal.
+```python
+from src.detector.detector import DETECTOR_CONFIG_0818
 
-EA and barcoding classification is performed by two independent calibrated
-models in `phenotype_config`. Each class has:
-
-- `probability_threshold`: minimum class probability; increasing it improves
-  selectivity while generally reducing recall.
-- `minimum_positive_run`: minimum retained interval width for that class.
-- `maximum_negative_gap`: largest internal gap joined for that class.
-- `coefficients` and `intercept`: fitted calibration values derived from the
-  manual annotations. These should normally remain unchanged unless the model
-  is recalibrated.
-
-`structural_veto` is a third calibrated model trained on the manual
-`Vessel / Structural` annotations. It removes likely vessel-shadow columns
-after EA/barcoding gap filling. Its probability threshold and cleanup settings
-can be adjusted independently; higher thresholds make the veto more
-conservative. `margin_columns` expands each excluded vessel run laterally to
-cover the surrounding shadow; its default is two columns.
-
-When both models select the same column, the detector compares each model's
-probability relative to its threshold and assigns the stronger class.
-
-Calibration v2 uses a barcoding probability threshold of `0.55` with an
-8-column minimum interval and an EA threshold of `0.50` with a 12-column
-minimum interval. These settings were selected to reduce the false-positive
-fragmentation observed across the ten validation scans.
-
-Calibration v3 adds spatial and anatomical rejection after the calibrated
-column probabilities are computed:
-
-- `smoothing_sigma` and `raw_probability_weight` blend each column's score
-  with evidence from neighboring columns.
-- `support_radius`, `support_probability_margin`, and
-  `minimum_local_support` require a candidate to be surrounded by sustained
-  near-threshold evidence instead of being an isolated intensity response.
-- `feature_vote_thresholds` and `minimum_feature_votes` require agreement
-  among scan-relative median intensity, continuity, and verticality. EA uses
-  the stricter three-feature rule; barcoding retains a two-feature rule to
-  avoid the large recall loss seen with three-way agreement.
-- `minimum_interval_mean_probability` and
-  `minimum_interval_peak_probability` reject weak candidates at the whole
-  lesion level after cleanup and structural exclusion.
-- `structural_veto.dark_shadow` rejects persistent dark, continuous columns
-  that behave like vessel shadows rather than hypertransmission. Its
-  `margin_columns` setting excludes the immediate shadow boundary as well.
-
-The detector JSON metadata reports how many columns were rejected by local
-support and feature voting, how many complete intervals failed lesion-level
-confidence, and how many columns were covered by the dark-shadow veto.
-
-The detector also computes an experimental multi-scale vertical Gabor-texture
-signal. It oscillates horizontally and is elongated through depth, so it
-responds to repeated vertical bright--dark stripes instead of brightness
-alone. It does not alter the validated v3 output unless
-`phenotype_config["barcoding"]["texture_context"]["enabled"]` is set to
-`True`. When enabled, a complete barcoding interval must meet both
-`minimum_interval_mean_z` and `minimum_interval_peak_z`. A useful first E2E
-A/B test is a mean threshold of `0.0` and peak threshold of `1.0`; this was
-only screened on the rendered PNG development scans and is not yet a selected
-or validated configuration.
-
-Depth-band features are also computed for every scan. The 150-row crop is
-divided into `near` (0--20%), `middle` (20--50%), and `deep` (50--100%) bands.
-The detector records robustly standardized brightness for each band plus
-`deep_minus_near` and `deep_minus_middle` contrasts. EA and barcoding each have
-an independent `depth_context` interval gate, disabled by default. Every
-automatic JSON contains `interval_evidence` with texture and depth-band
-mean/peak values, even when the experimental gates are disabled. This allows
-E2E evidence to be inspected before selecting a threshold.
-
-To A/B test the classical feature gates across the ten annotated scans, edit
-`EXPERIMENT_CONFIG` in `scripts/validation_test.py`, choose a new
-`VALIDATION_CONFIG["output_directory"]`, and run:
-
-```bash
-python scripts/validation_test.py
+DETECTOR_CONFIG = deepcopy(DETECTOR_CONFIG_0818)
 ```
 
-The first E2E Gabor experiment used mean/peak thresholds of `0.0` and `1.0`.
-It raised barcoding precision from `0.584` to `0.777` and Dice from `0.550`
-to `0.576`, but lowered recall from `0.520` to `0.458`. A follow-up sweep of
-the saved E2E interval evidence selected a less aggressive Gabor mean/peak of
-`0.40` and `0.50`, combined with near-band brightness of at least `0.0`.
-Leave-one-patient-out threshold selection chose the same settings for every
-held-out patient. These are now the disabled experimental defaults; enable
-both the Gabor and barcoding depth switches to test the combined candidate.
-The EA depth gate should remain off because its provisional rule did not
-change any interval.
+The selected detector performs the following operations:
 
-### Adjacent-B-scan consistency
+1. Measures scan-relative brightness, depth continuity, and vertical structure.
+2. Scores EA and barcoding independently with contextual V3 classifiers.
+3. Requires local support and whole-interval probability evidence.
+4. Removes calibrated vessel/structural and dark-shadow candidates.
+5. Requires Gabor stripe evidence and near-depth brightness for barcoding.
+6. Reports final normal, EA, and barcoding labels with interval evidence.
 
-`scripts/adjacent_bscan_consistency.py` runs adjacent-scan consistency on all
-ten patient-specific scans listed in `results/manual_ground_truth/`. It finds
-the corresponding E2E volumes under `data/heyex/meta`, processes two scans on
-each side of every target, and evaluates a control plus six interpretable
-rules:
+Selected phenotype parameters:
 
-- `single_scan_control`: combined detector with no adjacent filtering.
-- `adjacent_any`: one supporting neighbor for either phenotype.
-- `adjacent_class_specific`: one neighbor for barcoding and two for EA.
-- `adjacent_bilateral`: support on both sides of the target scan.
-- `adjacent_spatial_strict`: one neighbor with tighter overlap and alignment.
-- `hybrid_conservative`: rejects an unsupported barcoding interval only when
-  it is at most 12 columns wide and at least three texture, near-depth, and
-  probability checks are weak.
-- `hybrid_balanced`: tests the same three-of-four evidence rule with a
-  16-column width limit and moderately broader weak-evidence thresholds.
+| Setting | Barcoding | EA |
+|---|---:|---:|
+| Probability threshold | `0.55` | `0.50` |
+| Minimum interval width | `8` | `12` |
+| Maximum joined gap | `4` | `5` |
+| Local support radius | `5` | `7` |
+| Required feature votes | `2 of 3` | `3 of 3` |
+| Gabor mean / peak | `0.40 / 0.50` | disabled |
+| Depth gate | near mean ≥ `0.0` | disabled |
 
-Edit `RUN_CONFIG` or `CONSISTENCY_EXPERIMENTS` at the top of the script, then
-run:
+### Step D: Extract interval counts and widths
 
-```bash
-python scripts/adjacent_bscan_consistency.py
-```
-
-The script uses the selected combined Gabor + depth detector and writes each
-variant beneath `results/adjacent_bscan_experiments/`. Its JSON files use the
-same automatic naming convention as the validation outputs. For every target
-interval they record the matching neighbor, overlap, center shift, support on
-each side, retention decision, and rejection reason. The top-level
-`experiment_summary.json` contains aggregate precision, recall, specificity,
-and Dice for EA and barcoding, so the rules can be compared directly.
-
-The hybrid rules do not alter EA and never reject a barcoding interval merely
-because it is absent from adjacent scans. They require the conjunction of no
-adjacent support, short width, and several weak interval-level measurements.
-The JSON `hybrid_rejection` object records every Boolean condition and the
-observed value and threshold for each evidence check.
-
-The JSON output contains one `normal`, `ea`, or `barcoding` label per column,
-detected intervals, thresholds, label counts, and the detector configuration.
-EA and barcoding are exploratory research labels, not validated clinical
-diagnoses.
-
-### Extracting numerical results
-
-After running the detector, extract the EA and barcoding interval counts and
-widths with:
+Edit `CONFIG` in `scripts/extract_numerical_results.py`, then run:
 
 ```bash
 python scripts/extract_numerical_results.py
 ```
 
-Edit `CONFIG` in that script if the detector output is stored elsewhere. By
-default it reads `results/pipeline/detections.json` and writes a metadata-based
-name such as `results/pipeline/fast_08_bscan_048_automatic.json`. The output contains the number of
-intervals, each interval's inclusive start/end columns and width in pixels,
-total width, and mean, median, minimum, and maximum width for both EA and
-barcoding.
+The output reports the number of EA and barcoding intervals, their inclusive
+start/end columns, individual widths, total width, and width summary statistics.
 
-To run the detector on batch-preprocessed scans, set `input_path` and
-`output_path` to one artifact at a time, for example:
+### Step E: Create the overlay
 
-```python
-"input_path": Path("results/batch_preprocessed/volume_name/bscan_0048.npz"),
-"output_path": Path("results/batch_detections/volume_name/bscan_0048.json"),
-```
-
-## 5. Visualization
-
-Edit `CONFIG` in `scripts/visualize_detector.py` so the preprocessing and
-detection paths describe the same B-scan:
-
-```python
-CONFIG = {
-    "preprocessed_path": Path("results/pipeline/preprocessed_scan.npz"),
-    "detection_path": Path("results/pipeline/detections.json"),
-    "output_directory": Path("results/pipeline"),
-    "identity_overrides": {
-        "progression_group": None,
-        "subject_id": None,
-        "bscan_index": None,
-    },
-    "title": "EA and barcoding detector output",
-    "colors": {"ea": "tab:orange", "barcoding": "tab:red"},
-    "figure_options": {"figsize": (12, 4), "dpi": 150},
-}
-```
-
-Run:
+Point `scripts/visualize_detector.py` to the preprocessed NPZ and detection JSON:
 
 ```bash
 python scripts/visualize_detector.py
 ```
 
-The script saves a metadata-based filename such as
-`fast_08_bscan_048_automatic.png`, matching its numerical-results JSON. It
-shows a grayscale preprocessed B-scan with transparent EA and
-barcoding interval overlays. `colors`, `figsize`, `dpi`, title, and output path
-can be changed without modifying plotting code.
+The output PNG uses orange for EA and red for barcoding. Metadata-based names
+follow the format:
 
-The B-scan number is read from the processed artifact, so each patient can use
-a different selected scan. When loading E2E data, set `source_metadata` in
-`scripts/load_data.py` with `progression_group` and `subject_id`. Subject ID is
-also inferred from E2E names such as `ea8.E2E`. If older artifacts lack this
-metadata, set `identity_overrides` in the numerical and visualization scripts.
-
-## Optional evaluation
-
-To compare a detection with manual JSON annotations, edit `CONFIG` in
-`scripts/evaluate_detector.py` and run:
-
-```bash
-python scripts/evaluate_detector.py
+```text
+fast_08_bscan_048_automatic.png
+fast_08_bscan_048_automatic.json
 ```
 
-Available metrics include confusion counts, precision, sensitivity/recall,
-specificity, accuracy, F1/Dice, intersection over union, and detected/target
-fractions. Barcoding and EA are scored separately. Columns annotated as
-`Uncertain` or `Vessel / Structural` are excluded from scoring rather than
-treated as negative examples.
+## 3. Ten-scan selected validation workflow
 
-### Ten-scan validation workflow
+To reproduce the current development validation:
 
-To run the complete workflow on the ten patient-specific scans listed in
-`results/manual_ground_truth/`, place the corresponding E2E files under
-`data/heyex/meta/` with names such as `ea8.E2E`, then run:
+1. Put the corresponding E2E files under `data/heyex/meta/`, named like
+   `ea8.E2E`.
+2. Keep the ten manual JSON files in `results/manual_ground_truth/`.
+3. Run:
 
 ```bash
 python scripts/validation_test.py
 ```
 
-The script reads each subject ID, progression group, and distinct B-scan index
-from the manual JSON—not from a shared hardcoded scan number. It performs E2E
-loading, preprocessing, calibrated detection, numerical quantification,
-ground-truth evaluation, and plotting. Paired files are saved under
-`results/automatic_detector/`, for example:
+The script discovers each subject and patient-specific B-scan index from the
+manual JSON, then performs loading, preprocessing, `DETECTOR_CONFIG_0818`,
+quantification, evaluation, and visualization. Results are written to
+`results/automatic_detector_gabor_depth/` with a `validation_manifest.json`.
 
-```text
-fast_08_bscan_048_automatic.json
-fast_08_bscan_048_automatic.png
+Columns annotated as `Uncertain` or `Vessel / Structural` are excluded from
+scoring. The current development results are:
+
+| Phenotype | Precision | Recall | Dice |
+|---|---:|---:|---:|
+| Barcoding | `0.817` | `0.520` | `0.636` |
+| EA in combined run | `0.462` | `0.699` | `0.557` |
+
+These ten scans informed parameter selection and do not constitute independent
+clinical validation.
+
+## 4. Batch preprocessing E2E volumes
+
+`scripts/batch_preprocess_e2e.py` supports three modes:
+
+- `volume_all_scans`: every scan in one E2E volume;
+- `all_volumes_selected_scan`: one center or indexed scan per E2E file;
+- `all_volumes_all_scans`: every scan from every E2E file.
+
+Edit `BATCH_CONFIG` and run:
+
+```bash
+python scripts/batch_preprocess_e2e.py
 ```
 
-`validation_manifest.json` records processed, skipped, and failed cases.
-`overwrite` and `continue_on_error` can be changed in `VALIDATION_CONFIG`.
+Artifacts are grouped by volume under `results/batch_preprocessed/`, and
+`manifest.json` records processed, skipped, and failed scans.
 
-## Package responsibilities
+## 5. Evaluation utilities
 
-The OCT pipeline is organized into five packages:
+To evaluate an individual detection JSON against a manual annotation, edit
+`CONFIG` in `scripts/evaluate_detector.py` and run:
 
-- `src/loading/`: E2E volumes, B-scans/metadata, and JSON/PNG pairs.
-- `src/preprocess/`: flattening, cropping, normalization, and denoising.
-- `src/detector/`: hypertransmission, EA, and barcoding detector logic and
-  parameters.
-- `src/evaluation/`: annotation loading and tuning metrics.
-- `src/visualization/`: static plots, interactive viewers, and Grad-CAM.
+```bash
+python scripts/evaluate_detector.py
+```
 
-Notebooks may use older imports while the refactoring is in progress. The
-terminal scripts above are the canonical workflow.
+Metrics include confusion counts, precision, recall, specificity, accuracy,
+Dice, intersection over union, and predicted/target fractions.
+
+## Experimental and historical implementations
+
+Experimental code is intentionally retained in place for reproducibility. It
+is marked in source comments and is not part of `DETECTOR_CONFIG_0818`.
+
+- `scripts/adjacent_bscan_consistency.py`: mandatory adjacency, bilateral,
+  spatially strict, and hybrid rejection experiments.
+- `CALIBRATED_PHENOTYPE_V1_CONFIG`: contextual V3 calibration before selected
+  Gabor/depth gates are enabled.
+- `STRUCTURAL_HYPERTD_V1_CONFIG`: historical structural feature defaults.
+- Weighted detector, normal-model, training, and Grad-CAM modules: retained for
+  earlier experiments and future comparison.
+
+Do not treat experimental scripts as the main inference workflow. See
+[`docs/logging/CHANGELOG.md`](docs/logging/CHANGELOG.md) for parameter sweeps,
+metrics, rejected approaches, and the rationale for the selected configuration.

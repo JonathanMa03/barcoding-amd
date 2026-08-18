@@ -1,3 +1,8 @@
+"""Experimental ImageJ-like profile thresholding retained for comparison.
+
+This module is not used by the selected DETECTOR_CONFIG_0818 workflow.
+"""
+
 from __future__ import annotations
 
 from dataclasses import dataclass

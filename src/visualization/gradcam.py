@@ -1,3 +1,8 @@
+"""Experimental Grad-CAM support for the retained CNN proof of concept.
+
+This module is not used by the selected DETECTOR_CONFIG_0818 workflow.
+"""
+
 import torch
 import torch.nn.functional as F
 

@@ -23,7 +23,7 @@ if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
 from src.detector.consistency import apply_adjacent_consistency
-from src.detector.detector import CALIBRATED_PHENOTYPE_V1_CONFIG, run_detector
+from src.detector.detector import DETECTOR_CONFIG_0818, run_detector
 from src.evaluation.metrics import evaluate_detection, load_ground_truth_masks
 from src.evaluation.quantification import quantify_detection_labels
 from src.evaluation.result_naming import automatic_result_stem
@@ -41,8 +41,8 @@ RUN_CONFIG = {
     "continue_on_error": True,
 }
 
-# These variants test one question at a time. Keep their names stable so runs
-# can be compared directly after pulling the result folders to another machine.
+# EXPERIMENTAL/RETIRED AS HARD GATES: retained to reproduce volume-consistency
+# and hybrid tests. DETECTOR_CONFIG_0818 does not apply these rules by default.
 CONSISTENCY_EXPERIMENTS = {
     "single_scan_control": {
         # No filtering: confirms the batch run matches the combined baseline.
@@ -125,22 +125,11 @@ PREPROCESSING_CONFIG = {
     "gaussian_sigma": (1.0, 0.5),
 }
 
-DETECTOR_CONFIG = {
-    "detector_type": "structural", "verticality_smoothing_sigma": 1.0,
-    "verticality_threshold": 0.60, "gradient_quantile": 0.80,
-    "minimum_component_size": 0, "column_upper_quantile": 0.90,
-    "minimum_valid_pixels": 5, "signal_smoothing_sigma": 2.0,
-    "median_iqr_multiplier": 1.0, "q90_iqr_multiplier": 0.5,
-    "continuity_window_width": 15, "continuity_depth_lag": 4,
-    "continuity_minimum_row_standard_deviation": 1e-6,
-    "continuity_quantile": 0.60, "vertical_fraction_quantile": 0.70,
-    "minimum_positive_run": 5, "maximum_negative_gap": 2,
-    "edge_margin": 10,
-    "phenotype_config": deepcopy(CALIBRATED_PHENOTYPE_V1_CONFIG),
-}
+DETECTOR_CONFIG = deepcopy(DETECTOR_CONFIG_0818)
 
 
 def configure_combined_detector() -> None:
+    """Retained for experiment reproducibility; idempotent for 0818 config."""
     phenotype = DETECTOR_CONFIG["phenotype_config"]
     phenotype["barcoding"]["texture_context"].update({
         "enabled": True,

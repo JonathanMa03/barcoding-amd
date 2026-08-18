@@ -1837,6 +1837,45 @@ Adjacent support should therefore be retained as an explanation and confidence
 tier: bilateral support is high confidence, one-neighbor support is moderate
 confidence, and no support is low confidence.
 
+\subsubsection{Hybrid Rejection Experiments}
+
+Two hybrid rules were evaluated to determine whether adjacent evidence could
+be used more selectively.  Neither rule rejected an interval solely because
+it lacked an adjacent match.  Rejection additionally required a short interval
+and at least three weak findings among mean Gabor energy, peak Gabor energy,
+near-band brightness, and mean lesion probability.  The conservative version
+limited rejection to intervals no wider than 12 columns; the balanced version
+used a 16-column limit and broader weak-evidence thresholds.  EA was not
+filtered by either rule.
+
+\begin{table}[H]
+\centering
+\small
+\begin{tabular}{lrrrrrr}
+\toprule
+\textbf{Barcoding rule} & \textbf{TP} & \textbf{FP} & \textbf{FN} &
+\textbf{Precision} & \textbf{Recall} & \textbf{Dice} \\
+\midrule
+Single-scan control & 424 & 95 & 391 & \textbf{0.817} & \textbf{0.520} & \textbf{0.636} \\
+Hybrid conservative & 405 & 95 & 410 & 0.810 & 0.497 & 0.616 \\
+Hybrid balanced & 390 & 77 & 425 & 0.835 & 0.479 & 0.608 \\
+\bottomrule
+\end{tabular}
+\caption{Completed ten-case results for the hybrid barcoding rejection rules.}
+\label{tab:hybrid_experiments}
+\end{table}
+
+The conservative rule rejected two intervals containing 19 true-positive
+columns and no false-positive columns.  The balanced rule removed 18
+false-positive columns but also removed 34 true-positive columns.  Its small
+precision increase was therefore outweighed by a larger recall loss.  EA
+metrics remained unchanged, as intended.  Review of the interval evidence
+showed the central limitation: some false intervals had stronger texture,
+depth, and probability values than true unsupported intervals.  Thus the
+existing evidence cannot become reliably discriminative merely by being
+recombined into another rejection rule.  Neither hybrid version should replace
+the selected single-scan detector.
+
 \subsubsection{Current Best Configuration and Remaining Failure Modes}
 
 The current best barcoding configuration is the V3 contextual detector with
@@ -1854,18 +1893,15 @@ repeatable vessel or anatomical structure rather than random image noise.
 Conversely, mandatory adjacent filtering removes real but locally weak
 barcoding and EA regions.
 
-The next experiment is therefore a \emph{hybrid rejection rule}.  An
-interval will not be rejected solely because it lacks an adjacent match.
-Instead, rejection will require agreement among several negative findings,
-such as no adjacent support, short interval width, and weak Gabor/depth or
-lesion-probability evidence.  This preserves the explainable architecture:
-each excluded interval will carry a record of which independent conditions
-failed.  Two initial variants have been implemented.  The conservative rule
-limits rejection to intervals of at most 12 columns, while the balanced rule
-uses at most 16 columns; both require at least three weak findings among mean
-Gabor energy, peak Gabor energy, near-band brightness, and mean lesion
-probability.  These are explicitly experimental settings, not new calibrated
-defaults.  Threshold selection and final claims must still be evaluated on
-additional subjects that were not used to formulate the rule.
+The next feature experiment should introduce information that is not already
+represented by the present scores.  A promising candidate is the vertical
+intensity-profile shape or ``shadow polarity.''  A vessel or opaque structure
+should reduce signal below the obstruction, whereas pathological
+hypertransmission should increase signal in deeper tissue.  Comparing the
+near-to-deep profile inside an interval with immediately neighboring normal
+columns may distinguish these mechanisms more directly.  Adjacent support
+should remain an explanatory confidence field rather than a mandatory veto.
+Threshold selection and final claims must still be evaluated on additional
+subjects that were not used to formulate the rules.
 
 \end{document}

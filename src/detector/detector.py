@@ -31,6 +31,7 @@
 
 from __future__ import annotations
 
+from copy import deepcopy
 from dataclasses import dataclass
 from pathlib import Path
 import json
@@ -50,6 +51,9 @@ from src.detector.features import (
 )
 
 
+# Historical structural feature configuration retained for reproducibility and
+# for the legacy/experimental detector entry points below. New workflows should
+# use DETECTOR_CONFIG_0818 instead.
 STRUCTURAL_HYPERTD_V1_CONFIG: dict[str, Any] = {
     "verticality_smoothing_sigma": 1.0,
     "verticality_threshold": 0.60,
@@ -88,6 +92,9 @@ STRUCTURAL_HYPERTD_V1_CONFIG: dict[str, Any] = {
 # results/manual_ground_truth. Features are scan-relative robust z-scores of
 # median intensity, upper-quantile intensity, continuity, and verticality plus
 # four interaction terms. Uncertain and vessel/structural columns were omitted.
+# Historical contextual-v3 phenotype calibration. It remains public so prior
+# experiments can be reproduced. DETECTOR_CONFIG_0818 enables the selected
+# texture/depth gates on a private copy of this calibration.
 CALIBRATED_PHENOTYPE_V1_CONFIG: dict[str, Any] = {
     "version": "manual_ground_truth_v3_contextual",
     "feature_clip": 5.0,
@@ -181,6 +188,29 @@ CALIBRATED_PHENOTYPE_V1_CONFIG: dict[str, Any] = {
 }
 
 
+# Selected development configuration as of 2026-08-18. This is the canonical
+# default for terminal workflows. Callers should deepcopy it before making
+# task-specific changes because it contains nested dictionaries.
+DETECTOR_CONFIG_0818: dict[str, Any] = {
+    "detector_type": "structural",
+    **deepcopy(STRUCTURAL_HYPERTD_V1_CONFIG),
+    "phenotype_config": deepcopy(CALIBRATED_PHENOTYPE_V1_CONFIG),
+}
+DETECTOR_CONFIG_0818["phenotype_config"]["barcoding"][
+    "texture_context"
+].update({
+    "enabled": True,
+    "minimum_interval_mean_z": 0.40,
+    "minimum_interval_peak_z": 0.50,
+})
+DETECTOR_CONFIG_0818["phenotype_config"]["barcoding"][
+    "depth_context"
+]["enabled"] = True
+DETECTOR_CONFIG_0818["phenotype_config"]["ea"][
+    "depth_context"
+]["enabled"] = False
+
+
 @dataclass
 class DetectorOutput:
     """Common detector output with per-column EA/barcoding/normal labels."""
@@ -191,14 +221,21 @@ class DetectorOutput:
     metadata: dict[str, Any]
 
 
-def run_detector(image: np.ndarray, config: Mapping[str, Any]) -> DetectorOutput:
+def run_detector(
+    image: np.ndarray,
+    config: Mapping[str, Any] | None = None,
+) -> DetectorOutput:
     """Run a configured detector and assign the three analysis labels.
+
+    When ``config`` is omitted, the selected ``DETECTOR_CONFIG_0818`` is used.
 
     For the structural detector, final candidates are ``barcoding``; earlier
     hypertransmission candidates that fail the final vertical refinement are
     ``ea``; remaining columns are ``normal``. These are configurable research
     rules, not a validated clinical diagnosis.
     """
+    if config is None:
+        config = deepcopy(DETECTOR_CONFIG_0818)
     detector_type = str(config.get("detector_type", "structural")).lower()
     phenotype_config = dict(
         config.get("phenotype_config", CALIBRATED_PHENOTYPE_V1_CONFIG)
