@@ -1,0 +1,1418 @@
+{
+  "progression_group": "fast",
+  "subject_id": 9,
+  "bscan_index": 85,
+  "source_e2e_path": "C:\\Users\\u0667281\\Desktop\\JMA\\barcoding-amd\\data\\heyex\\meta\\ea9.E2E",
+  "ground_truth_path": "C:\\Users\\u0667281\\Desktop\\JMA\\barcoding-amd\\results\\manual_ground_truth\\fast_09_bscan_085_ground_truth.json",
+  "neighbor_indices": [
+    83,
+    84,
+    86,
+    87
+  ],
+  "consistency_experiment": "adjacent_bilateral",
+  "consistency_config": {
+    "minimum_supporting_neighbors": {
+      "barcoding": 2,
+      "ea": 2
+    },
+    "minimum_support_before": {
+      "barcoding": 1,
+      "ea": 1
+    },
+    "minimum_support_after": {
+      "barcoding": 1,
+      "ea": 1
+    },
+    "minimum_overlap_fraction": 0.25,
+    "maximum_center_shift_columns": 30.0
+  },
+  "raw_intervals": [
+    {
+      "label": "barcoding",
+      "start": 129,
+      "end": 141,
+      "width_pixels": 13
+    },
+    {
+      "label": "barcoding",
+      "start": 156,
+      "end": 239,
+      "width_pixels": 84
+    },
+    {
+      "label": "barcoding",
+      "start": 302,
+      "end": 328,
+      "width_pixels": 27
+    },
+    {
+      "label": "barcoding",
+      "start": 357,
+      "end": 366,
+      "width_pixels": 10
+    }
+  ],
+  "interval_support": [
+    {
+      "label": "barcoding",
+      "start": 129,
+      "end": 141,
+      "width_pixels": 13,
+      "supporting_neighbor_count": 2,
+      "support_before_count": 1,
+      "support_after_count": 1,
+      "required_supporting_neighbors": 2,
+      "required_support_before": 1,
+      "required_support_after": 1,
+      "supporting_matches": [
+        {
+          "bscan_index": 84,
+          "match": {
+            "label": "barcoding",
+            "start": 125,
+            "end": 139,
+            "width_pixels": 15,
+            "overlap_fraction": 0.8461538461538461,
+            "center_shift_columns": 3.0
+          }
+        },
+        {
+          "bscan_index": 87,
+          "match": {
+            "label": "barcoding",
+            "start": 131,
+            "end": 183,
+            "width_pixels": 53,
+            "overlap_fraction": 0.8461538461538461,
+            "center_shift_columns": 22.0
+          }
+        }
+      ],
+      "retained": true,
+      "rejection_reason": null
+    },
+    {
+      "label": "barcoding",
+      "start": 156,
+      "end": 239,
+      "width_pixels": 84,
+      "supporting_neighbor_count": 3,
+      "support_before_count": 1,
+      "support_after_count": 2,
+      "required_supporting_neighbors": 2,
+      "required_support_before": 1,
+      "required_support_after": 1,
+      "supporting_matches": [
+        {
+          "bscan_index": 83,
+          "match": {
+            "label": "barcoding",
+            "start": 183,
+            "end": 195,
+            "width_pixels": 13,
+            "overlap_fraction": 1.0,
+            "center_shift_columns": 8.5
+          }
+        },
+        {
+          "bscan_index": 86,
+          "match": {
+            "label": "barcoding",
+            "start": 206,
+            "end": 225,
+            "width_pixels": 20,
+            "overlap_fraction": 1.0,
+            "center_shift_columns": 18.0
+          }
+        },
+        {
+          "bscan_index": 87,
+          "match": {
+            "label": "barcoding",
+            "start": 211,
+            "end": 243,
+            "width_pixels": 33,
+            "overlap_fraction": 0.8787878787878788,
+            "center_shift_columns": 29.5
+          }
+        }
+      ],
+      "retained": true,
+      "rejection_reason": null
+    },
+    {
+      "label": "barcoding",
+      "start": 302,
+      "end": 328,
+      "width_pixels": 27,
+      "supporting_neighbor_count": 0,
+      "support_before_count": 0,
+      "support_after_count": 0,
+      "required_supporting_neighbors": 2,
+      "required_support_before": 1,
+      "required_support_after": 1,
+      "supporting_matches": [],
+      "retained": false,
+      "rejection_reason": "insufficient_adjacent_support"
+    },
+    {
+      "label": "barcoding",
+      "start": 357,
+      "end": 366,
+      "width_pixels": 10,
+      "supporting_neighbor_count": 0,
+      "support_before_count": 0,
+      "support_after_count": 0,
+      "required_supporting_neighbors": 2,
+      "required_support_before": 1,
+      "required_support_after": 1,
+      "supporting_matches": [],
+      "retained": false,
+      "rejection_reason": "insufficient_adjacent_support"
+    }
+  ],
+  "neighbor_interval_summaries": {
+    "83": [
+      {
+        "label": "barcoding",
+        "start": 114,
+        "end": 123,
+        "width_pixels": 10
+      },
+      {
+        "label": "barcoding",
+        "start": 161,
+        "end": 175,
+        "width_pixels": 15
+      },
+      {
+        "label": "barcoding",
+        "start": 183,
+        "end": 195,
+        "width_pixels": 13
+      },
+      {
+        "label": "barcoding",
+        "start": 258,
+        "end": 306,
+        "width_pixels": 49
+      },
+      {
+        "label": "ea",
+        "start": 196,
+        "end": 209,
+        "width_pixels": 14
+      }
+    ],
+    "84": [
+      {
+        "label": "barcoding",
+        "start": 125,
+        "end": 139,
+        "width_pixels": 15
+      },
+      {
+        "label": "barcoding",
+        "start": 277,
+        "end": 294,
+        "width_pixels": 18
+      },
+      {
+        "label": "ea",
+        "start": 186,
+        "end": 203,
+        "width_pixels": 18
+      }
+    ],
+    "86": [
+      {
+        "label": "barcoding",
+        "start": 143,
+        "end": 189,
+        "width_pixels": 47
+      },
+      {
+        "label": "barcoding",
+        "start": 206,
+        "end": 225,
+        "width_pixels": 20
+      },
+      {
+        "label": "barcoding",
+        "start": 232,
+        "end": 256,
+        "width_pixels": 25
+      },
+      {
+        "label": "barcoding",
+        "start": 284,
+        "end": 306,
+        "width_pixels": 23
+      },
+      {
+        "label": "ea",
+        "start": 272,
+        "end": 283,
+        "width_pixels": 12
+      }
+    ],
+    "87": [
+      {
+        "label": "barcoding",
+        "start": 131,
+        "end": 183,
+        "width_pixels": 53
+      },
+      {
+        "label": "barcoding",
+        "start": 211,
+        "end": 243,
+        "width_pixels": 33
+      },
+      {
+        "label": "barcoding",
+        "start": 253,
+        "end": 288,
+        "width_pixels": 36
+      }
+    ]
+  },
+  "labels": [
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "barcoding",
+    "barcoding",
+    "barcoding",
+    "barcoding",
+    "barcoding",
+    "barcoding",
+    "barcoding",
+    "barcoding",
+    "barcoding",
+    "barcoding",
+    "barcoding",
+    "barcoding",
+    "barcoding",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "barcoding",
+    "barcoding",
+    "barcoding",
+    "barcoding",
+    "barcoding",
+    "barcoding",
+    "barcoding",
+    "barcoding",
+    "barcoding",
+    "barcoding",
+    "barcoding",
+    "barcoding",
+    "barcoding",
+    "barcoding",
+    "barcoding",
+    "barcoding",
+    "barcoding",
+    "barcoding",
+    "barcoding",
+    "barcoding",
+    "barcoding",
+    "barcoding",
+    "barcoding",
+    "barcoding",
+    "barcoding",
+    "barcoding",
+    "barcoding",
+    "barcoding",
+    "barcoding",
+    "barcoding",
+    "barcoding",
+    "barcoding",
+    "barcoding",
+    "barcoding",
+    "barcoding",
+    "barcoding",
+    "barcoding",
+    "barcoding",
+    "barcoding",
+    "barcoding",
+    "barcoding",
+    "barcoding",
+    "barcoding",
+    "barcoding",
+    "barcoding",
+    "barcoding",
+    "barcoding",
+    "barcoding",
+    "barcoding",
+    "barcoding",
+    "barcoding",
+    "barcoding",
+    "barcoding",
+    "barcoding",
+    "barcoding",
+    "barcoding",
+    "barcoding",
+    "barcoding",
+    "barcoding",
+    "barcoding",
+    "barcoding",
+    "barcoding",
+    "barcoding",
+    "barcoding",
+    "barcoding",
+    "barcoding",
+    "barcoding",
+    "barcoding",
+    "barcoding",
+    "barcoding",
+    "barcoding",
+    "barcoding",
+    "barcoding",
+    "barcoding",
+    "barcoding",
+    "barcoding",
+    "barcoding",
+    "barcoding",
+    "barcoding",
+    "barcoding",
+    "barcoding",
+    "barcoding",
+    "barcoding",
+    "barcoding",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal"
+  ],
+  "barcoding": {
+    "number_of_intervals": 2,
+    "interval_widths_pixels": [
+      13,
+      84
+    ],
+    "total_width_pixels": 97,
+    "mean_width_pixels": 48.5,
+    "median_width_pixels": 48.5,
+    "minimum_width_pixels": 13,
+    "maximum_width_pixels": 84,
+    "intervals": [
+      {
+        "start": 129,
+        "end": 141,
+        "width_pixels": 13
+      },
+      {
+        "start": 156,
+        "end": 239,
+        "width_pixels": 84
+      }
+    ]
+  },
+  "ea": {
+    "number_of_intervals": 0,
+    "interval_widths_pixels": [],
+    "total_width_pixels": 0,
+    "mean_width_pixels": 0.0,
+    "median_width_pixels": 0.0,
+    "minimum_width_pixels": 0,
+    "maximum_width_pixels": 0,
+    "intervals": []
+  },
+  "validation_metrics": {
+    "barcoding": {
+      "true_positive": 96,
+      "false_positive": 1,
+      "false_negative": 99,
+      "true_negative": 211,
+      "precision": 0.9896907216494846,
+      "recall_sensitivity": 0.49230769230769234,
+      "specificity": 0.9952830188679245,
+      "accuracy": 0.7542997542997543,
+      "f1_dice": 0.6575342465753424,
+      "intersection_over_union": 0.4897959183673469,
+      "predicted_fraction": 0.23832923832923833,
+      "target_fraction": 0.47911547911547914,
+      "number_of_scored_columns": 407,
+      "number_of_ignored_columns": 105
+    },
+    "ea": {
+      "true_positive": 0,
+      "false_positive": 0,
+      "false_negative": 0,
+      "true_negative": 407,
+      "precision": 0.0,
+      "recall_sensitivity": 0.0,
+      "specificity": 1.0,
+      "accuracy": 1.0,
+      "f1_dice": 0.0,
+      "intersection_over_union": 0.0,
+      "predicted_fraction": 0.0,
+      "target_fraction": 0.0,
+      "number_of_scored_columns": 407,
+      "number_of_ignored_columns": 105
+    }
+  },
+  "detector_config": {
+    "detector_type": "structural",
+    "verticality_smoothing_sigma": 1.0,
+    "verticality_threshold": 0.6,
+    "gradient_quantile": 0.8,
+    "minimum_component_size": 0,
+    "column_upper_quantile": 0.9,
+    "minimum_valid_pixels": 5,
+    "signal_smoothing_sigma": 2.0,
+    "median_iqr_multiplier": 1.0,
+    "q90_iqr_multiplier": 0.5,
+    "continuity_window_width": 15,
+    "continuity_depth_lag": 4,
+    "continuity_minimum_row_standard_deviation": 1e-06,
+    "continuity_quantile": 0.6,
+    "vertical_fraction_quantile": 0.7,
+    "minimum_positive_run": 5,
+    "maximum_negative_gap": 2,
+    "edge_margin": 10,
+    "phenotype_config": {
+      "version": "manual_ground_truth_v3_contextual",
+      "feature_clip": 5.0,
+      "barcoding": {
+        "coefficients": [
+          0.611739163,
+          0.1454392649,
+          0.767351532,
+          1.0921305536,
+          -0.0490887583,
+          -0.3096769051,
+          -0.2179212661,
+          0.21842969
+        ],
+        "intercept": -0.7472072021,
+        "probability_threshold": 0.55,
+        "minimum_positive_run": 8,
+        "maximum_negative_gap": 4,
+        "spatial_context": {
+          "smoothing_sigma": 2.0,
+          "raw_probability_weight": 0.65,
+          "support_radius": 5,
+          "support_probability_margin": 0.1,
+          "minimum_local_support": 0.55,
+          "minimum_interval_mean_probability": 0.52,
+          "minimum_interval_peak_probability": 0.68,
+          "minimum_feature_votes": 2,
+          "feature_vote_thresholds": {
+            "median": 0.0,
+            "continuity": 0.0,
+            "verticality": 0.0
+          }
+        },
+        "texture_context": {
+          "enabled": true,
+          "minimum_interval_mean_z": 0.4,
+          "minimum_interval_peak_z": 0.5
+        },
+        "depth_context": {
+          "enabled": true,
+          "required_signals": {
+            "near": {
+              "minimum_interval_mean_z": 0.0
+            }
+          }
+        }
+      },
+      "ea": {
+        "coefficients": [
+          1.0465434165,
+          -0.127340376,
+          3.2427409899,
+          1.5450418232,
+          0.4774340083,
+          -0.8479847255,
+          0.8649305178,
+          -0.766648731
+        ],
+        "intercept": -3.73145565,
+        "probability_threshold": 0.5,
+        "minimum_positive_run": 12,
+        "maximum_negative_gap": 5,
+        "spatial_context": {
+          "smoothing_sigma": 2.5,
+          "raw_probability_weight": 0.6,
+          "support_radius": 7,
+          "support_probability_margin": 0.1,
+          "minimum_local_support": 0.6,
+          "minimum_interval_mean_probability": 0.48,
+          "minimum_interval_peak_probability": 0.62,
+          "minimum_feature_votes": 3,
+          "feature_vote_thresholds": {
+            "median": 0.0,
+            "continuity": 0.0,
+            "verticality": -0.25
+          }
+        },
+        "depth_context": {
+          "enabled": false,
+          "required_signals": {
+            "deep": {
+              "minimum_interval_mean_z": 0.0
+            }
+          }
+        }
+      },
+      "structural_veto": {
+        "coefficients": [
+          -1.3618007916,
+          -2.5640140041,
+          2.2535427084,
+          0.2669946986,
+          0.1147944642,
+          0.0660051254,
+          -0.5903822187,
+          0.8551301191,
+          -1.1697073128,
+          0.535018737,
+          -0.2907996794
+        ],
+        "intercept": -4.2657085644,
+        "probability_threshold": 0.9,
+        "minimum_positive_run": 3,
+        "maximum_negative_gap": 1,
+        "margin_columns": 2,
+        "dark_shadow": {
+          "enabled": true,
+          "q90_z_maximum": -1.0,
+          "continuity_z_minimum": 0.25,
+          "minimum_positive_run": 3,
+          "maximum_negative_gap": 2,
+          "margin_columns": 3
+        }
+      }
+    }
+  },
+  "preprocessing_config": {
+    "layer_name": "BM",
+    "reference_row": null,
+    "flatten_fill_value": 0.0,
+    "depth_below_layer": 150,
+    "include_boundary": true,
+    "require_full_depth": false,
+    "crop_fill_value": 0.0,
+    "normalization_method": "zscore",
+    "lower_percentile": 1.0,
+    "upper_percentile": 99.0,
+    "denoise_method": "gaussian",
+    "gaussian_sigma": [
+      1.0,
+      0.5
+    ]
+  },
+  "target_detector_metadata": {
+    "label_rule": "independent calibrated EA and barcoding classifiers",
+    "phenotype_classification": {
+      "mode": "independent_calibrated",
+      "version": "manual_ground_truth_v3_contextual",
+      "config": {
+        "version": "manual_ground_truth_v3_contextual",
+        "feature_clip": 5.0,
+        "barcoding": {
+          "coefficients": [
+            0.611739163,
+            0.1454392649,
+            0.767351532,
+            1.0921305536,
+            -0.0490887583,
+            -0.3096769051,
+            -0.2179212661,
+            0.21842969
+          ],
+          "intercept": -0.7472072021,
+          "probability_threshold": 0.55,
+          "minimum_positive_run": 8,
+          "maximum_negative_gap": 4,
+          "spatial_context": {
+            "smoothing_sigma": 2.0,
+            "raw_probability_weight": 0.65,
+            "support_radius": 5,
+            "support_probability_margin": 0.1,
+            "minimum_local_support": 0.55,
+            "minimum_interval_mean_probability": 0.52,
+            "minimum_interval_peak_probability": 0.68,
+            "minimum_feature_votes": 2,
+            "feature_vote_thresholds": {
+              "median": 0.0,
+              "continuity": 0.0,
+              "verticality": 0.0
+            }
+          },
+          "texture_context": {
+            "enabled": true,
+            "minimum_interval_mean_z": 0.4,
+            "minimum_interval_peak_z": 0.5
+          },
+          "depth_context": {
+            "enabled": true,
+            "required_signals": {
+              "near": {
+                "minimum_interval_mean_z": 0.0
+              }
+            }
+          }
+        },
+        "ea": {
+          "coefficients": [
+            1.0465434165,
+            -0.127340376,
+            3.2427409899,
+            1.5450418232,
+            0.4774340083,
+            -0.8479847255,
+            0.8649305178,
+            -0.766648731
+          ],
+          "intercept": -3.73145565,
+          "probability_threshold": 0.5,
+          "minimum_positive_run": 12,
+          "maximum_negative_gap": 5,
+          "spatial_context": {
+            "smoothing_sigma": 2.5,
+            "raw_probability_weight": 0.6,
+            "support_radius": 7,
+            "support_probability_margin": 0.1,
+            "minimum_local_support": 0.6,
+            "minimum_interval_mean_probability": 0.48,
+            "minimum_interval_peak_probability": 0.62,
+            "minimum_feature_votes": 3,
+            "feature_vote_thresholds": {
+              "median": 0.0,
+              "continuity": 0.0,
+              "verticality": -0.25
+            }
+          },
+          "depth_context": {
+            "enabled": false,
+            "required_signals": {
+              "deep": {
+                "minimum_interval_mean_z": 0.0
+              }
+            }
+          }
+        },
+        "structural_veto": {
+          "coefficients": [
+            -1.3618007916,
+            -2.5640140041,
+            2.2535427084,
+            0.2669946986,
+            0.1147944642,
+            0.0660051254,
+            -0.5903822187,
+            0.8551301191,
+            -1.1697073128,
+            0.535018737,
+            -0.2907996794
+          ],
+          "intercept": -4.2657085644,
+          "probability_threshold": 0.9,
+          "minimum_positive_run": 3,
+          "maximum_negative_gap": 1,
+          "margin_columns": 2,
+          "dark_shadow": {
+            "enabled": true,
+            "q90_z_maximum": -1.0,
+            "continuity_z_minimum": 0.25,
+            "minimum_positive_run": 3,
+            "maximum_negative_gap": 2,
+            "margin_columns": 3
+          }
+        }
+      },
+      "positive_columns": {
+        "barcoding": 134,
+        "ea": 0
+      },
+      "overlap_columns_resolved": 12,
+      "structural_veto_columns": 41,
+      "dark_shadow_veto_columns": 41,
+      "disease_columns_removed_by_structural_veto": 0,
+      "spatial_context": {
+        "barcoding": {
+          "columns_rejected_by_local_support": 5,
+          "columns_rejected_by_feature_votes": 0,
+          "intervals_rejected_by_lesion_confidence": 0
+        },
+        "ea": {
+          "columns_rejected_by_local_support": 12,
+          "columns_rejected_by_feature_votes": 9,
+          "intervals_rejected_by_lesion_confidence": 0
+        }
+      },
+      "texture_context": {
+        "config": {
+          "enabled": true,
+          "minimum_interval_mean_z": 0.4,
+          "minimum_interval_peak_z": 0.5
+        },
+        "barcoding_intervals_rejected": 0
+      },
+      "depth_context": {
+        "barcoding": {
+          "config": {
+            "enabled": true,
+            "required_signals": {
+              "near": {
+                "minimum_interval_mean_z": 0.0
+              }
+            }
+          },
+          "intervals_rejected": 0
+        },
+        "ea": {
+          "config": {
+            "enabled": false,
+            "required_signals": {
+              "deep": {
+                "minimum_interval_mean_z": 0.0
+              }
+            }
+          },
+          "intervals_rejected": 0
+        }
+      },
+      "interval_evidence": {
+        "barcoding": [
+          {
+            "start": 129,
+            "end": 141,
+            "width_pixels": 13,
+            "texture_mean_z": 0.7888309955596924,
+            "texture_peak_z": 1.113502860069275,
+            "depth_band_mean_z": {
+              "near": 0.09161209315061569,
+              "middle": 0.5334548950195312,
+              "deep": 0.6458831429481506,
+              "deep_minus_near": 0.5542711019515991,
+              "deep_minus_middle": 0.11242824047803879
+            },
+            "depth_band_peak_z": {
+              "near": 0.29754504561424255,
+              "middle": 0.8635437488555908,
+              "deep": 0.9437406659126282,
+              "deep_minus_near": 0.8479027152061462,
+              "deep_minus_middle": 0.24810054898262024
+            }
+          },
+          {
+            "start": 156,
+            "end": 239,
+            "width_pixels": 84,
+            "texture_mean_z": 0.9680487513542175,
+            "texture_peak_z": 1.942505121231079,
+            "depth_band_mean_z": {
+              "near": 0.42370057106018066,
+              "middle": 0.3427598774433136,
+              "deep": 0.5499207973480225,
+              "deep_minus_near": 0.12622030079364777,
+              "deep_minus_middle": 0.20716097950935364
+            },
+            "depth_band_peak_z": {
+              "near": 1.0360612869262695,
+              "middle": 1.7494878768920898,
+              "deep": 1.9673421382904053,
+              "deep_minus_near": 1.4539570808410645,
+              "deep_minus_middle": 1.4542793035507202
+            }
+          },
+          {
+            "start": 302,
+            "end": 328,
+            "width_pixels": 27,
+            "texture_mean_z": 0.6554344296455383,
+            "texture_peak_z": 0.9192954301834106,
+            "depth_band_mean_z": {
+              "near": 0.23879516124725342,
+              "middle": 0.5531414747238159,
+              "deep": 0.31762921810150146,
+              "deep_minus_near": 0.07883401960134506,
+              "deep_minus_middle": -0.23551224172115326
+            },
+            "depth_band_peak_z": {
+              "near": 0.8591128587722778,
+              "middle": 0.9568898677825928,
+              "deep": 0.753237247467041,
+              "deep_minus_near": 0.46859607100486755,
+              "deep_minus_middle": 0.1093798279762268
+            }
+          },
+          {
+            "start": 357,
+            "end": 366,
+            "width_pixels": 10,
+            "texture_mean_z": 0.5881147980690002,
+            "texture_peak_z": 0.6969761252403259,
+            "depth_band_mean_z": {
+              "near": 0.1534993201494217,
+              "middle": -0.3864465355873108,
+              "deep": -0.04543303698301315,
+              "deep_minus_near": -0.19893233478069305,
+              "deep_minus_middle": 0.34101352095603943
+            },
+            "depth_band_peak_z": {
+              "near": 0.21809019148349762,
+              "middle": -0.14115044474601746,
+              "deep": 0.11507465690374374,
+              "deep_minus_near": -0.10301553457975388,
+              "deep_minus_middle": 0.4510557949542999
+            }
+          }
+        ],
+        "ea": []
+      }
+    },
+    "config": {
+      "detector_type": "structural",
+      "verticality_smoothing_sigma": 1.0,
+      "verticality_threshold": 0.6,
+      "gradient_quantile": 0.8,
+      "minimum_component_size": 0,
+      "column_upper_quantile": 0.9,
+      "minimum_valid_pixels": 5,
+      "signal_smoothing_sigma": 2.0,
+      "median_iqr_multiplier": 1.0,
+      "q90_iqr_multiplier": 0.5,
+      "continuity_window_width": 15,
+      "continuity_depth_lag": 4,
+      "continuity_minimum_row_standard_deviation": 1e-06,
+      "continuity_quantile": 0.6,
+      "vertical_fraction_quantile": 0.7,
+      "minimum_positive_run": 5,
+      "maximum_negative_gap": 2,
+      "edge_margin": 10,
+      "phenotype_config": {
+        "version": "manual_ground_truth_v3_contextual",
+        "feature_clip": 5.0,
+        "barcoding": {
+          "coefficients": [
+            0.611739163,
+            0.1454392649,
+            0.767351532,
+            1.0921305536,
+            -0.0490887583,
+            -0.3096769051,
+            -0.2179212661,
+            0.21842969
+          ],
+          "intercept": -0.7472072021,
+          "probability_threshold": 0.55,
+          "minimum_positive_run": 8,
+          "maximum_negative_gap": 4,
+          "spatial_context": {
+            "smoothing_sigma": 2.0,
+            "raw_probability_weight": 0.65,
+            "support_radius": 5,
+            "support_probability_margin": 0.1,
+            "minimum_local_support": 0.55,
+            "minimum_interval_mean_probability": 0.52,
+            "minimum_interval_peak_probability": 0.68,
+            "minimum_feature_votes": 2,
+            "feature_vote_thresholds": {
+              "median": 0.0,
+              "continuity": 0.0,
+              "verticality": 0.0
+            }
+          },
+          "texture_context": {
+            "enabled": true,
+            "minimum_interval_mean_z": 0.4,
+            "minimum_interval_peak_z": 0.5
+          },
+          "depth_context": {
+            "enabled": true,
+            "required_signals": {
+              "near": {
+                "minimum_interval_mean_z": 0.0
+              }
+            }
+          }
+        },
+        "ea": {
+          "coefficients": [
+            1.0465434165,
+            -0.127340376,
+            3.2427409899,
+            1.5450418232,
+            0.4774340083,
+            -0.8479847255,
+            0.8649305178,
+            -0.766648731
+          ],
+          "intercept": -3.73145565,
+          "probability_threshold": 0.5,
+          "minimum_positive_run": 12,
+          "maximum_negative_gap": 5,
+          "spatial_context": {
+            "smoothing_sigma": 2.5,
+            "raw_probability_weight": 0.6,
+            "support_radius": 7,
+            "support_probability_margin": 0.1,
+            "minimum_local_support": 0.6,
+            "minimum_interval_mean_probability": 0.48,
+            "minimum_interval_peak_probability": 0.62,
+            "minimum_feature_votes": 3,
+            "feature_vote_thresholds": {
+              "median": 0.0,
+              "continuity": 0.0,
+              "verticality": -0.25
+            }
+          },
+          "depth_context": {
+            "enabled": false,
+            "required_signals": {
+              "deep": {
+                "minimum_interval_mean_z": 0.0
+              }
+            }
+          }
+        },
+        "structural_veto": {
+          "coefficients": [
+            -1.3618007916,
+            -2.5640140041,
+            2.2535427084,
+            0.2669946986,
+            0.1147944642,
+            0.0660051254,
+            -0.5903822187,
+            0.8551301191,
+            -1.1697073128,
+            0.535018737,
+            -0.2907996794
+          ],
+          "intercept": -4.2657085644,
+          "probability_threshold": 0.9,
+          "minimum_positive_run": 3,
+          "maximum_negative_gap": 1,
+          "margin_columns": 2,
+          "dark_shadow": {
+            "enabled": true,
+            "q90_z_maximum": -1.0,
+            "continuity_z_minimum": 0.25,
+            "minimum_positive_run": 3,
+            "maximum_negative_gap": 2,
+            "margin_columns": 3
+          }
+        }
+      }
+    },
+    "label_counts": {
+      "normal": 378,
+      "ea": 0,
+      "barcoding": 134
+    }
+  }
+}

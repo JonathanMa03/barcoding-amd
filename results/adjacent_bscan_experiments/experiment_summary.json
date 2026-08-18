@@ -1,0 +1,181 @@
+{
+  "number_of_cases": 10,
+  "number_of_failures": 0,
+  "failures": [],
+  "neighbor_radius": 2,
+  "experiments": {
+    "single_scan_control": {
+      "config": {
+        "minimum_supporting_neighbors": {
+          "barcoding": 0,
+          "ea": 0
+        },
+        "minimum_overlap_fraction": 0.25,
+        "maximum_center_shift_columns": 30.0
+      },
+      "number_of_completed_cases": 10,
+      "aggregate_metrics": {
+        "barcoding": {
+          "true_positive": 424,
+          "false_positive": 95,
+          "false_negative": 391,
+          "true_negative": 4038,
+          "precision": 0.8169556840077071,
+          "recall_sensitivity": 0.5202453987730061,
+          "specificity": 0.9770142753447859,
+          "f1_dice": 0.6356821589205397
+        },
+        "ea": {
+          "true_positive": 123,
+          "false_positive": 143,
+          "false_negative": 53,
+          "true_negative": 4629,
+          "precision": 0.462406015037594,
+          "recall_sensitivity": 0.6988636363636364,
+          "specificity": 0.9700335289186923,
+          "f1_dice": 0.5565610859728507
+        }
+      }
+    },
+    "adjacent_any": {
+      "config": {
+        "minimum_supporting_neighbors": {
+          "barcoding": 1,
+          "ea": 1
+        },
+        "minimum_overlap_fraction": 0.25,
+        "maximum_center_shift_columns": 30.0
+      },
+      "number_of_completed_cases": 10,
+      "aggregate_metrics": {
+        "barcoding": {
+          "true_positive": 390,
+          "false_positive": 57,
+          "false_negative": 425,
+          "true_negative": 4076,
+          "precision": 0.87248322147651,
+          "recall_sensitivity": 0.4785276073619632,
+          "specificity": 0.9862085652068715,
+          "f1_dice": 0.618066561014263
+        },
+        "ea": {
+          "true_positive": 123,
+          "false_positive": 143,
+          "false_negative": 53,
+          "true_negative": 4629,
+          "precision": 0.462406015037594,
+          "recall_sensitivity": 0.6988636363636364,
+          "specificity": 0.9700335289186923,
+          "f1_dice": 0.5565610859728507
+        }
+      }
+    },
+    "adjacent_class_specific": {
+      "config": {
+        "minimum_supporting_neighbors": {
+          "barcoding": 1,
+          "ea": 2
+        },
+        "minimum_overlap_fraction": 0.25,
+        "maximum_center_shift_columns": 30.0
+      },
+      "number_of_completed_cases": 10,
+      "aggregate_metrics": {
+        "barcoding": {
+          "true_positive": 390,
+          "false_positive": 57,
+          "false_negative": 425,
+          "true_negative": 4076,
+          "precision": 0.87248322147651,
+          "recall_sensitivity": 0.4785276073619632,
+          "specificity": 0.9862085652068715,
+          "f1_dice": 0.618066561014263
+        },
+        "ea": {
+          "true_positive": 100,
+          "false_positive": 110,
+          "false_negative": 76,
+          "true_negative": 4662,
+          "precision": 0.47619047619047616,
+          "recall_sensitivity": 0.5681818181818182,
+          "specificity": 0.9769488683989941,
+          "f1_dice": 0.5181347150259067
+        }
+      }
+    },
+    "adjacent_bilateral": {
+      "config": {
+        "minimum_supporting_neighbors": {
+          "barcoding": 2,
+          "ea": 2
+        },
+        "minimum_support_before": {
+          "barcoding": 1,
+          "ea": 1
+        },
+        "minimum_support_after": {
+          "barcoding": 1,
+          "ea": 1
+        },
+        "minimum_overlap_fraction": 0.25,
+        "maximum_center_shift_columns": 30.0
+      },
+      "number_of_completed_cases": 10,
+      "aggregate_metrics": {
+        "barcoding": {
+          "true_positive": 274,
+          "false_positive": 5,
+          "false_negative": 541,
+          "true_negative": 4128,
+          "precision": 0.982078853046595,
+          "recall_sensitivity": 0.3361963190184049,
+          "specificity": 0.9987902250181466,
+          "f1_dice": 0.5009140767824497
+        },
+        "ea": {
+          "true_positive": 72,
+          "false_positive": 70,
+          "false_negative": 104,
+          "true_negative": 4702,
+          "precision": 0.5070422535211268,
+          "recall_sensitivity": 0.4090909090909091,
+          "specificity": 0.9853310980720872,
+          "f1_dice": 0.4528301886792453
+        }
+      }
+    },
+    "adjacent_spatial_strict": {
+      "config": {
+        "minimum_supporting_neighbors": {
+          "barcoding": 1,
+          "ea": 1
+        },
+        "minimum_overlap_fraction": 0.5,
+        "maximum_center_shift_columns": 20.0
+      },
+      "number_of_completed_cases": 10,
+      "aggregate_metrics": {
+        "barcoding": {
+          "true_positive": 390,
+          "false_positive": 57,
+          "false_negative": 425,
+          "true_negative": 4076,
+          "precision": 0.87248322147651,
+          "recall_sensitivity": 0.4785276073619632,
+          "specificity": 0.9862085652068715,
+          "f1_dice": 0.618066561014263
+        },
+        "ea": {
+          "true_positive": 123,
+          "false_positive": 143,
+          "false_negative": 53,
+          "true_negative": 4629,
+          "precision": 0.462406015037594,
+          "recall_sensitivity": 0.6988636363636364,
+          "specificity": 0.9700335289186923,
+          "f1_dice": 0.5565610859728507
+        }
+      }
+    }
+  }
+}
