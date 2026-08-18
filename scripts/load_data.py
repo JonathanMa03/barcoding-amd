@@ -22,7 +22,7 @@ CONFIG = {
 
     # E2E-only options (ignored for PNG/JSON input):
     # "e2e_options": {"selection": "center", "layer_name": "BM"},
-    "e2e_options": {"selection": "index", "bscan_index": 48, "layer_name": "BM"},
+    "e2e_options": {"selection": "index", "bscan_index": 47, "layer_name": "BM"},
     
     # Required for automatic result filenames when it cannot be inferred from
     # an accompanying JSON file. Subject ID can also be inferred from ea8.E2E.
