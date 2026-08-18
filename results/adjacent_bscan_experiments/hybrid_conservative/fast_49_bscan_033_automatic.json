@@ -10,14 +10,29 @@
     34,
     35
   ],
-  "consistency_experiment": "single_scan_control",
+  "consistency_experiment": "hybrid_conservative",
   "consistency_config": {
     "minimum_supporting_neighbors": {
       "barcoding": 0,
       "ea": 0
     },
     "minimum_overlap_fraction": 0.25,
-    "maximum_center_shift_columns": 30.0
+    "maximum_center_shift_columns": 30.0,
+    "hybrid_rejection": {
+      "enabled": true,
+      "labels": [
+        "barcoding"
+      ],
+      "maximum_supporting_neighbors": 0,
+      "maximum_width_pixels": 12,
+      "minimum_weak_evidence_failures": 3,
+      "weak_evidence_maximums": {
+        "texture_mean_z": 0.6,
+        "texture_peak_z": 0.8,
+        "depth_band_mean_z.near": 0.25,
+        "probability_mean": 0.65
+      }
+    }
   },
   "raw_intervals": [
     {
@@ -150,7 +165,41 @@
       "supporting_matches": [],
       "adjacent_rule_retained": true,
       "hybrid_rejection": {
-        "enabled": false,
+        "enabled": true,
+        "label_applies": true,
+        "unsupported": true,
+        "maximum_supporting_neighbors": 0,
+        "short": true,
+        "maximum_width_pixels": 12,
+        "weak_evidence_count": 2,
+        "minimum_weak_evidence_failures": 3,
+        "weak_evidence": false,
+        "evidence_rules": [
+          {
+            "feature": "texture_mean_z",
+            "value": 0.6331517696380615,
+            "weak_when_at_or_below": 0.6,
+            "is_weak": false
+          },
+          {
+            "feature": "texture_peak_z",
+            "value": 0.6868236660957336,
+            "weak_when_at_or_below": 0.8,
+            "is_weak": true
+          },
+          {
+            "feature": "depth_band_mean_z.near",
+            "value": 0.1751278042793274,
+            "weak_when_at_or_below": 0.25,
+            "is_weak": true
+          },
+          {
+            "feature": "probability_mean",
+            "value": 0.7322676777839661,
+            "weak_when_at_or_below": 0.65,
+            "is_weak": false
+          }
+        ],
         "rejected": false
       },
       "retained": true,
@@ -276,7 +325,41 @@
       ],
       "adjacent_rule_retained": true,
       "hybrid_rejection": {
-        "enabled": false,
+        "enabled": true,
+        "label_applies": true,
+        "unsupported": false,
+        "maximum_supporting_neighbors": 0,
+        "short": false,
+        "maximum_width_pixels": 12,
+        "weak_evidence_count": 0,
+        "minimum_weak_evidence_failures": 3,
+        "weak_evidence": false,
+        "evidence_rules": [
+          {
+            "feature": "texture_mean_z",
+            "value": 1.241466760635376,
+            "weak_when_at_or_below": 0.6,
+            "is_weak": false
+          },
+          {
+            "feature": "texture_peak_z",
+            "value": 2.8340954780578613,
+            "weak_when_at_or_below": 0.8,
+            "is_weak": false
+          },
+          {
+            "feature": "depth_band_mean_z.near",
+            "value": 0.6120542287826538,
+            "weak_when_at_or_below": 0.25,
+            "is_weak": false
+          },
+          {
+            "feature": "probability_mean",
+            "value": 0.7486398220062256,
+            "weak_when_at_or_below": 0.65,
+            "is_weak": false
+          }
+        ],
         "rejected": false
       },
       "retained": true,
@@ -402,7 +485,41 @@
       ],
       "adjacent_rule_retained": true,
       "hybrid_rejection": {
-        "enabled": false,
+        "enabled": true,
+        "label_applies": true,
+        "unsupported": false,
+        "maximum_supporting_neighbors": 0,
+        "short": false,
+        "maximum_width_pixels": 12,
+        "weak_evidence_count": 0,
+        "minimum_weak_evidence_failures": 3,
+        "weak_evidence": false,
+        "evidence_rules": [
+          {
+            "feature": "texture_mean_z",
+            "value": 1.1366862058639526,
+            "weak_when_at_or_below": 0.6,
+            "is_weak": false
+          },
+          {
+            "feature": "texture_peak_z",
+            "value": 2.413278579711914,
+            "weak_when_at_or_below": 0.8,
+            "is_weak": false
+          },
+          {
+            "feature": "depth_band_mean_z.near",
+            "value": 0.43208083510398865,
+            "weak_when_at_or_below": 0.25,
+            "is_weak": false
+          },
+          {
+            "feature": "probability_mean",
+            "value": 0.7702589631080627,
+            "weak_when_at_or_below": 0.65,
+            "is_weak": false
+          }
+        ],
         "rejected": false
       },
       "retained": true,
@@ -470,7 +587,41 @@
       ],
       "adjacent_rule_retained": true,
       "hybrid_rejection": {
-        "enabled": false,
+        "enabled": true,
+        "label_applies": false,
+        "unsupported": false,
+        "maximum_supporting_neighbors": 0,
+        "short": false,
+        "maximum_width_pixels": 12,
+        "weak_evidence_count": 0,
+        "minimum_weak_evidence_failures": 3,
+        "weak_evidence": false,
+        "evidence_rules": [
+          {
+            "feature": "texture_mean_z",
+            "value": 1.2191381454467773,
+            "weak_when_at_or_below": 0.6,
+            "is_weak": false
+          },
+          {
+            "feature": "texture_peak_z",
+            "value": 1.4849919080734253,
+            "weak_when_at_or_below": 0.8,
+            "is_weak": false
+          },
+          {
+            "feature": "depth_band_mean_z.near",
+            "value": 0.5283755660057068,
+            "weak_when_at_or_below": 0.25,
+            "is_weak": false
+          },
+          {
+            "feature": "probability_mean",
+            "value": 0.8818913698196411,
+            "weak_when_at_or_below": 0.65,
+            "is_weak": false
+          }
+        ],
         "rejected": false
       },
       "retained": true,
