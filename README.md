@@ -464,22 +464,32 @@ change any interval.
 
 ### Adjacent-B-scan consistency
 
-`scripts/adjacent_bscan_consistency.py` tests whether intervals in one target
-B-scan recur at a compatible horizontal location in neighboring scans from the
-same E2E volume. Edit `e2e_path`, `target_bscan_index`, and the matching
-settings in `CONSISTENCY_CONFIG`, then run:
+`scripts/adjacent_bscan_consistency.py` runs adjacent-scan consistency on all
+ten patient-specific scans listed in `results/manual_ground_truth/`. It finds
+the corresponding E2E volumes under `data/heyex/meta`, processes two scans on
+each side of every target, and evaluates a control plus four interpretable
+rules:
+
+- `single_scan_control`: combined detector with no adjacent filtering.
+- `adjacent_any`: one supporting neighbor for either phenotype.
+- `adjacent_class_specific`: one neighbor for barcoding and two for EA.
+- `adjacent_bilateral`: support on both sides of the target scan.
+- `adjacent_spatial_strict`: one neighbor with tighter overlap and alignment.
+
+Edit `RUN_CONFIG` or `CONSISTENCY_EXPERIMENTS` at the top of the script, then
+run:
 
 ```bash
 python scripts/adjacent_bscan_consistency.py
 ```
 
-With the defaults, the script processes the target and two scans on either
-side, then retains an interval when at least one neighbor has the same label,
-at least 25% interval overlap, and no more than a 30-column center shift. It
-writes raw and consistency-filtered PNGs plus a JSON containing every match,
-the raw/filtered numerical summaries, and detector feature diagnostics under
-`results/adjacent_bscan_consistency/`. The script's `EXPERIMENT_CONFIG` can
-also enable Gabor or depth gates before volume consistency is applied.
+The script uses the selected combined Gabor + depth detector and writes each
+variant beneath `results/adjacent_bscan_experiments/`. Its JSON files use the
+same automatic naming convention as the validation outputs. For every target
+interval they record the matching neighbor, overlap, center shift, support on
+each side, retention decision, and rejection reason. The top-level
+`experiment_summary.json` contains aggregate precision, recall, specificity,
+and Dice for EA and barcoding, so the rules can be compared directly.
 
 The JSON output contains one `normal`, `ea`, or `barcoding` label per column,
 detected intervals, thresholds, label counts, and the detector configuration.
