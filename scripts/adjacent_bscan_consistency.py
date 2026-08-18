@@ -33,14 +33,14 @@ from src.visualization.pipeline import plot_detection_result
 
 
 CONSISTENCY_CONFIG = {
-    "e2e_path": Path("data/heyex/meta/ea8.E2E"),
-    "target_bscan_index": 48,
+    "e2e_path": Path("data/heyex/meta/ea41.E2E"),
+    "target_bscan_index": 59,
     "neighbor_radius": 2,
     "minimum_supporting_neighbors": 1,
     "minimum_overlap_fraction": 0.25,
     "maximum_center_shift_columns": 30.0,
     "require_same_label": True,
-    "output_directory": Path("results/adjacent_bscan_consistency"),
+    "output_directory": Path("results/adjacent_bscan_consistency_gabor/slow_17"),
 }
 
 
@@ -84,7 +84,7 @@ DETECTOR_CONFIG = {
 
 # Optional experiments. Leave False for the standard contextual-v3 detector.
 EXPERIMENT_CONFIG = {
-    "enable_gabor_gate": False,
+    "enable_gabor_gate": True,
     "gabor_minimum_interval_mean_z": 0.0,
     "gabor_minimum_interval_peak_z": 1.0,
     "enable_barcoding_depth_gate": False,

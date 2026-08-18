@@ -1,0 +1,1240 @@
+{
+  "progression_group": "slow",
+  "subject_id": 36,
+  "bscan_index": 59,
+  "source_e2e_path": "C:\\Users\\u0667281\\Desktop\\JMA\\barcoding-amd\\data\\heyex\\meta\\ea36.E2E",
+  "ground_truth_path": "C:\\Users\\u0667281\\Desktop\\JMA\\barcoding-amd\\results\\manual_ground_truth\\slow_36_bscan_059_ground_truth.json",
+  "image_shape": [
+    150,
+    512
+  ],
+  "labels": [
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "barcoding",
+    "barcoding",
+    "barcoding",
+    "barcoding",
+    "barcoding",
+    "barcoding",
+    "barcoding",
+    "barcoding",
+    "barcoding",
+    "barcoding",
+    "barcoding",
+    "barcoding",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "barcoding",
+    "barcoding",
+    "barcoding",
+    "barcoding",
+    "barcoding",
+    "barcoding",
+    "barcoding",
+    "barcoding",
+    "barcoding",
+    "barcoding",
+    "barcoding",
+    "barcoding",
+    "ea",
+    "ea",
+    "ea",
+    "ea",
+    "ea",
+    "ea",
+    "ea",
+    "ea",
+    "ea",
+    "ea",
+    "ea",
+    "ea",
+    "ea",
+    "ea",
+    "ea",
+    "ea",
+    "ea",
+    "ea",
+    "ea",
+    "ea",
+    "ea",
+    "ea",
+    "ea",
+    "ea",
+    "ea",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "barcoding",
+    "barcoding",
+    "barcoding",
+    "barcoding",
+    "barcoding",
+    "barcoding",
+    "barcoding",
+    "barcoding",
+    "barcoding",
+    "barcoding",
+    "barcoding",
+    "barcoding",
+    "barcoding",
+    "barcoding",
+    "barcoding",
+    "barcoding",
+    "barcoding",
+    "barcoding",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "barcoding",
+    "barcoding",
+    "barcoding",
+    "barcoding",
+    "barcoding",
+    "barcoding",
+    "barcoding",
+    "barcoding",
+    "barcoding",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal"
+  ],
+  "barcoding": {
+    "number_of_intervals": 4,
+    "interval_widths_pixels": [
+      12,
+      12,
+      18,
+      9
+    ],
+    "total_width_pixels": 51,
+    "mean_width_pixels": 12.75,
+    "median_width_pixels": 12.0,
+    "minimum_width_pixels": 9,
+    "maximum_width_pixels": 18,
+    "intervals": [
+      {
+        "start": 48,
+        "end": 59,
+        "width_pixels": 12
+      },
+      {
+        "start": 197,
+        "end": 208,
+        "width_pixels": 12
+      },
+      {
+        "start": 444,
+        "end": 461,
+        "width_pixels": 18
+      },
+      {
+        "start": 493,
+        "end": 501,
+        "width_pixels": 9
+      }
+    ]
+  },
+  "ea": {
+    "number_of_intervals": 1,
+    "interval_widths_pixels": [
+      25
+    ],
+    "total_width_pixels": 25,
+    "mean_width_pixels": 25.0,
+    "median_width_pixels": 25.0,
+    "minimum_width_pixels": 25,
+    "maximum_width_pixels": 25,
+    "intervals": [
+      {
+        "start": 209,
+        "end": 233,
+        "width_pixels": 25
+      }
+    ]
+  },
+  "intervals_by_class": {
+    "barcoding": [
+      {
+        "start": 48,
+        "end": 59,
+        "width_pixels": 12
+      },
+      {
+        "start": 197,
+        "end": 208,
+        "width_pixels": 12
+      },
+      {
+        "start": 444,
+        "end": 461,
+        "width_pixels": 18
+      },
+      {
+        "start": 493,
+        "end": 501,
+        "width_pixels": 9
+      }
+    ],
+    "ea": [
+      {
+        "start": 209,
+        "end": 233,
+        "width_pixels": 25
+      }
+    ]
+  },
+  "validation_metrics": {
+    "barcoding": {
+      "true_positive": 0,
+      "false_positive": 51,
+      "false_negative": 0,
+      "true_negative": 461,
+      "precision": 0.0,
+      "recall_sensitivity": 0.0,
+      "specificity": 0.900390625,
+      "accuracy": 0.900390625,
+      "f1_dice": 0.0,
+      "intersection_over_union": 0.0,
+      "predicted_fraction": 0.099609375,
+      "target_fraction": 0.0,
+      "number_of_scored_columns": 512,
+      "number_of_ignored_columns": 0
+    },
+    "ea": {
+      "true_positive": 23,
+      "false_positive": 2,
+      "false_negative": 2,
+      "true_negative": 485,
+      "precision": 0.92,
+      "recall_sensitivity": 0.92,
+      "specificity": 0.9958932238193019,
+      "accuracy": 0.9921875,
+      "f1_dice": 0.92,
+      "intersection_over_union": 0.8518518518518519,
+      "predicted_fraction": 0.048828125,
+      "target_fraction": 0.048828125,
+      "number_of_scored_columns": 512,
+      "number_of_ignored_columns": 0
+    }
+  },
+  "thresholds": {
+    "gradient": 0.10608212649822235,
+    "column_median": -0.2800958752632141,
+    "column_q90": 1.5810818076133728,
+    "continuity": 0.2533612549304962,
+    "vertical_fraction": 0.09563493728637695
+  },
+  "detector_config": {
+    "detector_type": "structural",
+    "verticality_smoothing_sigma": 1.0,
+    "verticality_threshold": 0.6,
+    "gradient_quantile": 0.8,
+    "minimum_component_size": 0,
+    "column_upper_quantile": 0.9,
+    "minimum_valid_pixels": 5,
+    "signal_smoothing_sigma": 2.0,
+    "median_iqr_multiplier": 1.0,
+    "q90_iqr_multiplier": 0.5,
+    "continuity_window_width": 15,
+    "continuity_depth_lag": 4,
+    "continuity_minimum_row_standard_deviation": 1e-06,
+    "continuity_quantile": 0.6,
+    "vertical_fraction_quantile": 0.7,
+    "minimum_positive_run": 5,
+    "maximum_negative_gap": 2,
+    "edge_margin": 10,
+    "phenotype_config": {
+      "version": "manual_ground_truth_v3_contextual",
+      "feature_clip": 5.0,
+      "barcoding": {
+        "coefficients": [
+          0.611739163,
+          0.1454392649,
+          0.767351532,
+          1.0921305536,
+          -0.0490887583,
+          -0.3096769051,
+          -0.2179212661,
+          0.21842969
+        ],
+        "intercept": -0.7472072021,
+        "probability_threshold": 0.55,
+        "minimum_positive_run": 8,
+        "maximum_negative_gap": 4,
+        "spatial_context": {
+          "smoothing_sigma": 2.0,
+          "raw_probability_weight": 0.65,
+          "support_radius": 5,
+          "support_probability_margin": 0.1,
+          "minimum_local_support": 0.55,
+          "minimum_interval_mean_probability": 0.52,
+          "minimum_interval_peak_probability": 0.68,
+          "minimum_feature_votes": 2,
+          "feature_vote_thresholds": {
+            "median": 0.0,
+            "continuity": 0.0,
+            "verticality": 0.0
+          }
+        },
+        "texture_context": {
+          "enabled": false,
+          "minimum_interval_mean_z": 0.0,
+          "minimum_interval_peak_z": 1.0
+        },
+        "depth_context": {
+          "enabled": false,
+          "required_signals": {
+            "deep": {
+              "minimum_interval_mean_z": 0.0
+            },
+            "deep_minus_near": {
+              "minimum_interval_mean_z": 0.0
+            }
+          }
+        }
+      },
+      "ea": {
+        "coefficients": [
+          1.0465434165,
+          -0.127340376,
+          3.2427409899,
+          1.5450418232,
+          0.4774340083,
+          -0.8479847255,
+          0.8649305178,
+          -0.766648731
+        ],
+        "intercept": -3.73145565,
+        "probability_threshold": 0.5,
+        "minimum_positive_run": 12,
+        "maximum_negative_gap": 5,
+        "spatial_context": {
+          "smoothing_sigma": 2.5,
+          "raw_probability_weight": 0.6,
+          "support_radius": 7,
+          "support_probability_margin": 0.1,
+          "minimum_local_support": 0.6,
+          "minimum_interval_mean_probability": 0.48,
+          "minimum_interval_peak_probability": 0.62,
+          "minimum_feature_votes": 3,
+          "feature_vote_thresholds": {
+            "median": 0.0,
+            "continuity": 0.0,
+            "verticality": -0.25
+          }
+        },
+        "depth_context": {
+          "enabled": false,
+          "required_signals": {
+            "deep": {
+              "minimum_interval_mean_z": 0.0
+            }
+          }
+        }
+      },
+      "structural_veto": {
+        "coefficients": [
+          -1.3618007916,
+          -2.5640140041,
+          2.2535427084,
+          0.2669946986,
+          0.1147944642,
+          0.0660051254,
+          -0.5903822187,
+          0.8551301191,
+          -1.1697073128,
+          0.535018737,
+          -0.2907996794
+        ],
+        "intercept": -4.2657085644,
+        "probability_threshold": 0.9,
+        "minimum_positive_run": 3,
+        "maximum_negative_gap": 1,
+        "margin_columns": 2,
+        "dark_shadow": {
+          "enabled": true,
+          "q90_z_maximum": -1.0,
+          "continuity_z_minimum": 0.25,
+          "minimum_positive_run": 3,
+          "maximum_negative_gap": 2,
+          "margin_columns": 3
+        }
+      }
+    }
+  },
+  "preprocessing_config": {
+    "layer_name": "BM",
+    "reference_row": null,
+    "flatten_fill_value": 0.0,
+    "depth_below_layer": 150,
+    "include_boundary": true,
+    "require_full_depth": false,
+    "crop_fill_value": 0.0,
+    "normalization_method": "zscore",
+    "lower_percentile": 1.0,
+    "upper_percentile": 99.0,
+    "denoise_method": "gaussian",
+    "gaussian_sigma": [
+      1.0,
+      0.5
+    ]
+  },
+  "detector_metadata": {
+    "label_rule": "independent calibrated EA and barcoding classifiers",
+    "phenotype_classification": {
+      "mode": "independent_calibrated",
+      "version": "manual_ground_truth_v3_contextual",
+      "config": {
+        "version": "manual_ground_truth_v3_contextual",
+        "feature_clip": 5.0,
+        "barcoding": {
+          "coefficients": [
+            0.611739163,
+            0.1454392649,
+            0.767351532,
+            1.0921305536,
+            -0.0490887583,
+            -0.3096769051,
+            -0.2179212661,
+            0.21842969
+          ],
+          "intercept": -0.7472072021,
+          "probability_threshold": 0.55,
+          "minimum_positive_run": 8,
+          "maximum_negative_gap": 4,
+          "spatial_context": {
+            "smoothing_sigma": 2.0,
+            "raw_probability_weight": 0.65,
+            "support_radius": 5,
+            "support_probability_margin": 0.1,
+            "minimum_local_support": 0.55,
+            "minimum_interval_mean_probability": 0.52,
+            "minimum_interval_peak_probability": 0.68,
+            "minimum_feature_votes": 2,
+            "feature_vote_thresholds": {
+              "median": 0.0,
+              "continuity": 0.0,
+              "verticality": 0.0
+            }
+          },
+          "texture_context": {
+            "enabled": false,
+            "minimum_interval_mean_z": 0.0,
+            "minimum_interval_peak_z": 1.0
+          },
+          "depth_context": {
+            "enabled": false,
+            "required_signals": {
+              "deep": {
+                "minimum_interval_mean_z": 0.0
+              },
+              "deep_minus_near": {
+                "minimum_interval_mean_z": 0.0
+              }
+            }
+          }
+        },
+        "ea": {
+          "coefficients": [
+            1.0465434165,
+            -0.127340376,
+            3.2427409899,
+            1.5450418232,
+            0.4774340083,
+            -0.8479847255,
+            0.8649305178,
+            -0.766648731
+          ],
+          "intercept": -3.73145565,
+          "probability_threshold": 0.5,
+          "minimum_positive_run": 12,
+          "maximum_negative_gap": 5,
+          "spatial_context": {
+            "smoothing_sigma": 2.5,
+            "raw_probability_weight": 0.6,
+            "support_radius": 7,
+            "support_probability_margin": 0.1,
+            "minimum_local_support": 0.6,
+            "minimum_interval_mean_probability": 0.48,
+            "minimum_interval_peak_probability": 0.62,
+            "minimum_feature_votes": 3,
+            "feature_vote_thresholds": {
+              "median": 0.0,
+              "continuity": 0.0,
+              "verticality": -0.25
+            }
+          },
+          "depth_context": {
+            "enabled": false,
+            "required_signals": {
+              "deep": {
+                "minimum_interval_mean_z": 0.0
+              }
+            }
+          }
+        },
+        "structural_veto": {
+          "coefficients": [
+            -1.3618007916,
+            -2.5640140041,
+            2.2535427084,
+            0.2669946986,
+            0.1147944642,
+            0.0660051254,
+            -0.5903822187,
+            0.8551301191,
+            -1.1697073128,
+            0.535018737,
+            -0.2907996794
+          ],
+          "intercept": -4.2657085644,
+          "probability_threshold": 0.9,
+          "minimum_positive_run": 3,
+          "maximum_negative_gap": 1,
+          "margin_columns": 2,
+          "dark_shadow": {
+            "enabled": true,
+            "q90_z_maximum": -1.0,
+            "continuity_z_minimum": 0.25,
+            "minimum_positive_run": 3,
+            "maximum_negative_gap": 2,
+            "margin_columns": 3
+          }
+        }
+      },
+      "positive_columns": {
+        "barcoding": 51,
+        "ea": 25
+      },
+      "overlap_columns_resolved": 25,
+      "structural_veto_columns": 0,
+      "dark_shadow_veto_columns": 0,
+      "disease_columns_removed_by_structural_veto": 0,
+      "spatial_context": {
+        "barcoding": {
+          "columns_rejected_by_local_support": 3,
+          "columns_rejected_by_feature_votes": 6,
+          "intervals_rejected_by_lesion_confidence": 1
+        },
+        "ea": {
+          "columns_rejected_by_local_support": 4,
+          "columns_rejected_by_feature_votes": 43,
+          "intervals_rejected_by_lesion_confidence": 0
+        }
+      },
+      "texture_context": {
+        "config": {
+          "enabled": false,
+          "minimum_interval_mean_z": 0.0,
+          "minimum_interval_peak_z": 1.0
+        },
+        "barcoding_intervals_rejected": 0
+      },
+      "depth_context": {
+        "barcoding": {
+          "config": {
+            "enabled": false,
+            "required_signals": {
+              "deep": {
+                "minimum_interval_mean_z": 0.0
+              },
+              "deep_minus_near": {
+                "minimum_interval_mean_z": 0.0
+              }
+            }
+          },
+          "intervals_rejected": 0
+        },
+        "ea": {
+          "config": {
+            "enabled": false,
+            "required_signals": {
+              "deep": {
+                "minimum_interval_mean_z": 0.0
+              }
+            }
+          },
+          "intervals_rejected": 0
+        }
+      },
+      "interval_evidence": {
+        "barcoding": [
+          {
+            "start": 48,
+            "end": 59,
+            "width_pixels": 12,
+            "texture_mean_z": 0.07071986049413681,
+            "texture_peak_z": 0.2221875637769699,
+            "depth_band_mean_z": {
+              "near": 0.006089190486818552,
+              "middle": 0.9393618106842041,
+              "deep": 1.039388656616211,
+              "deep_minus_near": 1.033299446105957,
+              "deep_minus_middle": 0.10002683848142624
+            },
+            "depth_band_peak_z": {
+              "near": 0.42247405648231506,
+              "middle": 1.251120686531067,
+              "deep": 1.3478895425796509,
+              "deep_minus_near": 1.654376745223999,
+              "deep_minus_middle": 0.9360412359237671
+            }
+          },
+          {
+            "start": 197,
+            "end": 208,
+            "width_pixels": 12,
+            "texture_mean_z": 0.6639934182167053,
+            "texture_peak_z": 1.2095578908920288,
+            "depth_band_mean_z": {
+              "near": -0.1787758320569992,
+              "middle": 0.6374331116676331,
+              "deep": -0.07219832390546799,
+              "deep_minus_near": 0.10657752305269241,
+              "deep_minus_middle": -0.7096314430236816
+            },
+            "depth_band_peak_z": {
+              "near": 0.514973521232605,
+              "middle": 1.1165319681167603,
+              "deep": 0.7894735336303711,
+              "deep_minus_near": 0.3139081299304962,
+              "deep_minus_middle": -0.32705843448638916
+            }
+          },
+          {
+            "start": 444,
+            "end": 461,
+            "width_pixels": 18,
+            "texture_mean_z": 0.3951919376850128,
+            "texture_peak_z": 0.7506890296936035,
+            "depth_band_mean_z": {
+              "near": 0.6306228637695312,
+              "middle": -0.08551747351884842,
+              "deep": 0.7572178244590759,
+              "deep_minus_near": 0.1265948861837387,
+              "deep_minus_middle": 0.8427352905273438
+            },
+            "depth_band_peak_z": {
+              "near": 1.054072618484497,
+              "middle": 0.709988534450531,
+              "deep": 2.3296332359313965,
+              "deep_minus_near": 1.8843584060668945,
+              "deep_minus_middle": 1.6196446418762207
+            }
+          },
+          {
+            "start": 493,
+            "end": 501,
+            "width_pixels": 9,
+            "texture_mean_z": 1.5499881505966187,
+            "texture_peak_z": 2.275813341140747,
+            "depth_band_mean_z": {
+              "near": 0.44890663027763367,
+              "middle": -0.0036171195097267628,
+              "deep": 0.8061057925224304,
+              "deep_minus_near": 0.357199102640152,
+              "deep_minus_middle": 0.8097227811813354
+            },
+            "depth_band_peak_z": {
+              "near": 0.9178738594055176,
+              "middle": 0.255638986825943,
+              "deep": 0.9488962888717651,
+              "deep_minus_near": 0.685125470161438,
+              "deep_minus_middle": 0.9747906923294067
+            }
+          }
+        ],
+        "ea": [
+          {
+            "start": 209,
+            "end": 233,
+            "width_pixels": 25,
+            "texture_mean_z": 1.445574164390564,
+            "texture_peak_z": 2.4653937816619873,
+            "depth_band_mean_z": {
+              "near": 0.141773521900177,
+              "middle": 1.1125187873840332,
+              "deep": 2.2504053115844727,
+              "deep_minus_near": 2.1086318492889404,
+              "deep_minus_middle": 1.1378865242004395
+            },
+            "depth_band_peak_z": {
+              "near": 0.5290740132331848,
+              "middle": 2.1036126613616943,
+              "deep": 3.6559555530548096,
+              "deep_minus_near": 3.6940834522247314,
+              "deep_minus_middle": 1.646093726158142
+            }
+          }
+        ]
+      }
+    },
+    "config": {
+      "detector_type": "structural",
+      "verticality_smoothing_sigma": 1.0,
+      "verticality_threshold": 0.6,
+      "gradient_quantile": 0.8,
+      "minimum_component_size": 0,
+      "column_upper_quantile": 0.9,
+      "minimum_valid_pixels": 5,
+      "signal_smoothing_sigma": 2.0,
+      "median_iqr_multiplier": 1.0,
+      "q90_iqr_multiplier": 0.5,
+      "continuity_window_width": 15,
+      "continuity_depth_lag": 4,
+      "continuity_minimum_row_standard_deviation": 1e-06,
+      "continuity_quantile": 0.6,
+      "vertical_fraction_quantile": 0.7,
+      "minimum_positive_run": 5,
+      "maximum_negative_gap": 2,
+      "edge_margin": 10,
+      "phenotype_config": {
+        "version": "manual_ground_truth_v3_contextual",
+        "feature_clip": 5.0,
+        "barcoding": {
+          "coefficients": [
+            0.611739163,
+            0.1454392649,
+            0.767351532,
+            1.0921305536,
+            -0.0490887583,
+            -0.3096769051,
+            -0.2179212661,
+            0.21842969
+          ],
+          "intercept": -0.7472072021,
+          "probability_threshold": 0.55,
+          "minimum_positive_run": 8,
+          "maximum_negative_gap": 4,
+          "spatial_context": {
+            "smoothing_sigma": 2.0,
+            "raw_probability_weight": 0.65,
+            "support_radius": 5,
+            "support_probability_margin": 0.1,
+            "minimum_local_support": 0.55,
+            "minimum_interval_mean_probability": 0.52,
+            "minimum_interval_peak_probability": 0.68,
+            "minimum_feature_votes": 2,
+            "feature_vote_thresholds": {
+              "median": 0.0,
+              "continuity": 0.0,
+              "verticality": 0.0
+            }
+          },
+          "texture_context": {
+            "enabled": false,
+            "minimum_interval_mean_z": 0.0,
+            "minimum_interval_peak_z": 1.0
+          },
+          "depth_context": {
+            "enabled": false,
+            "required_signals": {
+              "deep": {
+                "minimum_interval_mean_z": 0.0
+              },
+              "deep_minus_near": {
+                "minimum_interval_mean_z": 0.0
+              }
+            }
+          }
+        },
+        "ea": {
+          "coefficients": [
+            1.0465434165,
+            -0.127340376,
+            3.2427409899,
+            1.5450418232,
+            0.4774340083,
+            -0.8479847255,
+            0.8649305178,
+            -0.766648731
+          ],
+          "intercept": -3.73145565,
+          "probability_threshold": 0.5,
+          "minimum_positive_run": 12,
+          "maximum_negative_gap": 5,
+          "spatial_context": {
+            "smoothing_sigma": 2.5,
+            "raw_probability_weight": 0.6,
+            "support_radius": 7,
+            "support_probability_margin": 0.1,
+            "minimum_local_support": 0.6,
+            "minimum_interval_mean_probability": 0.48,
+            "minimum_interval_peak_probability": 0.62,
+            "minimum_feature_votes": 3,
+            "feature_vote_thresholds": {
+              "median": 0.0,
+              "continuity": 0.0,
+              "verticality": -0.25
+            }
+          },
+          "depth_context": {
+            "enabled": false,
+            "required_signals": {
+              "deep": {
+                "minimum_interval_mean_z": 0.0
+              }
+            }
+          }
+        },
+        "structural_veto": {
+          "coefficients": [
+            -1.3618007916,
+            -2.5640140041,
+            2.2535427084,
+            0.2669946986,
+            0.1147944642,
+            0.0660051254,
+            -0.5903822187,
+            0.8551301191,
+            -1.1697073128,
+            0.535018737,
+            -0.2907996794
+          ],
+          "intercept": -4.2657085644,
+          "probability_threshold": 0.9,
+          "minimum_positive_run": 3,
+          "maximum_negative_gap": 1,
+          "margin_columns": 2,
+          "dark_shadow": {
+            "enabled": true,
+            "q90_z_maximum": -1.0,
+            "continuity_z_minimum": 0.25,
+            "minimum_positive_run": 3,
+            "maximum_negative_gap": 2,
+            "margin_columns": 3
+          }
+        }
+      }
+    },
+    "label_counts": {
+      "normal": 436,
+      "ea": 25,
+      "barcoding": 51
+    }
+  }
+}
