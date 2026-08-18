@@ -9,6 +9,8 @@ import json
 import matplotlib.pyplot as plt
 import numpy as np
 from matplotlib.widgets import Button, RadioButtons, SpanSelector
+from matplotlib.patches import Patch
+from src.evaluation.result_naming import ground_truth_result_stem
 from src.detector.model_threshold import (
     extract_intensity_profile,
 )
@@ -18,6 +20,208 @@ DEFAULT_LABEL_COLORS: dict[str, str] = {
     "Early Atrophy (EA)": "tab:orange",
     "Barcoding": "tab:red",
 }
+
+
+class ManualIntervalAnnotator:
+    """Interactive whole-scan interval annotator for clinician ground truth.
+
+    Drag horizontally over the processed B-scan to add an interval for the
+    selected class. The save button writes both a compact JSON annotation and a
+    clean PNG overlay using the repository's ground-truth naming convention.
+    """
+
+    def __init__(
+        self,
+        image: np.ndarray,
+        identity: Mapping[str, Any],
+        *,
+        output_directory: str | Path = "results/manual_ground_truth",
+        source_metadata: Mapping[str, Any] | None = None,
+        overwrite: bool = False,
+        figure_size: tuple[float, float] = (14, 6),
+    ) -> None:
+        self.image = ManualProfileAnnotator._validate_image(image)
+        self.identity = {
+            "progression_group": str(identity["progression_group"]).lower(),
+            "subject_id": int(identity["subject_id"]),
+            "bscan_index": int(identity["bscan_index"]),
+        }
+        if self.identity["progression_group"] not in {"fast", "slow"}:
+            raise ValueError("progression_group must be 'fast' or 'slow'.")
+        self.output_directory = Path(output_directory)
+        self.source_metadata = dict(source_metadata or {})
+        self.overwrite = bool(overwrite)
+        self.figure_size = figure_size
+        self.label_colors = dict(DEFAULT_LABEL_COLORS)
+        self.selected_label = "Early Atrophy (EA)"
+        self.intervals: list[AnnotationInterval] = []
+        self._artists: list[Any] = []
+        self.last_saved_paths: tuple[Path, Path] | None = None
+
+        self.figure = plt.figure(figsize=figure_size)
+        grid = self.figure.add_gridspec(1, 2, width_ratios=(6.0, 1.25), wspace=0.12)
+        self.scan_axis = self.figure.add_subplot(grid[0, 0])
+        self.control_axis = self.figure.add_subplot(grid[0, 1])
+        self._build_interface()
+
+    def _build_interface(self) -> None:
+        height, width = self.image.shape
+        self.scan_axis.imshow(
+            self.image, cmap="gray", aspect="auto",
+            extent=(-0.5, width - 0.5, height - 0.5, -0.5),
+        )
+        self.scan_axis.set(
+            title=(f"Subject {self.identity['subject_id']} | "
+                   f"{self.identity['progression_group'].title()} | "
+                   f"B-scan {self.identity['bscan_index']}"),
+            xlabel="B-scan column", ylabel="Depth below BM",
+            xlim=(-0.5, width - 0.5),
+        )
+        self.control_axis.set_title("Manual annotation", pad=12)
+        self.control_axis.set_xticks([])
+        self.control_axis.set_yticks([])
+
+        radio_axis = self.control_axis.inset_axes([0.04, 0.62, 0.92, 0.28])
+        self.radio_buttons = RadioButtons(
+            radio_axis, tuple(self.label_colors), active=1,
+        )
+        self.radio_buttons.on_clicked(self._set_label)
+
+        undo_axis = self.control_axis.inset_axes([0.10, 0.44, 0.80, 0.09])
+        clear_axis = self.control_axis.inset_axes([0.10, 0.32, 0.80, 0.09])
+        save_axis = self.control_axis.inset_axes([0.10, 0.18, 0.80, 0.10])
+        self.undo_button = Button(undo_axis, "Undo last")
+        self.clear_button = Button(clear_axis, "Clear all")
+        self.save_button = Button(save_axis, "Save PNG + JSON")
+        self.undo_button.on_clicked(lambda _event: self.undo())
+        self.clear_button.on_clicked(lambda _event: self.clear())
+        self.save_button.on_clicked(self._handle_save)
+
+        self.status_text = self.control_axis.text(
+            0.5, 0.08,
+            f"Selected: {self.selected_label}\nDrag across the scan.",
+            ha="center", va="center", wrap=True,
+            transform=self.control_axis.transAxes,
+        )
+        self.selector = SpanSelector(
+            self.scan_axis, self._select_interval, "horizontal",
+            useblit=True, props={"alpha": 0.18, "facecolor": "tab:blue"},
+            interactive=False, drag_from_anywhere=False,
+        )
+        self.figure.canvas.draw_idle()
+
+    def _set_status(self, message: str) -> None:
+        self.status_text.set_text(message)
+        self.figure.canvas.draw_idle()
+
+    def _set_label(self, label: str) -> None:
+        self.selected_label = str(label)
+        self._set_status(f"Selected: {label}\nDrag across the scan.")
+
+    def _select_interval(self, x_min: float, x_max: float) -> None:
+        width = self.image.shape[1]
+        start = float(np.clip(min(x_min, x_max), 0, width - 1))
+        end = float(np.clip(max(x_min, x_max), 0, width - 1))
+        if end <= start:
+            self._set_status("Selection must have positive width.")
+            return
+        interval = AnnotationInterval(
+            label=self.selected_label, x_start=start, x_end=end,
+            width_pixels=end - start,
+        )
+        self.intervals.append(interval)
+        artist = self.scan_axis.axvspan(
+            start, end, color=self.label_colors[interval.label], alpha=0.28,
+        )
+        self._artists.append(artist)
+        self._set_status(
+            f"Added {interval.label}\n{start:.1f}–{end:.1f} ({end-start:.1f} px)"
+        )
+
+    def undo(self) -> AnnotationInterval | None:
+        if not self.intervals:
+            self._set_status("There are no annotations to undo.")
+            return None
+        interval = self.intervals.pop()
+        self._artists.pop().remove()
+        self._set_status(f"Removed {interval.label} interval.")
+        return interval
+
+    def clear(self) -> None:
+        for artist in self._artists:
+            artist.remove()
+        self.intervals.clear()
+        self._artists.clear()
+        self._set_status("All annotations cleared.")
+
+    def annotation_payload(self) -> dict[str, Any]:
+        return {
+            **self.identity,
+            "image_shape": [int(value) for value in self.image.shape],
+            "annotations": [asdict(interval) for interval in self.intervals],
+            "created_at_utc": datetime.now(timezone.utc).isoformat(),
+            "source_metadata": ManualProfileAnnotator._make_json_compatible(
+                self.source_metadata
+            ),
+        }
+
+    def save(self) -> tuple[Path, Path]:
+        stem = ground_truth_result_stem(self.identity)
+        json_path = self.output_directory / f"{stem}.json"
+        png_path = self.output_directory / f"{stem}.png"
+        existing = [path for path in (json_path, png_path) if path.exists()]
+        if existing and not self.overwrite:
+            raise FileExistsError(
+                "Ground truth already exists: "
+                + ", ".join(str(path) for path in existing)
+                + ". Run with --overwrite to replace it."
+            )
+        self.output_directory.mkdir(parents=True, exist_ok=True)
+        json_path.write_text(
+            json.dumps(self.annotation_payload(), indent=2), encoding="utf-8"
+        )
+        self._save_overlay(png_path)
+        self.last_saved_paths = (json_path.resolve(), png_path.resolve())
+        self._set_status(
+            f"Saved {len(self.intervals)} intervals\n{json_path.name}"
+        )
+        return self.last_saved_paths
+
+    def _save_overlay(self, output_path: Path) -> None:
+        figure, axis = plt.subplots(figsize=(12, 4))
+        axis.imshow(self.image, cmap="gray", aspect="auto")
+        present_labels = []
+        for interval in self.intervals:
+            axis.axvspan(
+                interval.x_start, interval.x_end,
+                color=self.label_colors[interval.label], alpha=0.28,
+            )
+            if interval.label not in present_labels:
+                present_labels.append(interval.label)
+        if present_labels:
+            axis.legend(
+                handles=[Patch(color=self.label_colors[label], alpha=0.28,
+                               label=label) for label in present_labels],
+                loc="upper right",
+            )
+        axis.set(
+            title=(f"Manual ground truth | Subject {self.identity['subject_id']} | "
+                   f"{self.identity['progression_group'].title()} | "
+                   f"B-scan {self.identity['bscan_index']}"),
+            xlabel="B-scan column", ylabel="Depth below BM",
+        )
+        figure.tight_layout()
+        figure.savefig(output_path, dpi=150, bbox_inches="tight")
+        plt.close(figure)
+
+    def _handle_save(self, _event: Any) -> None:
+        try:
+            self.save()
+        except Exception as exc:
+            self._set_status(f"Save failed:\n{exc}")
+
+    def show(self) -> None:
+        plt.show()
 
 
 @dataclass

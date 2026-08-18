@@ -139,6 +139,39 @@ Other supported normalization methods are `percentile`, `minmax`, and `none`.
 Other denoising choices are `median` and `none`. These alternatives are not
 part of the selected workflow.
 
+### Optional: create clinician manual ground truth
+
+Run both loading and preprocessing before opening the annotator:
+
+```bash
+python scripts/load_data.py
+python scripts/preprocess_data.py
+python scripts/manual_annotator.py ea8 48 --group fast
+```
+
+The patient can be written as `ea8` or `8`; the scan number is the zero-based
+B-scan index. `--group` may be omitted when `progression_group` was included in
+`scripts/load_data.py`. The annotator checks that the requested patient and
+scan agree with the preprocessed artifact.
+
+In the annotation window:
+
+1. Select `Early Atrophy (EA)`, `Barcoding`, or `Normal`.
+2. Drag horizontally across the B-scan to mark an interval.
+3. Use `Undo last` or `Clear all` to correct annotations.
+4. Press `Save PNG + JSON` when finished.
+
+The paired files are saved under `results/manual_ground_truth/`:
+
+```text
+fast_08_bscan_048_ground_truth.json
+fast_08_bscan_048_ground_truth.png
+```
+
+Existing ground truth is protected by default. Pass `--overwrite` only when
+you intend to replace both files. To annotate an artifact stored elsewhere,
+use `--input path/to/preprocessed_scan.npz`.
+
 ### Step C: Run `DETECTOR_CONFIG_0818`
 
 Edit only the input and output paths in `scripts/run_detector.py`:

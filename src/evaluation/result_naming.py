@@ -64,3 +64,12 @@ def automatic_result_stem(identity: Mapping[str, Any]) -> str:
         f"{int(identity['subject_id']):02d}_bscan_"
         f"{int(identity['bscan_index']):03d}_automatic"
     )
+
+
+def ground_truth_result_stem(identity: Mapping[str, Any]) -> str:
+    """Return a stem such as ``fast_08_bscan_048_ground_truth``."""
+    return (
+        f"{identity['progression_group']}_"
+        f"{int(identity['subject_id']):02d}_bscan_"
+        f"{int(identity['bscan_index']):03d}_ground_truth"
+    )
