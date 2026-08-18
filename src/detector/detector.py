@@ -117,14 +117,13 @@ CALIBRATED_PHENOTYPE_V1_CONFIG: dict[str, Any] = {
         },
         "texture_context": {
             "enabled": False,
-            "minimum_interval_mean_z": 0.0,
-            "minimum_interval_peak_z": 0.5,
+            "minimum_interval_mean_z": 0.40,
+            "minimum_interval_peak_z": 0.50,
         },
         "depth_context": {
             "enabled": False,
             "required_signals": {
-                "deep": {"minimum_interval_mean_z": 0.0},
-                "deep_minus_near": {"minimum_interval_mean_z": 0.0},
+                "near": {"minimum_interval_mean_z": 0.0},
             },
         },
     },

@@ -85,8 +85,8 @@ DETECTOR_CONFIG = {
 # Optional experiments. Leave False for the standard contextual-v3 detector.
 EXPERIMENT_CONFIG = {
     "enable_gabor_gate": True,
-    "gabor_minimum_interval_mean_z": 0.0,
-    "gabor_minimum_interval_peak_z": 1.0,
+    "gabor_minimum_interval_mean_z": 0.40,
+    "gabor_minimum_interval_peak_z": 0.50,
     "enable_barcoding_depth_gate": False,
     "enable_ea_depth_gate": False,
 }

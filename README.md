@@ -451,10 +451,16 @@ To A/B test the classical feature gates across the ten annotated scans, edit
 python scripts/validation_test.py
 ```
 
-For the first Gabor experiment, set `enable_gabor_gate=True` and leave its
-mean/peak values at `0.0` and `1.0`. Depth gates should initially remain off:
-the provisional barcoding depth rule reduced recall on the rendered PNG
-development scans, while the provisional EA rule did not change any interval.
+The first E2E Gabor experiment used mean/peak thresholds of `0.0` and `1.0`.
+It raised barcoding precision from `0.584` to `0.777` and Dice from `0.550`
+to `0.576`, but lowered recall from `0.520` to `0.458`. A follow-up sweep of
+the saved E2E interval evidence selected a less aggressive Gabor mean/peak of
+`0.40` and `0.50`, combined with near-band brightness of at least `0.0`.
+Leave-one-patient-out threshold selection chose the same settings for every
+held-out patient. These are now the disabled experimental defaults; enable
+both the Gabor and barcoding depth switches to test the combined candidate.
+The EA depth gate should remain off because its provisional rule did not
+change any interval.
 
 ### Adjacent-B-scan consistency
 
