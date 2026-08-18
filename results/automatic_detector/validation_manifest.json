@@ -13,7 +13,7 @@
       "status": "processed",
       "json_path": "C:\\Users\\u0667281\\Desktop\\JMA\\barcoding-amd\\results\\automatic_detector\\fast_08_bscan_048_automatic.json",
       "png_path": "C:\\Users\\u0667281\\Desktop\\JMA\\barcoding-amd\\results\\automatic_detector\\fast_08_bscan_048_automatic.png",
-      "barcoding_dice": 0.7053571428571429,
+      "barcoding_dice": 0.7085201793721974,
       "ea_dice": 0.7088607594936709
     },
     {
@@ -43,7 +43,7 @@
       "status": "processed",
       "json_path": "C:\\Users\\u0667281\\Desktop\\JMA\\barcoding-amd\\results\\automatic_detector\\fast_41_bscan_059_automatic.json",
       "png_path": "C:\\Users\\u0667281\\Desktop\\JMA\\barcoding-amd\\results\\automatic_detector\\fast_41_bscan_059_automatic.png",
-      "barcoding_dice": 0.05084745762711865,
+      "barcoding_dice": 0.05128205128205128,
       "ea_dice": 0.0
     },
     {
@@ -53,7 +53,7 @@
       "status": "processed",
       "json_path": "C:\\Users\\u0667281\\Desktop\\JMA\\barcoding-amd\\results\\automatic_detector\\fast_49_bscan_033_automatic.json",
       "png_path": "C:\\Users\\u0667281\\Desktop\\JMA\\barcoding-amd\\results\\automatic_detector\\fast_49_bscan_033_automatic.png",
-      "barcoding_dice": 0.8480565371024735,
+      "barcoding_dice": 0.8058608058608059,
       "ea_dice": 0.0
     },
     {
@@ -73,7 +73,7 @@
       "status": "processed",
       "json_path": "C:\\Users\\u0667281\\Desktop\\JMA\\barcoding-amd\\results\\automatic_detector\\slow_23_bscan_043_automatic.json",
       "png_path": "C:\\Users\\u0667281\\Desktop\\JMA\\barcoding-amd\\results\\automatic_detector\\slow_23_bscan_043_automatic.png",
-      "barcoding_dice": 0.6228070175438597,
+      "barcoding_dice": 0.5395348837209303,
       "ea_dice": 0.0
     },
     {
@@ -83,7 +83,7 @@
       "status": "processed",
       "json_path": "C:\\Users\\u0667281\\Desktop\\JMA\\barcoding-amd\\results\\automatic_detector\\slow_35_bscan_038_automatic.json",
       "png_path": "C:\\Users\\u0667281\\Desktop\\JMA\\barcoding-amd\\results\\automatic_detector\\slow_35_bscan_038_automatic.png",
-      "barcoding_dice": 0.43137254901960786,
+      "barcoding_dice": 0.4342105263157895,
       "ea_dice": 0.575
     },
     {

@@ -654,7 +654,7 @@
     "maximum_negative_gap": 2,
     "edge_margin": 10,
     "phenotype_config": {
-      "version": "manual_ground_truth_v3_contextual",
+      "version": "manual_ground_truth_v4_normal_rejection",
       "feature_clip": 5.0,
       "barcoding": {
         "coefficients": [
@@ -745,6 +745,26 @@
           "maximum_negative_gap": 2,
           "margin_columns": 3
         }
+      },
+      "normal_rejection": {
+        "coefficients": [
+          -0.3228315711,
+          -0.1569702625,
+          -1.1637328863,
+          -1.2814972401,
+          0.0011196354,
+          -0.5903912783,
+          0.5045848489,
+          0.0524891652,
+          -0.2756016552,
+          0.0663040206,
+          -0.1230622977
+        ],
+        "intercept": 1.0014322996,
+        "probability_threshold": 0.5,
+        "minimum_positive_run": 5,
+        "maximum_negative_gap": 2,
+        "margin_columns": 0
       }
     }
   },
@@ -769,9 +789,9 @@
     "label_rule": "independent calibrated EA and barcoding classifiers",
     "phenotype_classification": {
       "mode": "independent_calibrated",
-      "version": "manual_ground_truth_v3_contextual",
+      "version": "manual_ground_truth_v4_normal_rejection",
       "config": {
-        "version": "manual_ground_truth_v3_contextual",
+        "version": "manual_ground_truth_v4_normal_rejection",
         "feature_clip": 5.0,
         "barcoding": {
           "coefficients": [
@@ -862,6 +882,26 @@
             "maximum_negative_gap": 2,
             "margin_columns": 3
           }
+        },
+        "normal_rejection": {
+          "coefficients": [
+            -0.3228315711,
+            -0.1569702625,
+            -1.1637328863,
+            -1.2814972401,
+            0.0011196354,
+            -0.5903912783,
+            0.5045848489,
+            0.0524891652,
+            -0.2756016552,
+            0.0663040206,
+            -0.1230622977
+          ],
+          "intercept": 1.0014322996,
+          "probability_threshold": 0.5,
+          "minimum_positive_run": 5,
+          "maximum_negative_gap": 2,
+          "margin_columns": 0
         }
       },
       "positive_columns": {
@@ -872,6 +912,13 @@
       "structural_veto_columns": 41,
       "dark_shadow_veto_columns": 41,
       "disease_columns_removed_by_structural_veto": 0,
+      "normal_rejection_columns": 327,
+      "disease_columns_removed_by_normal_rejection": 0,
+      "normal_probability_summary": {
+        "minimum": 0.004270028322935104,
+        "mean": 0.5966084003448486,
+        "maximum": 0.9522830247879028
+      },
       "spatial_context": {
         "barcoding": {
           "columns_rejected_by_local_support": 5,
@@ -905,7 +952,7 @@
       "maximum_negative_gap": 2,
       "edge_margin": 10,
       "phenotype_config": {
-        "version": "manual_ground_truth_v3_contextual",
+        "version": "manual_ground_truth_v4_normal_rejection",
         "feature_clip": 5.0,
         "barcoding": {
           "coefficients": [
@@ -996,6 +1043,26 @@
             "maximum_negative_gap": 2,
             "margin_columns": 3
           }
+        },
+        "normal_rejection": {
+          "coefficients": [
+            -0.3228315711,
+            -0.1569702625,
+            -1.1637328863,
+            -1.2814972401,
+            0.0011196354,
+            -0.5903912783,
+            0.5045848489,
+            0.0524891652,
+            -0.2756016552,
+            0.0663040206,
+            -0.1230622977
+          ],
+          "intercept": 1.0014322996,
+          "probability_threshold": 0.5,
+          "minimum_positive_run": 5,
+          "maximum_negative_gap": 2,
+          "margin_columns": 0
         }
       }
     },
