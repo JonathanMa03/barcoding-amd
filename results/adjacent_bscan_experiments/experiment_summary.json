@@ -1,36 +1,7 @@
 {
   "number_of_cases": 10,
-  "number_of_failures": 4,
-  "failures": [
-    {
-      "progression_group": "fast",
-      "subject_id": 9,
-      "bscan_index": 85,
-      "ground_truth_path": "results\\manual_ground_truth\\fast_09_bscan_085_ground_truth.json",
-      "error": "KeyError: 'Missing ea interval evidence for (196, 209).'"
-    },
-    {
-      "progression_group": "slow",
-      "subject_id": 23,
-      "bscan_index": 43,
-      "ground_truth_path": "results\\manual_ground_truth\\slow_23_bscan_043_ground_truth.json",
-      "error": "KeyError: 'Missing ea interval evidence for (553, 568).'"
-    },
-    {
-      "progression_group": "slow",
-      "subject_id": 35,
-      "bscan_index": 38,
-      "ground_truth_path": "results\\manual_ground_truth\\slow_35_bscan_038_ground_truth.json",
-      "error": "KeyError: 'Missing ea interval evidence for (246, 254).'"
-    },
-    {
-      "progression_group": "slow",
-      "subject_id": 47,
-      "bscan_index": 31,
-      "ground_truth_path": "results\\manual_ground_truth\\slow_47_bscan_031_ground_truth.json",
-      "error": "KeyError: 'Missing ea interval evidence for (310, 342).'"
-    }
-  ],
+  "number_of_failures": 0,
+  "failures": [],
   "neighbor_radius": 2,
   "experiments": {
     "single_scan_control": {
@@ -42,27 +13,27 @@
         "minimum_overlap_fraction": 0.25,
         "maximum_center_shift_columns": 30.0
       },
-      "number_of_completed_cases": 6,
+      "number_of_completed_cases": 10,
       "aggregate_metrics": {
         "barcoding": {
-          "true_positive": 214,
-          "false_positive": 80,
-          "false_negative": 160,
-          "true_negative": 2438,
-          "precision": 0.7278911564625851,
-          "recall_sensitivity": 0.5721925133689839,
-          "specificity": 0.9682287529785544,
-          "f1_dice": 0.6407185628742516
+          "true_positive": 424,
+          "false_positive": 95,
+          "false_negative": 391,
+          "true_negative": 4038,
+          "precision": 0.8169556840077071,
+          "recall_sensitivity": 0.5202453987730061,
+          "specificity": 0.9770142753447859,
+          "f1_dice": 0.6356821589205397
         },
         "ea": {
-          "true_positive": 51,
-          "false_positive": 96,
-          "false_negative": 25,
-          "true_negative": 2720,
-          "precision": 0.3469387755102041,
-          "recall_sensitivity": 0.6710526315789473,
-          "specificity": 0.9659090909090909,
-          "f1_dice": 0.45739910313901344
+          "true_positive": 123,
+          "false_positive": 143,
+          "false_negative": 53,
+          "true_negative": 4629,
+          "precision": 0.462406015037594,
+          "recall_sensitivity": 0.6988636363636364,
+          "specificity": 0.9700335289186923,
+          "f1_dice": 0.5565610859728507
         }
       }
     },
@@ -75,27 +46,27 @@
         "minimum_overlap_fraction": 0.25,
         "maximum_center_shift_columns": 30.0
       },
-      "number_of_completed_cases": 6,
+      "number_of_completed_cases": 10,
       "aggregate_metrics": {
         "barcoding": {
-          "true_positive": 199,
-          "false_positive": 51,
-          "false_negative": 175,
-          "true_negative": 2467,
-          "precision": 0.796,
-          "recall_sensitivity": 0.5320855614973262,
-          "specificity": 0.9797458300238284,
-          "f1_dice": 0.6378205128205128
+          "true_positive": 390,
+          "false_positive": 57,
+          "false_negative": 425,
+          "true_negative": 4076,
+          "precision": 0.87248322147651,
+          "recall_sensitivity": 0.4785276073619632,
+          "specificity": 0.9862085652068715,
+          "f1_dice": 0.618066561014263
         },
         "ea": {
-          "true_positive": 51,
-          "false_positive": 96,
-          "false_negative": 25,
-          "true_negative": 2720,
-          "precision": 0.3469387755102041,
-          "recall_sensitivity": 0.6710526315789473,
-          "specificity": 0.9659090909090909,
-          "f1_dice": 0.45739910313901344
+          "true_positive": 123,
+          "false_positive": 143,
+          "false_negative": 53,
+          "true_negative": 4629,
+          "precision": 0.462406015037594,
+          "recall_sensitivity": 0.6988636363636364,
+          "specificity": 0.9700335289186923,
+          "f1_dice": 0.5565610859728507
         }
       }
     },
@@ -108,27 +79,27 @@
         "minimum_overlap_fraction": 0.25,
         "maximum_center_shift_columns": 30.0
       },
-      "number_of_completed_cases": 6,
+      "number_of_completed_cases": 10,
       "aggregate_metrics": {
         "barcoding": {
-          "true_positive": 199,
-          "false_positive": 51,
-          "false_negative": 175,
-          "true_negative": 2467,
-          "precision": 0.796,
-          "recall_sensitivity": 0.5320855614973262,
-          "specificity": 0.9797458300238284,
-          "f1_dice": 0.6378205128205128
+          "true_positive": 390,
+          "false_positive": 57,
+          "false_negative": 425,
+          "true_negative": 4076,
+          "precision": 0.87248322147651,
+          "recall_sensitivity": 0.4785276073619632,
+          "specificity": 0.9862085652068715,
+          "f1_dice": 0.618066561014263
         },
         "ea": {
-          "true_positive": 28,
-          "false_positive": 81,
-          "false_negative": 48,
-          "true_negative": 2735,
-          "precision": 0.25688073394495414,
-          "recall_sensitivity": 0.3684210526315789,
-          "specificity": 0.9712357954545454,
-          "f1_dice": 0.3027027027027027
+          "true_positive": 100,
+          "false_positive": 110,
+          "false_negative": 76,
+          "true_negative": 4662,
+          "precision": 0.47619047619047616,
+          "recall_sensitivity": 0.5681818181818182,
+          "specificity": 0.9769488683989941,
+          "f1_dice": 0.5181347150259067
         }
       }
     },
@@ -149,27 +120,27 @@
         "minimum_overlap_fraction": 0.25,
         "maximum_center_shift_columns": 30.0
       },
-      "number_of_completed_cases": 6,
+      "number_of_completed_cases": 10,
       "aggregate_metrics": {
         "barcoding": {
-          "true_positive": 178,
-          "false_positive": 4,
-          "false_negative": 196,
-          "true_negative": 2514,
-          "precision": 0.978021978021978,
-          "recall_sensitivity": 0.47593582887700536,
-          "specificity": 0.9984114376489277,
-          "f1_dice": 0.6402877697841727
+          "true_positive": 274,
+          "false_positive": 5,
+          "false_negative": 541,
+          "true_negative": 4128,
+          "precision": 0.982078853046595,
+          "recall_sensitivity": 0.3361963190184049,
+          "specificity": 0.9987902250181466,
+          "f1_dice": 0.5009140767824497
         },
         "ea": {
-          "true_positive": 0,
-          "false_positive": 41,
-          "false_negative": 76,
-          "true_negative": 2775,
-          "precision": 0.0,
-          "recall_sensitivity": 0.0,
-          "specificity": 0.9854403409090909,
-          "f1_dice": 0.0
+          "true_positive": 72,
+          "false_positive": 70,
+          "false_negative": 104,
+          "true_negative": 4702,
+          "precision": 0.5070422535211268,
+          "recall_sensitivity": 0.4090909090909091,
+          "specificity": 0.9853310980720872,
+          "f1_dice": 0.4528301886792453
         }
       }
     },
@@ -182,27 +153,27 @@
         "minimum_overlap_fraction": 0.5,
         "maximum_center_shift_columns": 20.0
       },
-      "number_of_completed_cases": 6,
+      "number_of_completed_cases": 10,
       "aggregate_metrics": {
         "barcoding": {
-          "true_positive": 199,
-          "false_positive": 51,
-          "false_negative": 175,
-          "true_negative": 2467,
-          "precision": 0.796,
-          "recall_sensitivity": 0.5320855614973262,
-          "specificity": 0.9797458300238284,
-          "f1_dice": 0.6378205128205128
+          "true_positive": 390,
+          "false_positive": 57,
+          "false_negative": 425,
+          "true_negative": 4076,
+          "precision": 0.87248322147651,
+          "recall_sensitivity": 0.4785276073619632,
+          "specificity": 0.9862085652068715,
+          "f1_dice": 0.618066561014263
         },
         "ea": {
-          "true_positive": 51,
-          "false_positive": 96,
-          "false_negative": 25,
-          "true_negative": 2720,
-          "precision": 0.3469387755102041,
-          "recall_sensitivity": 0.6710526315789473,
-          "specificity": 0.9659090909090909,
-          "f1_dice": 0.45739910313901344
+          "true_positive": 123,
+          "false_positive": 143,
+          "false_negative": 53,
+          "true_negative": 4629,
+          "precision": 0.462406015037594,
+          "recall_sensitivity": 0.6988636363636364,
+          "specificity": 0.9700335289186923,
+          "f1_dice": 0.5565610859728507
         }
       }
     },
@@ -230,27 +201,27 @@
           }
         }
       },
-      "number_of_completed_cases": 6,
+      "number_of_completed_cases": 10,
       "aggregate_metrics": {
         "barcoding": {
-          "true_positive": 214,
-          "false_positive": 80,
-          "false_negative": 160,
-          "true_negative": 2438,
-          "precision": 0.7278911564625851,
-          "recall_sensitivity": 0.5721925133689839,
-          "specificity": 0.9682287529785544,
-          "f1_dice": 0.6407185628742516
+          "true_positive": 405,
+          "false_positive": 95,
+          "false_negative": 410,
+          "true_negative": 4038,
+          "precision": 0.81,
+          "recall_sensitivity": 0.49693251533742333,
+          "specificity": 0.9770142753447859,
+          "f1_dice": 0.6159695817490495
         },
         "ea": {
-          "true_positive": 51,
-          "false_positive": 96,
-          "false_negative": 25,
-          "true_negative": 2720,
-          "precision": 0.3469387755102041,
-          "recall_sensitivity": 0.6710526315789473,
-          "specificity": 0.9659090909090909,
-          "f1_dice": 0.45739910313901344
+          "true_positive": 123,
+          "false_positive": 143,
+          "false_negative": 53,
+          "true_negative": 4629,
+          "precision": 0.462406015037594,
+          "recall_sensitivity": 0.6988636363636364,
+          "specificity": 0.9700335289186923,
+          "f1_dice": 0.5565610859728507
         }
       }
     },
@@ -278,27 +249,27 @@
           }
         }
       },
-      "number_of_completed_cases": 6,
+      "number_of_completed_cases": 10,
       "aggregate_metrics": {
         "barcoding": {
-          "true_positive": 199,
-          "false_positive": 71,
-          "false_negative": 175,
-          "true_negative": 2447,
-          "precision": 0.737037037037037,
-          "recall_sensitivity": 0.5320855614973262,
-          "specificity": 0.971803018268467,
-          "f1_dice": 0.6180124223602484
+          "true_positive": 390,
+          "false_positive": 77,
+          "false_negative": 425,
+          "true_negative": 4056,
+          "precision": 0.8351177730192719,
+          "recall_sensitivity": 0.4785276073619632,
+          "specificity": 0.981369465279458,
+          "f1_dice": 0.608424336973479
         },
         "ea": {
-          "true_positive": 51,
-          "false_positive": 96,
-          "false_negative": 25,
-          "true_negative": 2720,
-          "precision": 0.3469387755102041,
-          "recall_sensitivity": 0.6710526315789473,
-          "specificity": 0.9659090909090909,
-          "f1_dice": 0.45739910313901344
+          "true_positive": 123,
+          "false_positive": 143,
+          "false_negative": 53,
+          "true_negative": 4629,
+          "precision": 0.462406015037594,
+          "recall_sensitivity": 0.6988636363636364,
+          "specificity": 0.9700335289186923,
+          "f1_dice": 0.5565610859728507
         }
       }
     }
