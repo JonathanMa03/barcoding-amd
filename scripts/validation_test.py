@@ -33,7 +33,7 @@ from src.visualization.pipeline import plot_detection_result
 VALIDATION_CONFIG = {
     "e2e_directory": Path("data/heyex/meta"),
     "manual_ground_truth_directory": Path("results/manual_ground_truth"),
-    "output_directory": Path("results/automatic_detector_gabor"),
+    "output_directory": Path("results/automatic_detector_gabor_depth"),
     "overwrite": True,
     "continue_on_error": True,
     "colors": {"ea": "tab:orange", "barcoding": "tab:red"},
@@ -83,9 +83,9 @@ DETECTOR_CONFIG = {
 # Use a separate VALIDATION_CONFIG["output_directory"] when comparing runs.
 EXPERIMENT_CONFIG = {
     "enable_gabor_gate": True,
-    "gabor_minimum_interval_mean_z": 0.0,
-    "gabor_minimum_interval_peak_z": 1.0,
-    "enable_barcoding_depth_gate": False,
+    "gabor_minimum_interval_mean_z": 0.4,
+    "gabor_minimum_interval_peak_z": 0.5,
+    "enable_barcoding_depth_gate": True,
     "enable_ea_depth_gate": False,
 }
 
