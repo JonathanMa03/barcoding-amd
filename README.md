@@ -467,7 +467,7 @@ change any interval.
 `scripts/adjacent_bscan_consistency.py` runs adjacent-scan consistency on all
 ten patient-specific scans listed in `results/manual_ground_truth/`. It finds
 the corresponding E2E volumes under `data/heyex/meta`, processes two scans on
-each side of every target, and evaluates a control plus four interpretable
+each side of every target, and evaluates a control plus six interpretable
 rules:
 
 - `single_scan_control`: combined detector with no adjacent filtering.
@@ -475,6 +475,11 @@ rules:
 - `adjacent_class_specific`: one neighbor for barcoding and two for EA.
 - `adjacent_bilateral`: support on both sides of the target scan.
 - `adjacent_spatial_strict`: one neighbor with tighter overlap and alignment.
+- `hybrid_conservative`: rejects an unsupported barcoding interval only when
+  it is at most 12 columns wide and at least three texture, near-depth, and
+  probability checks are weak.
+- `hybrid_balanced`: tests the same three-of-four evidence rule with a
+  16-column width limit and moderately broader weak-evidence thresholds.
 
 Edit `RUN_CONFIG` or `CONSISTENCY_EXPERIMENTS` at the top of the script, then
 run:
@@ -490,6 +495,12 @@ interval they record the matching neighbor, overlap, center shift, support on
 each side, retention decision, and rejection reason. The top-level
 `experiment_summary.json` contains aggregate precision, recall, specificity,
 and Dice for EA and barcoding, so the rules can be compared directly.
+
+The hybrid rules do not alter EA and never reject a barcoding interval merely
+because it is absent from adjacent scans. They require the conjunction of no
+adjacent support, short width, and several weak interval-level measurements.
+The JSON `hybrid_rejection` object records every Boolean condition and the
+observed value and threshold for each evidence check.
 
 The JSON output contains one `normal`, `ea`, or `barcoding` label per column,
 detected intervals, thresholds, label counts, and the detector configuration.

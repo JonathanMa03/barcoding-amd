@@ -75,6 +75,45 @@ CONSISTENCY_EXPERIMENTS = {
         "minimum_overlap_fraction": 0.50,
         "maximum_center_shift_columns": 20.0,
     },
+    "hybrid_conservative": {
+        # Reject only unsupported, short barcoding intervals with at least
+        # three weak signals. EA is deliberately unaffected.
+        "minimum_supporting_neighbors": {"barcoding": 0, "ea": 0},
+        "minimum_overlap_fraction": 0.25,
+        "maximum_center_shift_columns": 30.0,
+        "hybrid_rejection": {
+            "enabled": True,
+            "labels": ("barcoding",),
+            "maximum_supporting_neighbors": 0,
+            "maximum_width_pixels": 12,
+            "minimum_weak_evidence_failures": 3,
+            "weak_evidence_maximums": {
+                "texture_mean_z": 0.60,
+                "texture_peak_z": 0.80,
+                "depth_band_mean_z.near": 0.25,
+                "probability_mean": 0.65,
+            },
+        },
+    },
+    "hybrid_balanced": {
+        # Wider exploratory rule; still needs three independent weak signals.
+        "minimum_supporting_neighbors": {"barcoding": 0, "ea": 0},
+        "minimum_overlap_fraction": 0.25,
+        "maximum_center_shift_columns": 30.0,
+        "hybrid_rejection": {
+            "enabled": True,
+            "labels": ("barcoding",),
+            "maximum_supporting_neighbors": 0,
+            "maximum_width_pixels": 16,
+            "minimum_weak_evidence_failures": 3,
+            "weak_evidence_maximums": {
+                "texture_mean_z": 0.70,
+                "texture_peak_z": 0.90,
+                "depth_band_mean_z.near": 0.35,
+                "probability_mean": 0.70,
+            },
+        },
+    },
 }
 
 PREPROCESSING_CONFIG = {
@@ -112,13 +151,27 @@ def configure_combined_detector() -> None:
     phenotype["ea"]["depth_context"]["enabled"] = False
 
 
-def intervals_from_labels(labels: np.ndarray) -> list[dict[str, Any]]:
+def intervals_from_labels(
+    labels: np.ndarray,
+    detector_metadata: dict[str, Any],
+) -> list[dict[str, Any]]:
     quantified = quantify_detection_labels(labels)
-    return [
-        {"label": label, **interval}
-        for label in ("barcoding", "ea")
-        for interval in quantified[label]["intervals"]
+    saved_evidence = detector_metadata["phenotype_classification"][
+        "interval_evidence"
     ]
+    intervals = []
+    for label in ("barcoding", "ea"):
+        evidence_by_bounds = {
+            (int(row["start"]), int(row["end"])): row
+            for row in saved_evidence[label]
+        }
+        for interval in quantified[label]["intervals"]:
+            bounds = (int(interval["start"]), int(interval["end"]))
+            evidence = evidence_by_bounds.get(bounds)
+            if evidence is None:
+                raise KeyError(f"Missing {label} interval evidence for {bounds}.")
+            intervals.append({"label": label, **interval, **evidence})
+    return intervals
 
 
 def discover_cases(directory: Path) -> list[dict[str, Any]]:
@@ -158,7 +211,7 @@ def process_scan(volume: Any, e2e_path: Path, index: int) -> dict[str, Any]:
     detected = run_detector(processed.image, DETECTOR_CONFIG)
     labels = np.asarray(detected.labels, dtype=str)
     return {"image": processed.image, "labels": labels,
-            "intervals": intervals_from_labels(labels),
+            "intervals": intervals_from_labels(labels, detected.metadata),
             "detector_metadata": detected.metadata}
 
 

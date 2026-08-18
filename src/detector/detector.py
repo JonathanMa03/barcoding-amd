@@ -430,12 +430,13 @@ def _summarize_interval_evidence(
     mask: np.ndarray,
     texture_signal: np.ndarray,
     depth_signals: Mapping[str, np.ndarray],
+    probability: np.ndarray | None = None,
 ) -> list[dict[str, Any]]:
     """Create compact texture/depth diagnostics for every final interval."""
     summaries = []
     for start, end in find_boolean_runs(mask, target_value=True):
         stop = end + 1
-        summaries.append({
+        summary = {
             "start": int(start),
             "end": int(end),
             "width_pixels": int(stop - start),
@@ -449,7 +450,12 @@ def _summarize_interval_evidence(
                 name: float(np.max(values[start:stop]))
                 for name, values in depth_signals.items()
             },
-        })
+        }
+        if probability is not None:
+            interval_probability = np.asarray(probability)[start:stop]
+            summary["probability_mean"] = float(np.mean(interval_probability))
+            summary["probability_peak"] = float(np.max(interval_probability))
+        summaries.append(summary)
     return summaries
 
 
@@ -660,7 +666,7 @@ def classify_ea_and_barcoding(
     interval_evidence = {
         label: _summarize_interval_evidence(
             masks[label], result.vertical_texture_energy,
-            result.depth_band_features,
+            result.depth_band_features, probabilities[label],
         )
         for label in ("barcoding", "ea")
     }

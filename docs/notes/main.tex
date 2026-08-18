@@ -1594,4 +1594,278 @@ Normalization, denoising, window dimensions, feature definitions, weights, and
 thresholds must be validated across multiple manually annotated OCT scans before
 being treated as final defaults.
 
+\subsection{Experimental Results}
+
+\subsubsection{Evaluation Set and Interpretation of the Metrics}
+
+The experiments to date use ten manually annotated B-scans, one selected scan
+from each of ten subjects.  The annotations distinguish Early Atrophy (EA),
+barcoding, uncertain regions, and vessel/structural regions.  Uncertain and
+vessel/structural columns are excluded from scoring because the detector is not
+intended to reproduce those annotation classes.  EA and barcoding are scored
+independently at the image-column level.
+
+For a given phenotype, a true positive is a column marked by both the detector
+and the manual annotation.  A false positive is marked only by the detector,
+and a false negative is marked only by the annotation.  The main reported
+metrics are
+\[
+\mathrm{Precision}=\frac{TP}{TP+FP},\qquad
+\mathrm{Recall}=\frac{TP}{TP+FN},\qquad
+\mathrm{Dice}=\frac{2TP}{2TP+FP+FN}.
+\]
+Precision measures resistance to false alarms, recall measures how much of the
+annotated phenotype is recovered, and Dice summarizes their overlap.  These
+are development results rather than an unbiased estimate of generalization:
+the annotation set is small, contains no clinician adjudication, and was also
+used to select several thresholds.  Columns within a B-scan are correlated, so
+their large numerical count does not replace the need for more independently
+annotated patients.
+
+\subsubsection{Implemented Detector Architecture}
+
+The current detector is a staged, explainable alternative to an end-to-end
+neural network.  Each stage produces intermediate signals that are saved in
+the automatic JSON output.
+
+\begin{enumerate}
+    \item \textbf{Standardized preprocessing.}  The Bruch membrane (BM)
+    boundary from the E2E metadata is interpolated where necessary and
+    flattened to a common row.  A 150-pixel-deep region at and below BM is
+    retained, normalized by a whole-region z-score, and denoised with an
+    anisotropic Gaussian filter with
+    $\sigma_z=1.0$ and $\sigma_x=0.5$.  This reduces anatomical curvature and
+    makes brightness comparable within each scan while preserving vertical
+    boundaries.
+
+    \item \textbf{Column feature extraction.}  The structural detector
+    calculates median intensity, upper-quantile intensity, local
+    depth-continuity, and the fraction of strongly vertical pixels for every
+    image column.  Each signal is robustly standardized relative to the scan.
+    This makes a value such as ``one standard unit brighter than the rest of
+    this scan'' directly interpretable.
+
+    \item \textbf{Independent EA and barcoding models.}  Separate logistic
+    scores are calculated from the four main signals and four interaction
+    terms.  The interactions allow, for example, brightness accompanied by
+    depth persistence to mean something different from brightness alone.
+    Barcoding uses a probability threshold of 0.55 and a minimum run of eight
+    columns; EA uses 0.50 and a minimum run of twelve columns.  If both models
+    select a column, the class with the larger probability relative to its own
+    threshold is retained.
+
+    \item \textbf{Spatial context.}  Raw and horizontally smoothed
+    probabilities are blended.  A column must have enough near-threshold
+    neighbors within a local radius and must receive votes from multiple
+    independently meaningful features.  Barcoding requires two feature votes;
+    EA uses the stricter three-feature rule.  Small positive runs are removed,
+    short negative gaps are filled, and intervals with insufficient mean or
+    peak probability are rejected as complete lesions.
+
+    \item \textbf{Normal and structural rejection.}  An independently
+    calibrated structural-veto score uses the disease features, structural
+    pixel fraction, and their interactions.  A second explicit dark-shadow
+    rule rejects continuous vertical regions whose upper-quantile intensity is
+    unusually low, which is more consistent with a vessel shadow than
+    hypertransmission.  Rejected regions are expanded by a small horizontal
+    margin before final cleanup so that the shadow boundary is not immediately
+    reintroduced.
+
+    \item \textbf{Interval-level feature gates.}  Optional Gabor-texture and
+    anatomical depth-band gates examine the evidence across a complete
+    candidate interval.  The selected combined experiment enables these gates
+    for barcoding but leaves the provisional EA depth gate disabled.
+
+    \item \textbf{Volume context.}  An optional final stage compares each
+    interval with detections in two B-scans before and two B-scans after the
+    target.  It records same-class overlap, center displacement, and support on
+    each side.  This stage can either filter detections or provide an
+    interpretable confidence tier.
+\end{enumerate}
+
+The final output is one label---\texttt{normal}, \texttt{ea}, or
+\texttt{barcoding}---per B-scan column.  Contiguous columns are converted into
+intervals, from which the number and width of EA and barcoding regions are
+reported.
+
+\subsubsection{New Interpretable Features}
+
+\paragraph{Multi-scale vertical Gabor texture.}
+The Gabor feature was introduced to distinguish repeated bright--dark stripe
+texture from a single bright or dark structure.  Filters with horizontal
+wavelengths of 4, 8, and 16 pixels are applied after smoothing through depth
+with $\sigma_z=12$.  Cosine and sine responses are combined into phase-robust
+energy, and the strongest scale is summarized as a robust z-score for each
+column.  A barcoding interval can therefore be required to have both adequate
+mean texture and at least one convincing peak.  The selected thresholds are a
+mean z-score of 0.40 and peak z-score of 0.50.
+
+\paragraph{Depth-band evidence.}
+The 150-pixel sub-BM region is divided into near (0--20\%), middle (20--50\%),
+and deep (50--100\%) bands.  Robustly standardized brightness is calculated
+within every band, together with deep-minus-near and deep-minus-middle
+contrasts.  These signals test whether a candidate has the expected anatomical
+distribution through depth rather than merely the correct overall intensity.
+The selected barcoding rule requires the mean near-band z-score to be at least
+0.0.  The EA depth rule was left disabled because its provisional condition
+did not provide a consistent improvement.
+
+\paragraph{Adjacent-B-scan evidence.}
+For every target interval, the volume-consistency module finds the best
+same-label match in each neighboring scan.  Compatibility is expressed by the
+overlap divided by the width of the narrower interval and by the horizontal
+center shift.  The JSON record includes the exact matching intervals, number
+of supporting neighbors, support before and after the target, the rule that
+was applied, and the reason for rejection.  Consequently, adjacent support is
+auditable rather than a hidden volume-level score.
+
+\subsubsection{Detector Development Experiments}
+
+Table~\ref{tab:detector_experiments} summarizes the principal calibrated
+single-scan experiments.  All figures are micro-aggregated over the ten
+annotated scans.
+
+\begin{table}[H]
+\centering
+\small
+\begin{tabular}{llccc}
+\toprule
+\textbf{Phenotype} & \textbf{Experiment} & \textbf{Precision} &
+\textbf{Recall} & \textbf{Dice} \\
+\midrule
+Barcoding & V2 calibrated & 0.526 & 0.506 & 0.516 \\
+Barcoding & V3 contextual & 0.584 & 0.520 & 0.550 \\
+Barcoding & Initial Gabor gate & 0.777 & 0.458 & 0.576 \\
+Barcoding & Gabor + depth & \textbf{0.817} & \textbf{0.520} & \textbf{0.636} \\
+\midrule
+EA & V2 calibrated & 0.369 & \textbf{0.739} & 0.492 \\
+EA & V3 contextual & \textbf{0.475} & 0.699 & \textbf{0.566} \\
+EA & Initial Gabor gate & 0.475 & 0.699 & 0.566 \\
+EA & Gabor + barcoding depth & 0.462 & 0.699 & 0.557 \\
+\bottomrule
+\end{tabular}
+\caption{Column-level results for the major single-scan detector experiments.}
+\label{tab:detector_experiments}
+\end{table}
+
+\paragraph{V2 calibrated model.}
+V2 established separate EA and barcoding probability models and class-specific
+interval widths.  It detected substantial disease signal but produced many
+normal/structural false positives: 371 false-positive barcoding columns and
+222 false-positive EA columns.
+
+\paragraph{V3 contextual model.}
+V3 added local probability support, feature voting, lesion-level confidence,
+and the dark-shadow veto.  Barcoding false positives fell from 371 to 302 and
+EA false positives fell from 222 to 136.  Barcoding Dice improved from 0.516
+to 0.550, while EA Dice improved from 0.492 to 0.566 despite a modest loss of
+EA recall.  This demonstrated that interpretable spatial and structural
+context was more useful than adjusting a single detection threshold.
+
+\paragraph{Explicit normal-rejection model.}
+An additional learned normal/structural rejection version was tested after V3.
+On visual and quantitative review it did not materially improve the detector
+and sometimes suppressed plausible disease together with normal anatomy.  The
+small annotation set was not sufficient to characterize the variety of normal
+and vessel appearances.  This version was therefore rolled back, and V3 was
+retained as the stable base for subsequent hand-auditable feature gates.
+
+\paragraph{Initial Gabor-only experiment.}
+The first Gabor test required interval mean/peak z-scores of 0.0 and 1.0.  It
+reduced barcoding false positives from 302 to 107 and raised precision from
+0.584 to 0.777.  However, it also lowered recall from 0.520 to 0.458.  Dice
+still increased to 0.576, showing that stripe texture was informative but that
+the initial peak requirement was overly aggressive.
+
+\paragraph{Combined Gabor and depth experiment.}
+A sweep of saved interval evidence selected a Gabor mean threshold of 0.40, a
+peak threshold of 0.50, and a near-band mean brightness threshold of 0.0.
+Leave-one-patient-out threshold selection chose the same settings for every
+held-out patient, although this consistency should not be confused with
+external validation.  The combined rule retained 424 true-positive barcoding
+columns---the same as V3---while reducing false positives from 302 to 95.
+Precision rose to 0.817 and Dice to 0.636, making this the best barcoding
+configuration tested.  EA recall was unchanged, but seven columns rejected
+from barcoding were reassigned to EA in one scan; EA false positives therefore
+increased from 136 to 143 and Dice decreased slightly from 0.566 to 0.557.
+
+\subsubsection{Adjacent-B-Scan Consistency Experiments}
+
+The combined Gabor + depth detector was next evaluated with two neighboring
+scans on either side of every target.  The unfiltered control reproduced the
+single-scan results exactly.  Table~\ref{tab:adjacent_experiments} shows the
+effect of treating volume consistency as a mandatory rejection rule.
+
+\begin{table}[H]
+\centering
+\small
+\begin{tabular}{lccc|ccc}
+\toprule
+& \multicolumn{3}{c|}{\textbf{Barcoding}} &
+\multicolumn{3}{c}{\textbf{EA}} \\
+\textbf{Rule} & \textbf{Prec.} & \textbf{Recall} & \textbf{Dice} &
+\textbf{Prec.} & \textbf{Recall} & \textbf{Dice} \\
+\midrule
+Single-scan control & 0.817 & 0.520 & \textbf{0.636} & 0.462 & 0.699 & \textbf{0.557} \\
+Any one neighbor & 0.872 & 0.479 & 0.618 & 0.462 & 0.699 & 0.557 \\
+Class-specific support & 0.872 & 0.479 & 0.618 & 0.476 & 0.568 & 0.518 \\
+Bilateral support & \textbf{0.982} & 0.336 & 0.501 & \textbf{0.507} & 0.409 & 0.453 \\
+Tighter spatial match & 0.872 & 0.479 & 0.618 & 0.462 & 0.699 & 0.557 \\
+\bottomrule
+\end{tabular}
+\caption{Effect of adjacent-volume rejection rules.  ``Class-specific''
+requires one supporting scan for barcoding and two for EA; ``bilateral''
+requires support on both sides of the target.}
+\label{tab:adjacent_experiments}
+\end{table}
+
+Requiring any one neighbor removed 38 false-positive barcoding columns, but
+also removed 34 true-positive columns.  Precision improved to 0.872 while Dice
+fell to 0.618.  Requiring bilateral support achieved very high barcoding
+precision (0.982) but reduced recall to 0.336 and Dice to 0.501; it is too
+aggressive for quantification.  Requiring two supporting neighbors for EA
+removed some false detections but completely removed a true EA interval in one
+case, lowering EA Dice to 0.518.  Tightening the spatial rule from 25\% to
+50\% overlap and reducing the allowed center shift from 30 to 20 columns made
+no difference, indicating that intervals which did recur were already well
+aligned.
+
+These findings show that adjacency is informative but not sufficient as a
+hard veto.  Some true lesions appear weakly or discontinuously across slices,
+whereas several vessel or structural patterns persist through the volume.
+Adjacent support should therefore be retained as an explanation and confidence
+tier: bilateral support is high confidence, one-neighbor support is moderate
+confidence, and no support is low confidence.
+
+\subsubsection{Current Best Configuration and Remaining Failure Modes}
+
+The current best barcoding configuration is the V3 contextual detector with
+the calibrated Gabor and near-depth gates enabled.  It has barcoding precision
+0.817, recall 0.520, and Dice 0.636 on the development set.  The best tested EA
+configuration remains V3 without an EA depth or mandatory adjacency gate, with
+precision 0.475, recall 0.699, and Dice 0.566.  Thus the best settings are
+phenotype-specific rather than a single shared sequence of gates.
+
+Important remaining errors are concentrated in a few scans.  One subject
+accounts for 49 of the 95 remaining barcoding false-positive columns in the
+combined experiment.  Several EA detections occur in scans with no manually
+annotated EA, and many persist into neighboring B-scans.  This suggests
+repeatable vessel or anatomical structure rather than random image noise.
+Conversely, mandatory adjacent filtering removes real but locally weak
+barcoding and EA regions.
+
+The next experiment is therefore a \emph{hybrid rejection rule}.  An
+interval will not be rejected solely because it lacks an adjacent match.
+Instead, rejection will require agreement among several negative findings,
+such as no adjacent support, short interval width, and weak Gabor/depth or
+lesion-probability evidence.  This preserves the explainable architecture:
+each excluded interval will carry a record of which independent conditions
+failed.  Two initial variants have been implemented.  The conservative rule
+limits rejection to intervals of at most 12 columns, while the balanced rule
+uses at most 16 columns; both require at least three weak findings among mean
+Gabor energy, peak Gabor energy, near-band brightness, and mean lesion
+probability.  These are explicitly experimental settings, not new calibrated
+defaults.  Threshold selection and final claims must still be evaluated on
+additional subjects that were not used to formulate the rule.
+
 \end{document}
