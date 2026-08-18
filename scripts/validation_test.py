@@ -2,7 +2,7 @@
 
 The ten cases and their patient-specific B-scan indices are discovered from
 ``results/manual_ground_truth/*_ground_truth.json``. Paired automatic JSON and
-PNG outputs are written to ``results/automatic_detector/``.
+PNG outputs are written to ``results/automatic_detector_gabor_depth/``.
 """
 
 from __future__ import annotations
@@ -33,7 +33,7 @@ from src.visualization.pipeline import plot_detection_result
 VALIDATION_CONFIG = {
     "e2e_directory": Path("data/heyex/meta"),
     "manual_ground_truth_directory": Path("results/manual_ground_truth"),
-    "output_directory": Path("results/automatic_detector_gabor"),
+    "output_directory": Path("results/automatic_detector_gabor_depth"),
     "overwrite": True,
     "continue_on_error": True,
     "colors": {"ea": "tab:orange", "barcoding": "tab:red"},
@@ -85,7 +85,7 @@ EXPERIMENT_CONFIG = {
     "enable_gabor_gate": True,
     "gabor_minimum_interval_mean_z": 0.40,
     "gabor_minimum_interval_peak_z": 0.50,
-    "enable_barcoding_depth_gate": False,
+    "enable_barcoding_depth_gate": True,
     "enable_ea_depth_gate": False,
 }
 
