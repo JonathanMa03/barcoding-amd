@@ -690,18 +690,18 @@
     "normal",
     "normal",
     "normal",
-    "normal",
-    "normal",
-    "normal",
-    "normal",
-    "normal",
-    "normal",
-    "normal",
-    "normal",
-    "normal",
-    "normal",
-    "normal",
-    "normal",
+    "barcoding",
+    "barcoding",
+    "barcoding",
+    "barcoding",
+    "barcoding",
+    "barcoding",
+    "barcoding",
+    "barcoding",
+    "barcoding",
+    "barcoding",
+    "barcoding",
+    "barcoding",
     "normal",
     "normal",
     "normal",
@@ -779,17 +779,18 @@
     "normal"
   ],
   "barcoding": {
-    "number_of_intervals": 5,
+    "number_of_intervals": 6,
     "interval_widths_pixels": [
       25,
       9,
       13,
       17,
+      12,
       12
     ],
-    "total_width_pixels": 76,
-    "mean_width_pixels": 15.2,
-    "median_width_pixels": 13.0,
+    "total_width_pixels": 88,
+    "mean_width_pixels": 14.666666666666666,
+    "median_width_pixels": 12.5,
     "minimum_width_pixels": 9,
     "maximum_width_pixels": 25,
     "intervals": [
@@ -816,6 +817,11 @@
       {
         "start": 614,
         "end": 625,
+        "width_pixels": 12
+      },
+      {
+        "start": 681,
+        "end": 692,
         "width_pixels": 12
       }
     ]
@@ -863,6 +869,11 @@
       {
         "start": 614,
         "end": 625,
+        "width_pixels": 12
+      },
+      {
+        "start": 681,
+        "end": 692,
         "width_pixels": 12
       }
     ],
@@ -975,10 +986,7 @@
         "depth_context": {
           "enabled": true,
           "required_signals": {
-            "deep": {
-              "minimum_interval_mean_z": 0.0
-            },
-            "deep_minus_near": {
+            "near": {
               "minimum_interval_mean_z": 0.0
             }
           }
@@ -1116,10 +1124,7 @@
           "depth_context": {
             "enabled": true,
             "required_signals": {
-              "deep": {
-                "minimum_interval_mean_z": 0.0
-              },
-              "deep_minus_near": {
+              "near": {
                 "minimum_interval_mean_z": 0.0
               }
             }
@@ -1194,7 +1199,7 @@
         }
       },
       "positive_columns": {
-        "barcoding": 76,
+        "barcoding": 88,
         "ea": 29
       },
       "overlap_columns_resolved": 50,
@@ -1226,15 +1231,12 @@
           "config": {
             "enabled": true,
             "required_signals": {
-              "deep": {
-                "minimum_interval_mean_z": 0.0
-              },
-              "deep_minus_near": {
+              "near": {
                 "minimum_interval_mean_z": 0.0
               }
             }
           },
-          "intervals_rejected": 1
+          "intervals_rejected": 0
         },
         "ea": {
           "config": {
@@ -1354,6 +1356,27 @@
               "deep_minus_near": 1.5632727146148682,
               "deep_minus_middle": 2.1385769844055176
             }
+          },
+          {
+            "start": 681,
+            "end": 692,
+            "width_pixels": 12,
+            "texture_mean_z": 0.4651377201080322,
+            "texture_peak_z": 0.5246338248252869,
+            "depth_band_mean_z": {
+              "near": 0.7264710068702698,
+              "middle": 0.4167318642139435,
+              "deep": -0.44069409370422363,
+              "deep_minus_near": -1.1671651601791382,
+              "deep_minus_middle": -0.8574259281158447
+            },
+            "depth_band_peak_z": {
+              "near": 0.9255964756011963,
+              "middle": 0.7345045804977417,
+              "deep": -0.2687793970108032,
+              "deep_minus_near": -0.788280189037323,
+              "deep_minus_middle": -0.3106558322906494
+            }
           }
         ],
         "ea": [
@@ -1441,10 +1464,7 @@
           "depth_context": {
             "enabled": true,
             "required_signals": {
-              "deep": {
-                "minimum_interval_mean_z": 0.0
-              },
-              "deep_minus_near": {
+              "near": {
                 "minimum_interval_mean_z": 0.0
               }
             }
@@ -1520,9 +1540,9 @@
       }
     },
     "label_counts": {
-      "normal": 663,
+      "normal": 651,
       "ea": 29,
-      "barcoding": 76
+      "barcoding": 88
     }
   }
 }

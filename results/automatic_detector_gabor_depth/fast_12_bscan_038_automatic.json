@@ -128,16 +128,16 @@
     "normal",
     "normal",
     "normal",
-    "barcoding",
-    "barcoding",
-    "barcoding",
-    "barcoding",
-    "barcoding",
-    "barcoding",
-    "barcoding",
-    "barcoding",
-    "barcoding",
-    "barcoding",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
     "normal",
     "normal",
     "normal",
@@ -523,22 +523,16 @@
     "normal"
   ],
   "barcoding": {
-    "number_of_intervals": 2,
+    "number_of_intervals": 1,
     "interval_widths_pixels": [
-      10,
       16
     ],
-    "total_width_pixels": 26,
-    "mean_width_pixels": 13.0,
-    "median_width_pixels": 13.0,
-    "minimum_width_pixels": 10,
+    "total_width_pixels": 16,
+    "mean_width_pixels": 16.0,
+    "median_width_pixels": 16.0,
+    "minimum_width_pixels": 16,
     "maximum_width_pixels": 16,
     "intervals": [
-      {
-        "start": 119,
-        "end": 128,
-        "width_pixels": 10
-      },
       {
         "start": 161,
         "end": 176,
@@ -566,11 +560,6 @@
   },
   "intervals_by_class": {
     "barcoding": [
-      {
-        "start": 119,
-        "end": 128,
-        "width_pixels": 10
-      },
       {
         "start": 161,
         "end": 176,
@@ -686,10 +675,7 @@
         "depth_context": {
           "enabled": true,
           "required_signals": {
-            "deep": {
-              "minimum_interval_mean_z": 0.0
-            },
-            "deep_minus_near": {
+            "near": {
               "minimum_interval_mean_z": 0.0
             }
           }
@@ -827,10 +813,7 @@
           "depth_context": {
             "enabled": true,
             "required_signals": {
-              "deep": {
-                "minimum_interval_mean_z": 0.0
-              },
-              "deep_minus_near": {
+              "near": {
                 "minimum_interval_mean_z": 0.0
               }
             }
@@ -905,7 +888,7 @@
         }
       },
       "positive_columns": {
-        "barcoding": 26,
+        "barcoding": 16,
         "ea": 27
       },
       "overlap_columns_resolved": 47,
@@ -937,15 +920,12 @@
           "config": {
             "enabled": true,
             "required_signals": {
-              "deep": {
-                "minimum_interval_mean_z": 0.0
-              },
-              "deep_minus_near": {
+              "near": {
                 "minimum_interval_mean_z": 0.0
               }
             }
           },
-          "intervals_rejected": 0
+          "intervals_rejected": 1
         },
         "ea": {
           "config": {
@@ -961,27 +941,6 @@
       },
       "interval_evidence": {
         "barcoding": [
-          {
-            "start": 119,
-            "end": 128,
-            "width_pixels": 10,
-            "texture_mean_z": 1.4829356670379639,
-            "texture_peak_z": 1.8434081077575684,
-            "depth_band_mean_z": {
-              "near": -0.39678293466567993,
-              "middle": -0.10187491029500961,
-              "deep": 0.13421401381492615,
-              "deep_minus_near": 0.5309969186782837,
-              "deep_minus_middle": 0.23608891665935516
-            },
-            "depth_band_peak_z": {
-              "near": -0.057290516793727875,
-              "middle": 0.4013957977294922,
-              "deep": 0.4814743101596832,
-              "deep_minus_near": 0.7308562397956848,
-              "deep_minus_middle": 0.63998943567276
-            }
-          },
           {
             "start": 161,
             "end": 176,
@@ -1089,10 +1048,7 @@
           "depth_context": {
             "enabled": true,
             "required_signals": {
-              "deep": {
-                "minimum_interval_mean_z": 0.0
-              },
-              "deep_minus_near": {
+              "near": {
                 "minimum_interval_mean_z": 0.0
               }
             }
@@ -1168,9 +1124,9 @@
       }
     },
     "label_counts": {
-      "normal": 459,
+      "normal": 469,
       "ea": 27,
-      "barcoding": 26
+      "barcoding": 16
     }
   }
 }

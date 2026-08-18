@@ -30,24 +30,24 @@
     "ea",
     "ea",
     "ea",
-    "barcoding",
-    "barcoding",
-    "barcoding",
-    "barcoding",
-    "barcoding",
-    "barcoding",
-    "barcoding",
-    "barcoding",
-    "barcoding",
-    "barcoding",
-    "barcoding",
-    "barcoding",
-    "barcoding",
-    "barcoding",
-    "barcoding",
-    "barcoding",
-    "barcoding",
-    "barcoding",
+    "ea",
+    "ea",
+    "ea",
+    "ea",
+    "ea",
+    "ea",
+    "ea",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
+    "normal",
     "normal",
     "normal",
     "normal",
@@ -523,22 +523,16 @@
     "normal"
   ],
   "barcoding": {
-    "number_of_intervals": 2,
+    "number_of_intervals": 1,
     "interval_widths_pixels": [
-      18,
       33
     ],
-    "total_width_pixels": 51,
-    "mean_width_pixels": 25.5,
-    "median_width_pixels": 25.5,
-    "minimum_width_pixels": 18,
+    "total_width_pixels": 33,
+    "mean_width_pixels": 33.0,
+    "median_width_pixels": 33.0,
+    "minimum_width_pixels": 33,
     "maximum_width_pixels": 33,
     "intervals": [
-      {
-        "start": 21,
-        "end": 38,
-        "width_pixels": 18
-      },
       {
         "start": 242,
         "end": 274,
@@ -549,19 +543,19 @@
   "ea": {
     "number_of_intervals": 2,
     "interval_widths_pixels": [
-      11,
+      18,
       23
     ],
-    "total_width_pixels": 34,
-    "mean_width_pixels": 17.0,
-    "median_width_pixels": 17.0,
-    "minimum_width_pixels": 11,
+    "total_width_pixels": 41,
+    "mean_width_pixels": 20.5,
+    "median_width_pixels": 20.5,
+    "minimum_width_pixels": 18,
     "maximum_width_pixels": 23,
     "intervals": [
       {
         "start": 10,
-        "end": 20,
-        "width_pixels": 11
+        "end": 27,
+        "width_pixels": 18
       },
       {
         "start": 134,
@@ -573,11 +567,6 @@
   "intervals_by_class": {
     "barcoding": [
       {
-        "start": 21,
-        "end": 38,
-        "width_pixels": 18
-      },
-      {
         "start": 242,
         "end": 274,
         "width_pixels": 33
@@ -586,8 +575,8 @@
     "ea": [
       {
         "start": 10,
-        "end": 20,
-        "width_pixels": 11
+        "end": 27,
+        "width_pixels": 18
       },
       {
         "start": 134,
@@ -599,32 +588,32 @@
   "validation_metrics": {
     "barcoding": {
       "true_positive": 33,
-      "false_positive": 18,
+      "false_positive": 0,
       "false_negative": 61,
-      "true_negative": 382,
-      "precision": 0.6470588235294118,
+      "true_negative": 400,
+      "precision": 1.0,
       "recall_sensitivity": 0.35106382978723405,
-      "specificity": 0.955,
-      "accuracy": 0.840080971659919,
-      "f1_dice": 0.45517241379310347,
-      "intersection_over_union": 0.29464285714285715,
-      "predicted_fraction": 0.10323886639676114,
+      "specificity": 1.0,
+      "accuracy": 0.8765182186234818,
+      "f1_dice": 0.5196850393700787,
+      "intersection_over_union": 0.35106382978723405,
+      "predicted_fraction": 0.06680161943319839,
       "target_fraction": 0.1902834008097166,
       "number_of_scored_columns": 494,
       "number_of_ignored_columns": 18
     },
     "ea": {
       "true_positive": 23,
-      "false_positive": 11,
+      "false_positive": 18,
       "false_negative": 23,
-      "true_negative": 437,
-      "precision": 0.6764705882352942,
+      "true_negative": 430,
+      "precision": 0.5609756097560976,
       "recall_sensitivity": 0.5,
-      "specificity": 0.9754464285714286,
-      "accuracy": 0.9311740890688259,
-      "f1_dice": 0.575,
-      "intersection_over_union": 0.40350877192982454,
-      "predicted_fraction": 0.06882591093117409,
+      "specificity": 0.9598214285714286,
+      "accuracy": 0.917004048582996,
+      "f1_dice": 0.5287356321839081,
+      "intersection_over_union": 0.359375,
+      "predicted_fraction": 0.08299595141700405,
       "target_fraction": 0.0931174089068826,
       "number_of_scored_columns": 494,
       "number_of_ignored_columns": 18
@@ -697,10 +686,7 @@
         "depth_context": {
           "enabled": true,
           "required_signals": {
-            "deep": {
-              "minimum_interval_mean_z": 0.0
-            },
-            "deep_minus_near": {
+            "near": {
               "minimum_interval_mean_z": 0.0
             }
           }
@@ -838,10 +824,7 @@
           "depth_context": {
             "enabled": true,
             "required_signals": {
-              "deep": {
-                "minimum_interval_mean_z": 0.0
-              },
-              "deep_minus_near": {
+              "near": {
                 "minimum_interval_mean_z": 0.0
               }
             }
@@ -916,7 +899,7 @@
         }
       },
       "positive_columns": {
-        "barcoding": 51,
+        "barcoding": 33,
         "ea": 41
       },
       "overlap_columns_resolved": 48,
@@ -948,15 +931,12 @@
           "config": {
             "enabled": true,
             "required_signals": {
-              "deep": {
-                "minimum_interval_mean_z": 0.0
-              },
-              "deep_minus_near": {
+              "near": {
                 "minimum_interval_mean_z": 0.0
               }
             }
           },
-          "intervals_rejected": 0
+          "intervals_rejected": 1
         },
         "ea": {
           "config": {
@@ -972,27 +952,6 @@
       },
       "interval_evidence": {
         "barcoding": [
-          {
-            "start": 21,
-            "end": 38,
-            "width_pixels": 18,
-            "texture_mean_z": 0.7862833738327026,
-            "texture_peak_z": 1.257165551185608,
-            "depth_band_mean_z": {
-              "near": -0.15592020750045776,
-              "middle": 0.7751416563987732,
-              "deep": 0.8278127312660217,
-              "deep_minus_near": 0.9837328791618347,
-              "deep_minus_middle": 0.05267109349370003
-            },
-            "depth_band_peak_z": {
-              "near": 0.5235865116119385,
-              "middle": 1.160782814025879,
-              "deep": 1.3657333850860596,
-              "deep_minus_near": 2.080084800720215,
-              "deep_minus_middle": 0.2981250584125519
-            }
-          },
           {
             "start": 242,
             "end": 274,
@@ -1121,10 +1080,7 @@
           "depth_context": {
             "enabled": true,
             "required_signals": {
-              "deep": {
-                "minimum_interval_mean_z": 0.0
-              },
-              "deep_minus_near": {
+              "near": {
                 "minimum_interval_mean_z": 0.0
               }
             }
@@ -1200,9 +1156,9 @@
       }
     },
     "label_counts": {
-      "normal": 427,
-      "ea": 34,
-      "barcoding": 51
+      "normal": 438,
+      "ea": 41,
+      "barcoding": 33
     }
   }
 }
