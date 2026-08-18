@@ -313,3 +313,8 @@ results/manual_annotations/
 # external/OCTAVE/nnUNet_results/results/
 
 results/pipeline/
+
+# Local detector outputs. These directories/files are intentionally kept on
+# each workstation but are not versioned or uploaded to GitHub.
+/results/
+/detection_plot.png
