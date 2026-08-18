@@ -40,8 +40,10 @@ import numpy as np
 
 from src.detector.features import (
     compute_column_intensity_statistics,
+    compute_depth_band_features,
     compute_column_verticality_statistics,
     compute_local_depth_continuity,
+    compute_multiscale_vertical_texture,
     compute_simple_verticality_map,
     create_structural_mask,
     smooth_finite_signal,
@@ -66,6 +68,19 @@ STRUCTURAL_HYPERTD_V1_CONFIG: dict[str, Any] = {
     "minimum_positive_run": 5,
     "maximum_negative_gap": 2,
     "edge_margin": 10,
+    "texture_options": {
+        "enabled": True,
+        "wavelengths": (4.0, 8.0, 16.0),
+        "horizontal_sigma_factor": 0.60,
+        "depth_sigma": 12.0,
+        "signal_smoothing_sigma": 2.0,
+    },
+    "depth_band_options": {
+        "enabled": True,
+        "band_fractions": ((0.0, 0.20), (0.20, 0.50), (0.50, 1.0)),
+        "band_names": ("near", "middle", "deep"),
+        "signal_smoothing_sigma": 2.0,
+    },
 }
 
 
@@ -74,7 +89,7 @@ STRUCTURAL_HYPERTD_V1_CONFIG: dict[str, Any] = {
 # median intensity, upper-quantile intensity, continuity, and verticality plus
 # four interaction terms. Uncertain and vessel/structural columns were omitted.
 CALIBRATED_PHENOTYPE_V1_CONFIG: dict[str, Any] = {
-    "version": "manual_ground_truth_v4_normal_rejection",
+    "version": "manual_ground_truth_v3_contextual",
     "feature_clip": 5.0,
     "barcoding": {
         "coefficients": [
@@ -98,6 +113,18 @@ CALIBRATED_PHENOTYPE_V1_CONFIG: dict[str, Any] = {
                 "median": 0.0,
                 "continuity": 0.0,
                 "verticality": 0.0,
+            },
+        },
+        "texture_context": {
+            "enabled": False,
+            "minimum_interval_mean_z": 0.0,
+            "minimum_interval_peak_z": 0.5,
+        },
+        "depth_context": {
+            "enabled": False,
+            "required_signals": {
+                "deep": {"minimum_interval_mean_z": 0.0},
+                "deep_minus_near": {"minimum_interval_mean_z": 0.0},
             },
         },
     },
@@ -125,6 +152,12 @@ CALIBRATED_PHENOTYPE_V1_CONFIG: dict[str, Any] = {
                 "verticality": -0.25,
             },
         },
+        "depth_context": {
+            "enabled": False,
+            "required_signals": {
+                "deep": {"minimum_interval_mean_z": 0.0},
+            },
+        },
     },
     "structural_veto": {
         "coefficients": [
@@ -145,21 +178,6 @@ CALIBRATED_PHENOTYPE_V1_CONFIG: dict[str, Any] = {
             "maximum_negative_gap": 2,
             "margin_columns": 3,
         },
-    },
-    # Conservative normal-vs-disease model fitted on the clean preprocessed
-    # PNG development scans. The E2E validation run is the authoritative test
-    # because plotted PNG pixels are quantized and resampled.
-    "normal_rejection": {
-        "coefficients": [
-            -0.3228315711, -0.1569702625, -1.1637328863, -1.2814972401,
-            0.0011196354, -0.5903912783, 0.5045848489, 0.0524891652,
-            -0.2756016552, 0.0663040206, -0.1230622977,
-        ],
-        "intercept": 1.0014322996,
-        "probability_threshold": 0.50,
-        "minimum_positive_run": 5,
-        "maximum_negative_gap": 2,
-        "margin_columns": 0,
     },
 }
 
@@ -351,6 +369,91 @@ def _retain_supported_intervals(
     return retained, rejected
 
 
+def _retain_texture_supported_intervals(
+    mask: np.ndarray,
+    texture_signal: np.ndarray,
+    texture_config: Mapping[str, Any],
+) -> tuple[np.ndarray, int]:
+    """Optionally require barcoding intervals to contain stripe texture."""
+    if not bool(texture_config.get("enabled", False)):
+        return np.asarray(mask, dtype=bool).copy(), 0
+    minimum_mean = float(texture_config.get("minimum_interval_mean_z", 0.0))
+    minimum_peak = float(texture_config.get("minimum_interval_peak_z", 0.0))
+    retained = np.asarray(mask, dtype=bool).copy()
+    padded = np.pad(retained.astype(np.int8), (1, 1))
+    starts = np.flatnonzero(np.diff(padded) == 1)
+    ends = np.flatnonzero(np.diff(padded) == -1)
+    rejected = 0
+    for start, stop in zip(starts, ends):
+        interval_texture = texture_signal[start:stop]
+        if (
+            float(interval_texture.mean()) < minimum_mean
+            or float(interval_texture.max()) < minimum_peak
+        ):
+            retained[start:stop] = False
+            rejected += 1
+    return retained, rejected
+
+
+def _retain_depth_supported_intervals(
+    mask: np.ndarray,
+    depth_signals: Mapping[str, np.ndarray],
+    depth_config: Mapping[str, Any],
+) -> tuple[np.ndarray, int]:
+    """Optionally require interval-level evidence in configured depth bands."""
+    if not bool(depth_config.get("enabled", False)):
+        return np.asarray(mask, dtype=bool).copy(), 0
+    rules = dict(depth_config.get("required_signals", {}))
+    retained = np.asarray(mask, dtype=bool).copy()
+    padded = np.pad(retained.astype(np.int8), (1, 1))
+    starts = np.flatnonzero(np.diff(padded) == 1)
+    ends = np.flatnonzero(np.diff(padded) == -1)
+    rejected = 0
+    for start, stop in zip(starts, ends):
+        supported = True
+        for signal_name, rule_value in rules.items():
+            if signal_name not in depth_signals:
+                raise KeyError(f"Unknown depth-band signal '{signal_name}'.")
+            rule = dict(rule_value)
+            values = np.asarray(depth_signals[signal_name])[start:stop]
+            minimum_mean = float(rule.get("minimum_interval_mean_z", -np.inf))
+            minimum_peak = float(rule.get("minimum_interval_peak_z", -np.inf))
+            if float(values.mean()) < minimum_mean or float(values.max()) < minimum_peak:
+                supported = False
+                break
+        if not supported:
+            retained[start:stop] = False
+            rejected += 1
+    return retained, rejected
+
+
+def _summarize_interval_evidence(
+    mask: np.ndarray,
+    texture_signal: np.ndarray,
+    depth_signals: Mapping[str, np.ndarray],
+) -> list[dict[str, Any]]:
+    """Create compact texture/depth diagnostics for every final interval."""
+    summaries = []
+    for start, end in find_boolean_runs(mask, target_value=True):
+        stop = end + 1
+        summaries.append({
+            "start": int(start),
+            "end": int(end),
+            "width_pixels": int(stop - start),
+            "texture_mean_z": float(np.mean(texture_signal[start:stop])),
+            "texture_peak_z": float(np.max(texture_signal[start:stop])),
+            "depth_band_mean_z": {
+                name: float(np.mean(values[start:stop]))
+                for name, values in depth_signals.items()
+            },
+            "depth_band_peak_z": {
+                name: float(np.max(values[start:stop]))
+                for name, values in depth_signals.items()
+            },
+        })
+    return summaries
+
+
 def classify_ea_and_barcoding(
     result: Any,
     *,
@@ -518,53 +621,11 @@ def classify_ea_and_barcoding(
             dark_shadow_mask[:edge_margin] = False
             dark_shadow_mask[-edge_margin:] = False
         veto_mask |= dark_shadow_mask
-    disease_before_rejection = masks["barcoding"] | masks["ea"]
     structural_excluded_disease_columns = veto_mask & (
         masks["barcoding"] | masks["ea"]
     )
-
-    # Explicit normal rejection is deliberately independent of the EA and
-    # barcoding models. It recognizes high-confidence normal anatomy using the
-    # same eleven scan-relative intensity/structure features as the structural
-    # model. Only sustained normal runs are allowed to veto disease.
-    normal_config = resolved.get("normal_rejection")
-    normal_probability = np.zeros(width, dtype=np.float32)
-    normal_mask = np.zeros(width, dtype=bool)
-    if normal_config is not None:
-        normal_config = dict(normal_config)
-        normal_coefficients = np.asarray(
-            normal_config["coefficients"], dtype=np.float32
-        )
-        if normal_coefficients.shape != (veto_features.shape[1],):
-            raise ValueError("normal_rejection calibration requires 11 coefficients.")
-        normal_probability = _sigmoid(
-            veto_features @ normal_coefficients
-            + float(normal_config["intercept"])
-        )
-        normal_mask = normal_probability >= float(
-            normal_config["probability_threshold"]
-        )
-        if edge_margin:
-            normal_mask[:edge_margin] = False
-            normal_mask[-edge_margin:] = False
-        normal_mask = clean_column_mask(
-            normal_mask,
-            minimum_positive_run=int(normal_config["minimum_positive_run"]),
-            maximum_negative_gap=int(normal_config["maximum_negative_gap"]),
-        )
-        normal_mask = _expand_mask(
-            normal_mask, int(normal_config.get("margin_columns", 0))
-        )
-        if edge_margin:
-            normal_mask[:edge_margin] = False
-            normal_mask[-edge_margin:] = False
-
-    normal_excluded_disease_columns = (
-        normal_mask & disease_before_rejection & ~veto_mask
-    )
-    combined_rejection_mask = veto_mask | normal_mask
     for label in ("barcoding", "ea"):
-        masks[label][combined_rejection_mask] = False
+        masks[label][veto_mask] = False
         # Remove short remnants without reconnecting across the veto.
         masks[label] = clean_column_mask(
             masks[label],
@@ -578,9 +639,32 @@ def classify_ea_and_barcoding(
             "intervals_rejected_by_lesion_confidence"
         ] = rejected_intervals
 
+    masks["barcoding"], texture_rejected_intervals = (
+        _retain_texture_supported_intervals(
+            masks["barcoding"],
+            result.vertical_texture_energy,
+            dict(resolved["barcoding"].get("texture_context", {})),
+        )
+    )
+    depth_rejected_intervals: dict[str, int] = {}
+    for label in ("barcoding", "ea"):
+        masks[label], rejected = _retain_depth_supported_intervals(
+            masks[label],
+            result.depth_band_features,
+            dict(resolved[label].get("depth_context", {})),
+        )
+        depth_rejected_intervals[label] = rejected
+
     labels = np.full(width, "normal", dtype="<U10")
     labels[masks["ea"]] = "ea"
     labels[masks["barcoding"]] = "barcoding"
+    interval_evidence = {
+        label: _summarize_interval_evidence(
+            masks[label], result.vertical_texture_energy,
+            result.depth_band_features,
+        )
+        for label in ("barcoding", "ea")
+    }
     details = {
         "mode": "independent_calibrated",
         "version": resolved["version"],
@@ -594,16 +678,19 @@ def classify_ea_and_barcoding(
         "disease_columns_removed_by_structural_veto": int(
             structural_excluded_disease_columns.sum()
         ),
-        "normal_rejection_columns": int(normal_mask.sum()),
-        "disease_columns_removed_by_normal_rejection": int(
-            normal_excluded_disease_columns.sum()
-        ),
-        "normal_probability_summary": {
-            "minimum": float(normal_probability.min()),
-            "mean": float(normal_probability.mean()),
-            "maximum": float(normal_probability.max()),
-        },
         "spatial_context": context_diagnostics,
+        "texture_context": {
+            "config": dict(resolved["barcoding"].get("texture_context", {})),
+            "barcoding_intervals_rejected": int(texture_rejected_intervals),
+        },
+        "depth_context": {
+            label: {
+                "config": dict(resolved[label].get("depth_context", {})),
+                "intervals_rejected": int(depth_rejected_intervals[label]),
+            }
+            for label in ("barcoding", "ea")
+        },
+        "interval_evidence": interval_evidence,
     }
     return labels, details
 
@@ -2214,6 +2301,8 @@ class StructuralHyperTDDetectorResult:
 
     continuity: np.ndarray
     strong_vertical_fraction: np.ndarray
+    vertical_texture_energy: np.ndarray
+    depth_band_features: dict[str, np.ndarray]
 
     intensity_mask: np.ndarray
     continuity_mask: np.ndarray
@@ -2779,6 +2868,45 @@ def detect_structural_hypertransmission(
         )
     )
 
+    texture_options = dict(resolved_config.get("texture_options", {}))
+    if bool(texture_options.get("enabled", True)):
+        vertical_texture_energy, texture_metadata = (
+            compute_multiscale_vertical_texture(
+                image,
+                wavelengths=tuple(texture_options.get(
+                    "wavelengths", (4.0, 8.0, 16.0)
+                )),
+                horizontal_sigma_factor=float(texture_options.get(
+                    "horizontal_sigma_factor", 0.60
+                )),
+                depth_sigma=float(texture_options.get("depth_sigma", 12.0)),
+                signal_smoothing_sigma=float(texture_options.get(
+                    "signal_smoothing_sigma", smoothing_sigma
+                )),
+            )
+        )
+    else:
+        vertical_texture_energy = np.zeros(image_width, dtype=np.float32)
+        texture_metadata = {"enabled": False}
+
+    depth_options = dict(resolved_config.get("depth_band_options", {}))
+    if bool(depth_options.get("enabled", True)):
+        depth_band_features, depth_band_metadata = compute_depth_band_features(
+            image,
+            band_fractions=tuple(tuple(pair) for pair in depth_options.get(
+                "band_fractions", ((0.0, 0.20), (0.20, 0.50), (0.50, 1.0))
+            )),
+            band_names=tuple(depth_options.get(
+                "band_names", ("near", "middle", "deep")
+            )),
+            signal_smoothing_sigma=float(depth_options.get(
+                "signal_smoothing_sigma", smoothing_sigma
+            )),
+        )
+    else:
+        depth_band_features = {}
+        depth_band_metadata = {"enabled": False}
+
     vertical_fraction_threshold = float(
         np.quantile(
             strong_vertical_fraction[
@@ -2883,6 +3011,8 @@ def detect_structural_hypertransmission(
         "column_metadata": (
             column_metadata
         ),
+        "texture_metadata": texture_metadata,
+        "depth_band_metadata": depth_band_metadata,
     }
 
     return StructuralHyperTDDetectorResult(
@@ -2911,6 +3041,10 @@ def detect_structural_hypertransmission(
         strong_vertical_fraction=(
             strong_vertical_fraction
         ),
+        vertical_texture_energy=(
+            vertical_texture_energy
+        ),
+        depth_band_features=depth_band_features,
         intensity_mask=(
             intensity_mask
         ),

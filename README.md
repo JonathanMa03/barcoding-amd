@@ -368,6 +368,11 @@ Structural detector parameters:
 - `maximum_negative_gap`: largest internal negative gap filled between nearby
   detections; `0` disables gap filling.
 - `edge_margin`: number of columns excluded at both lateral image edges.
+- `texture_options`: multi-scale Gabor measurement settings. The default
+  wavelengths `(4, 8, 16)` pixels target narrow, medium, and broader vertical
+  stripe spacing. `horizontal_sigma_factor=0.60` controls horizontal filter
+  width, `depth_sigma=12` requires texture to persist through depth, and
+  `signal_smoothing_sigma=2` smooths the resulting column signal.
 
 EA and barcoding classification is performed by two independent calibrated
 models in `phenotype_config`. Each class has:
@@ -418,16 +423,57 @@ The detector JSON metadata reports how many columns were rejected by local
 support and feature voting, how many complete intervals failed lesion-level
 confidence, and how many columns were covered by the dark-shadow veto.
 
-Calibration v4 adds an explicit `normal_rejection` model after the independent
-EA and barcoding decisions. It estimates the probability that each column is
-normal from the same eleven scan-relative intensity and structural features
-used by the anatomical rejection stage. A provisional probability threshold
-of `0.50` is used; normal evidence must persist for at least 5 columns, and
-gaps up to 2 columns may be joined. The provisional coefficients were fitted
-on clean preprocessed PNG development scans. Results produced directly from
-E2E data should be used to decide whether these coefficients and the `0.85`
-threshold transfer adequately. Set `phenotype_config["normal_rejection"]` to
-`None` to disable this stage for an A/B comparison.
+The detector also computes an experimental multi-scale vertical Gabor-texture
+signal. It oscillates horizontally and is elongated through depth, so it
+responds to repeated vertical bright--dark stripes instead of brightness
+alone. It does not alter the validated v3 output unless
+`phenotype_config["barcoding"]["texture_context"]["enabled"]` is set to
+`True`. When enabled, a complete barcoding interval must meet both
+`minimum_interval_mean_z` and `minimum_interval_peak_z`. A useful first E2E
+A/B test is a mean threshold of `0.0` and peak threshold of `1.0`; this was
+only screened on the rendered PNG development scans and is not yet a selected
+or validated configuration.
+
+Depth-band features are also computed for every scan. The 150-row crop is
+divided into `near` (0--20%), `middle` (20--50%), and `deep` (50--100%) bands.
+The detector records robustly standardized brightness for each band plus
+`deep_minus_near` and `deep_minus_middle` contrasts. EA and barcoding each have
+an independent `depth_context` interval gate, disabled by default. Every
+automatic JSON contains `interval_evidence` with texture and depth-band
+mean/peak values, even when the experimental gates are disabled. This allows
+E2E evidence to be inspected before selecting a threshold.
+
+To A/B test the classical feature gates across the ten annotated scans, edit
+`EXPERIMENT_CONFIG` in `scripts/validation_test.py`, choose a new
+`VALIDATION_CONFIG["output_directory"]`, and run:
+
+```bash
+python scripts/validation_test.py
+```
+
+For the first Gabor experiment, set `enable_gabor_gate=True` and leave its
+mean/peak values at `0.0` and `1.0`. Depth gates should initially remain off:
+the provisional barcoding depth rule reduced recall on the rendered PNG
+development scans, while the provisional EA rule did not change any interval.
+
+### Adjacent-B-scan consistency
+
+`scripts/adjacent_bscan_consistency.py` tests whether intervals in one target
+B-scan recur at a compatible horizontal location in neighboring scans from the
+same E2E volume. Edit `e2e_path`, `target_bscan_index`, and the matching
+settings in `CONSISTENCY_CONFIG`, then run:
+
+```bash
+python scripts/adjacent_bscan_consistency.py
+```
+
+With the defaults, the script processes the target and two scans on either
+side, then retains an interval when at least one neighbor has the same label,
+at least 25% interval overlap, and no more than a 30-column center shift. It
+writes raw and consistency-filtered PNGs plus a JSON containing every match,
+the raw/filtered numerical summaries, and detector feature diagnostics under
+`results/adjacent_bscan_consistency/`. The script's `EXPERIMENT_CONFIG` can
+also enable Gabor or depth gates before volume consistency is applied.
 
 The JSON output contains one `normal`, `ea`, or `barcoding` label per column,
 detected intervals, thresholds, label counts, and the detector configuration.

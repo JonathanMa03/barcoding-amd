@@ -79,6 +79,36 @@ DETECTOR_CONFIG = {
     "phenotype_config": deepcopy(CALIBRATED_PHENOTYPE_V1_CONFIG),
 }
 
+# Optional classical-feature experiments. Keep all False for contextual v3.
+# Use a separate VALIDATION_CONFIG["output_directory"] when comparing runs.
+EXPERIMENT_CONFIG = {
+    "enable_gabor_gate": False,
+    "gabor_minimum_interval_mean_z": 0.0,
+    "gabor_minimum_interval_peak_z": 1.0,
+    "enable_barcoding_depth_gate": False,
+    "enable_ea_depth_gate": False,
+}
+
+
+def configure_experimental_gates() -> None:
+    """Apply experiment switches to the copied phenotype configuration."""
+    phenotype = DETECTOR_CONFIG["phenotype_config"]
+    phenotype["barcoding"]["texture_context"].update({
+        "enabled": bool(EXPERIMENT_CONFIG["enable_gabor_gate"]),
+        "minimum_interval_mean_z": float(
+            EXPERIMENT_CONFIG["gabor_minimum_interval_mean_z"]
+        ),
+        "minimum_interval_peak_z": float(
+            EXPERIMENT_CONFIG["gabor_minimum_interval_peak_z"]
+        ),
+    })
+    phenotype["barcoding"]["depth_context"]["enabled"] = bool(
+        EXPERIMENT_CONFIG["enable_barcoding_depth_gate"]
+    )
+    phenotype["ea"]["depth_context"]["enabled"] = bool(
+        EXPERIMENT_CONFIG["enable_ea_depth_gate"]
+    )
+
 
 def discover_validation_cases(directory: Path) -> list[dict[str, Any]]:
     """Read validation identities and scan indices from manual JSON files."""
@@ -217,6 +247,7 @@ def _json_value(value: Any) -> Any:
 
 
 def main() -> None:
+    configure_experimental_gates()
     ground_truth_directory = Path(VALIDATION_CONFIG["manual_ground_truth_directory"])
     output_directory = Path(VALIDATION_CONFIG["output_directory"])
     output_directory.mkdir(parents=True, exist_ok=True)

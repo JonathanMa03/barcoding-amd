@@ -34,7 +34,7 @@ from pathlib import Path
 from typing import Any, Mapping
 
 import numpy as np
-from scipy.ndimage import gaussian_filter1d, gaussian_filter
+from scipy.ndimage import convolve1d, gaussian_filter1d, gaussian_filter
 
 
 FEATURE_NAMES = (
@@ -44,6 +44,139 @@ FEATURE_NAMES = (
     "amplitude",
     "heterogeneity",
 )
+
+
+def compute_multiscale_vertical_texture(
+    image: np.ndarray,
+    *,
+    wavelengths: tuple[float, ...] = (4.0, 8.0, 16.0),
+    horizontal_sigma_factor: float = 0.60,
+    depth_sigma: float = 12.0,
+    signal_smoothing_sigma: float = 2.0,
+) -> tuple[np.ndarray, dict[str, Any]]:
+    """Measure repeated vertical bright--dark texture with Gabor filters.
+
+    Each filter oscillates horizontally and is elongated through depth, so it
+    responds to vertical stripe patterns rather than broad brightness alone.
+    Quadrature cosine/sine responses make the energy insensitive to whether a
+    stripe begins bright or dark. Energies are robustly standardized per scale
+    before averaging, preventing one wavelength from dominating by magnitude.
+    """
+    image = np.asarray(image, dtype=np.float32)
+    if image.ndim != 2 or image.size == 0:
+        raise ValueError("image must be a non-empty two-dimensional array.")
+    if not np.isfinite(image).all():
+        raise ValueError("image contains non-finite values.")
+    if not wavelengths or any(float(value) <= 0.0 for value in wavelengths):
+        raise ValueError("wavelengths must contain positive values.")
+    if horizontal_sigma_factor <= 0.0 or depth_sigma <= 0.0:
+        raise ValueError("Gabor sigma values must be positive.")
+
+    depth_smoothed = gaussian_filter1d(
+        image, sigma=depth_sigma, axis=0, mode="reflect"
+    )
+    scale_signals = []
+    for wavelength_value in wavelengths:
+        wavelength = float(wavelength_value)
+        sigma_x = horizontal_sigma_factor * wavelength
+        radius_x = max(2, int(np.ceil(3.0 * sigma_x)))
+        x = np.arange(-radius_x, radius_x + 1, dtype=np.float32)
+        envelope = np.exp(-0.5 * (x / sigma_x) ** 2)
+        phase = 2.0 * np.pi * x / wavelength
+        cosine_kernel = envelope * np.cos(phase)
+        sine_kernel = envelope * np.sin(phase)
+        cosine_kernel -= cosine_kernel.mean()
+        sine_kernel -= sine_kernel.mean()
+        cosine_kernel /= np.sqrt(np.sum(cosine_kernel ** 2)) + 1e-8
+        sine_kernel /= np.sqrt(np.sum(sine_kernel ** 2)) + 1e-8
+
+        cosine_response = convolve1d(
+            depth_smoothed, cosine_kernel, axis=1, mode="reflect"
+        )
+        sine_response = convolve1d(
+            depth_smoothed, sine_kernel, axis=1, mode="reflect"
+        )
+        energy = np.sqrt(cosine_response ** 2 + sine_response ** 2)
+        column_energy = energy.mean(axis=0)
+        center = float(np.median(column_energy))
+        scale = float(
+            np.quantile(column_energy, 0.75)
+            - np.quantile(column_energy, 0.25)
+        )
+        scale_signals.append(
+            np.clip((column_energy - center) / (scale + 1e-6), -5.0, 5.0)
+        )
+
+    texture_signal = np.mean(scale_signals, axis=0).astype(np.float32)
+    if signal_smoothing_sigma > 0.0:
+        texture_signal = gaussian_filter1d(
+            texture_signal, sigma=signal_smoothing_sigma, mode="nearest"
+        ).astype(np.float32)
+    return texture_signal, {
+        "wavelengths": [float(value) for value in wavelengths],
+        "horizontal_sigma_factor": float(horizontal_sigma_factor),
+        "depth_sigma": float(depth_sigma),
+        "signal_smoothing_sigma": float(signal_smoothing_sigma),
+        "interpretation": "higher values indicate multi-scale vertical stripes",
+    }
+
+
+def compute_depth_band_features(
+    image: np.ndarray,
+    *,
+    band_fractions: tuple[tuple[float, float], ...] = (
+        (0.0, 0.20), (0.20, 0.50), (0.50, 1.0),
+    ),
+    band_names: tuple[str, ...] = ("near", "middle", "deep"),
+    signal_smoothing_sigma: float = 2.0,
+) -> tuple[dict[str, np.ndarray], dict[str, Any]]:
+    """Summarize scan-relative column brightness in anatomical depth bands."""
+    image = np.asarray(image, dtype=np.float32)
+    if image.ndim != 2 or image.size == 0 or not np.isfinite(image).all():
+        raise ValueError("image must be a finite, non-empty two-dimensional array.")
+    if len(band_fractions) != len(band_names) or not band_names:
+        raise ValueError("band_fractions and band_names must have equal length.")
+
+    height = image.shape[0]
+    signals: dict[str, np.ndarray] = {}
+    resolved_bands = []
+    for name, (start_fraction, stop_fraction) in zip(band_names, band_fractions):
+        start_fraction = float(start_fraction)
+        stop_fraction = float(stop_fraction)
+        if not 0.0 <= start_fraction < stop_fraction <= 1.0:
+            raise ValueError("depth-band fractions must satisfy 0 <= start < stop <= 1.")
+        start = int(np.floor(start_fraction * height))
+        stop = max(start + 1, int(np.ceil(stop_fraction * height)))
+        stop = min(stop, height)
+        raw = np.median(image[start:stop], axis=0).astype(np.float32)
+        center = float(np.median(raw))
+        scale = float(np.quantile(raw, 0.75) - np.quantile(raw, 0.25))
+        standardized = np.clip((raw - center) / (scale + 1e-6), -5.0, 5.0)
+        if signal_smoothing_sigma > 0.0:
+            standardized = gaussian_filter1d(
+                standardized,
+                sigma=signal_smoothing_sigma,
+                mode="nearest",
+            )
+        signals[str(name)] = standardized.astype(np.float32)
+        resolved_bands.append({
+            "name": str(name), "start_row": start, "stop_row_exclusive": stop,
+            "start_fraction": start_fraction, "stop_fraction": stop_fraction,
+        })
+
+    if "near" in signals and "deep" in signals:
+        signals["deep_minus_near"] = (
+            signals["deep"] - signals["near"]
+        ).astype(np.float32)
+    if "middle" in signals and "deep" in signals:
+        signals["deep_minus_middle"] = (
+            signals["deep"] - signals["middle"]
+        ).astype(np.float32)
+    return signals, {
+        "bands": resolved_bands,
+        "signal_smoothing_sigma": float(signal_smoothing_sigma),
+        "available_signals": sorted(signals),
+    }
 
 
 @dataclass
