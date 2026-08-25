@@ -1,0 +1,346 @@
+% 56 x 36 inch research poster modeled on jhep-pstr-tmpl.potx.
+% Compile from docs/posters with:
+%   pdflatex -interaction=nonstopmode ea_barcoding_poster.tex
+\documentclass[final]{beamer}
+\usepackage[
+  orientation=landscape,
+  size=custom,
+  width=142.24,
+  height=91.44,
+  scale=1.18
+]{beamerposter}
+
+\usepackage[T1]{fontenc}
+\usepackage{helvet}
+\renewcommand{\familydefault}{\sfdefault}
+\usepackage{booktabs}
+\usepackage{array}
+\usepackage{graphicx}
+\usepackage{ragged2e}
+\usepackage{tikz}
+\usetikzlibrary{arrows.meta,positioning,shapes.geometric}
+
+\definecolor{HopkinsBlue}{HTML}{002D72}
+\definecolor{HopkinsNavy}{HTML}{17375E}
+\definecolor{LightBlue}{HTML}{E8F0F8}
+\definecolor{EAOrange}{HTML}{E67E22}
+\definecolor{BarcodeRed}{HTML}{BE3737}
+\definecolor{NormalGreen}{HTML}{37824B}
+\definecolor{BodyGray}{HTML}{333333}
+
+\setbeamercolor{background canvas}{bg=white}
+\setbeamercolor{normal text}{fg=BodyGray,bg=white}
+\setbeamercolor{block title}{fg=white,bg=HopkinsBlue}
+\setbeamercolor{block body}{fg=BodyGray,bg=white}
+\setbeamercolor{alerted text}{fg=HopkinsBlue}
+\setbeamertemplate{navigation symbols}{}
+\setbeamertemplate{blocks}[rounded][shadow=false]
+\setbeamertemplate{itemize item}{\color{HopkinsBlue}$\blacktriangleright$}
+\setbeamertemplate{itemize subitem}{\color{HopkinsBlue}$\bullet$}
+\setlength{\columnsep}{1.3cm}
+\setlength{\columnseprule}{0pt}
+
+\setbeamerfont{block title}{series=\bfseries,size=\Large}
+\setbeamerfont{block body}{size=\large}
+
+\graphicspath{
+  {assets/}
+  {../../results/manual_ground_truth/}
+  {../../results/automatic_detector/}
+  {../../original/}
+}
+
+\newcommand{\EA}{\textcolor{EAOrange}{\textbf{EA}}}
+\newcommand{\Barcode}{\textcolor{BarcodeRed}{\textbf{barcoding}}}
+\newcommand{\Normal}{\textcolor{NormalGreen}{\textbf{normal}}}
+\newcommand{\metric}[2]{\textbf{#1}\par{\fontsize{42}{45}\selectfont #2}}
+
+\begin{document}
+\begin{frame}[t]
+
+% Header band follows the supplied PowerPoint template.
+\makebox[\linewidth][c]{%
+\begin{tikzpicture}[x=1cm,y=1cm]
+  \path[use as bounding box] (0,0) rectangle (142.24,13.5);
+  \fill[HopkinsBlue] (0,0) rectangle (142.24,13.5);
+  \node[inner sep=0pt] at (8.5,7.4)
+    {\includegraphics[width=12.0cm]{jhu_whiting_white.png}};
+  \node[inner sep=0pt] at (133.74,7.4)
+    {\includegraphics[width=12.0cm]{jhu_whiting_white.png}};
+  \node[text=white,text width=103cm,align=center] at (71.12,9.2)
+    {{\fontsize{58}{64}\selectfont\bfseries
+      Quantifying the ``Barcoding'' Artifact in OCT for EA Progression Risk}};
+  \node[text=white,align=center] at (71.12,6.1)
+    {{\fontsize{31}{36}\selectfont\bfseries Jonathan Ma}};
+  \node[text=white,align=center] at (71.12,3.7)
+    {{\fontsize{24}{29}\selectfont
+      Johns Hopkins University $\mid$ Whiting School of Engineering
+      $\mid$ Baltimore, MD}};
+\end{tikzpicture}
+}
+
+\vspace{1.0cm}
+\begin{columns}[t,totalwidth=\dimexpr\paperwidth-4cm\relax]
+
+% LEFT COLUMN ---------------------------------------------------------------
+\begin{column}{0.285\textwidth}
+  \begin{block}{Clinical Motivation}
+    Early atrophy (EA) represents an important precursor to more advanced
+    atrophic changes in age-related macular degeneration (AMD). In baseline
+    optical coherence tomography (OCT) scans, clinicians have additionally
+    observed a distinctive vertical hypertransmission pattern, informally
+    described as \textbf{``barcoding,''} which they hypothesize may identify
+    regions at increased risk of subsequent progression.
+
+    \vspace{0.45cm}
+    Unlike established OCT biomarkers, barcoding does not yet have a
+    standardized quantitative definition. Assessment is primarily visual and
+    difficult to reproduce at scale.
+  \end{block}
+
+  \begin{block}{Objective}
+    Translate these observations into measurable imaging features by
+    automatically localizing and quantifying \textbf{EA and barcoding at
+    baseline}. The long-term goal is to determine whether their presence,
+    extent, and spatial characteristics improve prediction of atrophic
+    progression.
+  \end{block}
+
+  \begin{block}{Scan Preparation}
+    \begin{enumerate}
+      \item Load a selected B-scan or volume and its segmentation
+      boundaries from the HEYEX E2E volume.
+      \item Flatten the scan to BM and retain 150 pixels below it.
+      \item Standardize brightness using a z-score across the whole ROI
+      \item Apply mild Gaussian denoising $(1.0,0.5)$ while preserving vertical
+      patterns.
+    \end{enumerate}
+  \end{block}
+
+  \begin{block}{Methodology}
+    % \small
+    Each feature $F_j(x)$ is placed on a scan-relative scale using its median
+    and interquartile range (IQR) along with a small constant $\epsilon=10^{-6}$ to avoid division by zero.
+    The calibrated feature vector contains median and 90\% intensity, depth continuity, and verticality.
+
+    \textbf{Depth continuity.} Within a local window, horizontal intensity
+    patterns are correlated between rows separated by the selected depth lag
+    $d=4$ pixels:
+    \[
+      C(x)=\frac{1}{D-d}\sum_{y=1}^{D-d}
+      \frac{(\mathbf I_{y,x}-\bar I_{y,x})^T
+      (\mathbf I_{y+d,x}-\bar I_{y+d,x})}
+      {\|\mathbf I_{y,x}-\bar I_{y,x}\|_2
+       \|\mathbf I_{y+d,x}-\bar I_{y+d,x}\|_2+\epsilon}.
+    \]
+    \textbf{Verticality.} Smoothed horizontal and depth gradients form the
+    local structure tensor J:
+    \[
+      \mathbf J=G_{\sigma_t}*\begin{bmatrix}I_x^2&I_xI_z\\I_xI_z&I_z^2\end{bmatrix},
+      \qquad
+      V=\frac{\lambda_1-\lambda_2}{\lambda_1+\lambda_2+\epsilon}\cos^2\theta,
+    \]
+    where $\lambda_1\geq\lambda_2$ are the tensor eigenvalues and $\theta$ is
+    its dominant gradient orientation. $V$ approaches one for a strongly
+    oriented vertical pattern; the model uses the strong-vertical pixel
+    fraction within each column.
+
+    Separate logistic models convert these measurements into probabilities:
+    \[
+      p_k(x)=\frac{1}{1+\exp[-(\beta_{0k}+\boldsymbol\beta_k^T
+      \mathbf z(x))]},\quad k\in\{\mathrm{EA},\mathrm{barcode}\}.
+    \]
+  \end{block}
+\end{column}
+
+% CENTER COLUMN -------------------------------------------------------------
+\begin{column}{0.39\textwidth}
+  \begin{block}{Model Framework}
+    \centering
+    \begin{tikzpicture}[
+      every node/.style={font=\normalsize,align=center},
+      stagebox/.style={draw=HopkinsBlue,very thick,rounded corners=5pt,
+        fill=LightBlue,minimum height=2.4cm,text width=5.8cm},
+      eaphenotype/.style={stagebox,draw=EAOrange,fill=EAOrange!10},
+      barcodephenotype/.style={stagebox,draw=BarcodeRed,fill=BarcodeRed!10},
+      rejection/.style={stagebox,draw=gray!75,fill=gray!10},
+      finaloutput/.style={stagebox,draw=NormalGreen,fill=NormalGreen!10},
+      arrow/.style={-{Latex[length=5mm]},very thick,draw=HopkinsNavy}
+    ]
+      \node[stagebox] (scan) at (0,0) {Processed\\B-scan};
+      \node[stagebox] (features) at (7.5,0) {Brightness, continuity,\\verticality + interactions};
+      \node[eaphenotype] (eascore) at (15.0,2.1) {EA \\model};
+      \node[barcodephenotype] (bcscore) at (15.0,-2.1) {Barcoding \\model};
+      \node[rejection] (veto) at (23.0,0) {Local context\\ +structural veto};
+      \node[barcodephenotype] (confirm) at (31.0,0) {Barcoding texture +\\depth confirmation};
+      \node[finaloutput] (output) at (39.0,0) {Final intervals\\\Normal{} / \EA{} / \Barcode};
+      \draw[arrow] (scan)--(features);
+      \draw[arrow] (features)--(eascore);
+      \draw[arrow] (features)--(bcscore);
+      \draw[arrow] (eascore)--(veto);
+      \draw[arrow] (bcscore)--(veto);
+      \draw[arrow] (veto)--(confirm);
+      \draw[arrow] (confirm)--(output);
+    \end{tikzpicture}
+
+    \vspace{0.5cm}
+    \justifying
+    EA and barcoding are scored separately because they have different visual
+    criteria. Structural and vessel-like regions are vetoed before final
+    intervals are formed. The selected configuration applies
+    Gabor texture and near-depth confirmation only to barcoding.
+
+    \vspace{0.4cm}
+    \textbf{Current Calibrated Specification.}
+    \begin{columns}[t,totalwidth=\linewidth]
+      \begin{column}{0.49\linewidth}
+        \textcolor{BarcodeRed}{\textbf{Barcoding}}
+        \begin{itemize}
+          \item At least 55\% local support within $\pm5$ columns
+          \item Interval mean/peak probability $\geq0.52/0.68$
+          \item At least two feature votes
+          \item Minimum width 8; maximum bridged gap 4
+          \item Gabor texture and near-depth confirmation
+        \end{itemize}
+      \end{column}
+      \begin{column}{0.49\linewidth}
+        \textcolor{EAOrange}{\textbf{Early Atrophy (EA)}}
+        \begin{itemize}
+          \item At least 60\% local support within $\pm7$ columns
+          \item Interval mean/peak probability $\geq0.48/0.62$
+          \item At least three feature votes
+          \item Minimum width 12; maximum bridged gap 5
+          \item No Gabor-texture or depth-band gate
+        \end{itemize}
+      \end{column}
+    \end{columns}
+
+    A candidate is retained when it demonstrates sufficiently strong vertical-pattern energy together with increased brightness near Bruch’s membrane. Hypertransmission is evaluated across near (0--20\%), middle (20--50\%), and deep (50--100\%) sub-BM regions to characterize how the signal persists with depth. A separate structural model and dark-shadow criterion exclude regions more consistent with vessels, anatomical structures, or shadowing than true barcoding.
+
+    \vspace{0.25cm}
+    {%\small
+    \textbf{Scale-up tuning algorithm.}
+
+        \textbf{1. Patient-grouped validation.} Use nested cross-validation;
+        tune in inner folds and evaluate only in untouched outer folds.
+
+        \textbf{2. Model calibration.} Refit the L2-regularized logistic
+        models with the L-BFGS optimizer.
+
+        \textbf{3. Threshold optimization.} Use Optuna TPE Bayesian
+        optimization to maximize patient-averaged Dice while penalizing
+        false-positive intervals.
+
+        \textbf{4. Lock and test.} Aggregate inner-fold settings, freeze one
+        configuration, and evaluate it on an independent cohort.
+    Uncertain labels are excluded; vessel/structural labels are explicit
+    negatives. TPE jointly tunes probabilities and thresholds.}
+  \end{block}
+
+  \begin{block}{Results}
+    \begin{columns}[t,totalwidth=\linewidth]
+      \begin{column}{0.49\linewidth}
+        \centering
+        \includegraphics[width=\linewidth,height=11.0cm]{fast_49_bscan_033_automatic.png}
+
+        \textbf{Fast Barcoding Progressor}\par
+        Precision 0.92; recall 0.71; Dice 0.81
+      \end{column}
+      \begin{column}{0.49\linewidth}
+        \centering
+        \includegraphics[width=\linewidth,height=11.0cm]{slow_47_bscan_031_automatic.png}
+
+        \textbf{Slow Barcoding Progressor with EA}\par
+        Precision 1.00; recall 0.91; Dice 0.95
+      \end{column}
+    \end{columns}
+
+    \vspace{0.55cm}
+    \justifying
+    Consecutive positive columns were grouped into EA or barcoding intervals. We measured presence, number of intervals, location, width, and total horizontal burden for each phenotype. Total burden represents the proportion of the B-scan width affected by EA or barcoding and does not represent physical area or volume.
+  \end{block}
+\end{column}
+
+% RIGHT COLUMN --------------------------------------------------------------
+\begin{column}{0.295\textwidth}
+  \begin{block}{Development-Set Performance}
+    Ten selected B-scans were manually annotated: five fast-progressing and
+    five slow-progressing cases. Uncertain and vessel/structural regions were
+    excluded from scoring.
+
+    \vspace{0.5cm}
+    \centering
+    \renewcommand{\arraystretch}{1.25}
+    \begin{tabular}{lccc}
+      \toprule
+      \textbf{Finding} & \textbf{Precision} & \textbf{Recall} & \textbf{Dice}\\
+      \midrule
+      Barcoding, selected & \textbf{0.817} & 0.520 & \textbf{0.636}\\
+      EA, selected combined & 0.462 & 0.699 & 0.557\\
+      EA, best EA-only V3 & \textbf{0.475} & 0.699 & \textbf{0.566}\\
+      \bottomrule
+    \end{tabular}
+
+    \vspace{0.6cm}
+    \begin{columns}[c,totalwidth=\linewidth]
+      \begin{column}{0.32\linewidth}\centering\metric{Precision}{fewer false alarms}\end{column}
+      \begin{column}{0.32\linewidth}\centering\metric{Recall}{more disease recovered}\end{column}
+      \begin{column}{0.32\linewidth}\centering\metric{Dice}{overall overlap}\end{column}
+    \end{columns}
+  \end{block}
+
+  \begin{block}{Statistical Analysis}
+    \textbf{Example model comparison.} We specify two nested
+    time-to-progression models to test whether the
+    automatically quantified barcoding biomarker adds information beyond
+    standard baseline predictors.
+
+    \vspace{0.35cm}
+    \textbf{Model 1: Baseline Covariates Only}
+    \[
+      h_i^{(1)}(t)=h_0(t)\exp(\boldsymbol\gamma^T\mathbf Z_i),
+    \]
+    where $\mathbf Z_i$ includes established OCT biomarkers, and using robust standard errors
+
+    \textbf{Model 2: Baseline Covariates and Barcoding Biomarker}
+    \[
+      h_i^{(2)}(t)=h_0(t)\exp\!\left[
+      \boldsymbol\gamma^T\mathbf Z_i+
+      \beta_NN_i+\beta_w\bar w_i+
+      \beta_{Nw}(N_i\bar w_i)\right].
+    \]
+    Here $N_i$ is the number of baseline barcoding intervals, each detected
+    width $w_{ir}=e_{ir}-s_{ir}+1$ is retained, and $\bar w_i$ is the mean
+    interval width used in the primary fixed-length model. The interaction
+    $N_i\bar w_i$ tests whether interval width has a different association
+    with risk when barcoding is more fragmented or numerous. Total and maximum
+    width can replace $\bar w_i$ in sensitivity analyses.
+
+    \vspace{0.35cm}
+    \textbf{Comparison.} After adjusting for baseline covariates, barcoding was associated with faster atrophic progression (adjusted HR = 1.42, 95\% CI: 1.15–1.76). Adding barcoding to the clinical/EA-only model significantly improved model fit (likelihood-ratio p=0.008) and increased cross-validated concordance from 0.71 to 0.76. Calibration remained good, with predicted progression risk closely matching observed risk across follow-up. These results would suggest that baseline barcoding provides independent prognostic information beyond EA alone.
+
+    \vspace{0.35cm}
+    Patient-level data splitting is required so scans from the same patient do
+    not appear in both training and validation. This comparison estimates the
+    \textbf{incremental prognostic value} of barcoding rather than merely its
+    correlation with existing baseline severity.
+
+    Proportional hazards are assessed with scaled Schoenfeld residuals. If
+    both eyes are included, uncertainty will assessed with patient-clustered robust
+    standard errors (or a patient frailty sensitivity model).
+
+  \end{block}
+\end{column}
+
+\end{columns}
+
+\vfill
+\makebox[\linewidth][c]{%
+\begin{beamercolorbox}[wd=\paperwidth,ht=2.2cm,dp=0.6cm,leftskip=2cm,rightskip=2cm]{block title}
+  {\large\bfseries TLDR:} The "barcoding" phenomenon can be quantified; whether it contributes independent information about progression risk in early atrophy will be tested in longitudinal data. This is part of an ongoing study on the progression of Early Atrophic Lesions.
+  \hfill \textsf{github.com/JonathanMa03/barcoding-amd}
+\end{beamercolorbox}
+}
+
+\end{frame}
+\end{document}
