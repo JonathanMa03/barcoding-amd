@@ -1,0 +1,326 @@
+% 56 x 36 inch theoretical deep-learning poster.
+% Compile from docs/posters with:
+%   pdflatex -interaction=nonstopmode jma_resnet_unet_poster.tex
+\documentclass[final]{beamer}
+\usepackage[orientation=landscape,size=custom,width=142.24,height=91.44,scale=1.18]{beamerposter}
+\usepackage[T1]{fontenc}
+\usepackage{helvet}
+\renewcommand{\familydefault}{\sfdefault}
+\usepackage{amsmath}
+\usepackage{booktabs}
+\usepackage{array}
+\usepackage{algorithm}
+\usepackage{algpseudocode}
+\usepackage{float}
+\usepackage{ragged2e}
+\usepackage{tikz}
+\usetikzlibrary{arrows.meta,positioning,fit,calc}
+
+\definecolor{HopkinsBlue}{HTML}{002D72}
+\definecolor{HopkinsNavy}{HTML}{17375E}
+\definecolor{LightBlue}{HTML}{E8F0F8}
+\definecolor{EAOrange}{HTML}{E67E22}
+\definecolor{BarcodeRed}{HTML}{BE3737}
+\definecolor{NormalGreen}{HTML}{37824B}
+\definecolor{BodyGray}{HTML}{333333}
+
+\setbeamercolor{background canvas}{bg=white}
+\setbeamercolor{normal text}{fg=BodyGray,bg=white}
+\setbeamercolor{block title}{fg=white,bg=HopkinsBlue}
+\setbeamercolor{block body}{fg=BodyGray,bg=white}
+\setbeamertemplate{navigation symbols}{}
+\setbeamertemplate{blocks}[rounded][shadow=false]
+\setbeamertemplate{itemize item}{\color{HopkinsBlue}$\blacktriangleright$}
+\setbeamertemplate{itemize subitem}{\color{HopkinsBlue}$\bullet$}
+\setbeamertemplate{enumerate item}{\color{HopkinsBlue}\insertenumlabel.}
+\setlength{\columnsep}{1.3cm}
+\setlength{\columnseprule}{0pt}
+\setbeamerfont{block title}{series=\bfseries,size=\Large}
+\setbeamerfont{block body}{size=\large}
+
+\graphicspath{{assets/}}
+\newcommand{\EA}{\textcolor{EAOrange}{\textbf{EA}}}
+\newcommand{\Barcode}{\textcolor{BarcodeRed}{\textbf{barcoding}}}
+
+\begin{document}
+\begin{frame}[t]
+
+% Header -------------------------------------------------------------------
+\makebox[\linewidth][c]{%
+\begin{tikzpicture}[x=1cm,y=1cm]
+  \path[use as bounding box] (0,0) rectangle (142.24,13.5);
+  \fill[HopkinsBlue] (0,0) rectangle (142.24,13.5);
+  \node[inner sep=0pt] at (8.5,7.4)
+    {\includegraphics[width=12.0cm]{jhu_whiting_white.png}};
+  \node[inner sep=0pt] at (133.74,7.4)
+    {\includegraphics[width=12.0cm]{jhu_whiting_white.png}};
+  \node[text=white,text width=103cm,align=center] at (71.12,9.5)
+    {{\fontsize{56}{62}\selectfont\bfseries
+      An Interpretable Deep Learning Approach to Barcoding Localization}};
+  \node[text=white,align=center] at (71.12,6.3)
+    {{\fontsize{30}{35}\selectfont\bfseries Jonathan Ma}};
+  \node[text=white,align=center] at (71.12,4.9)
+    {{\fontsize{22}{27}\selectfont
+      Department of Applied Mathematics and Statistics}};
+  \node[text=white,align=center] at (71.12,3.0)
+    {{\fontsize{22}{27}\selectfont
+      \href{mailto:jonathanma217@outlook.com}{jonathanma217@outlook.com}
+      $\mid$
+      \href{https://jonathanma03.github.io}{jonathanma03.github.io}}};
+\end{tikzpicture}}
+
+\vspace{1.0cm}
+\begin{columns}[t,totalwidth=\dimexpr\paperwidth-4cm\relax]
+
+% LEFT COLUMN ---------------------------------------------------------------
+\begin{column}{0.285\textwidth}
+  \begin{block}{Clinical Motivation}
+    Early atrophy (EA) is a precursor to advanced atrophic change in
+    age-related macular degeneration. Clinicians have also observed a vertical
+    hypertransmission pattern in baseline OCT, informally called \Barcode,
+    which may indicate regions at increased risk of progression.
+
+    \vspace{0.4cm}
+    A scalable system should localize both findings while showing clinicians
+    which image regions influenced each decision. This poster proposes a
+    two-output segmentation network with built-in visual explanation.
+  \end{block}
+
+  \begin{block}{Input and Preprocessing}
+    Each example contains an OCT B-scan and separate manual masks for \EA{} and
+    \Barcode. Anatomical preprocessing standardizes the network inputs:
+    \begin{enumerate}
+      \item Load the B-scan and Bruch membrane (BM) boundary.
+      \item Flatten the scan to BM and retain the sub-BM region.
+      \item Normalize intensity within the scan.
+      \item Apply mild denoising while preserving vertical patterns.
+      \item Resize or pad every image and mask to a common tensor shape.
+      \item Apply paired, label-preserving augmentation during training:
+        horizontal reflection, small translation, crop, and intensity jitter.
+    \end{enumerate}
+    Split by patient \emph{before} augmentation to prevent data leakage. A
+    validity mask $V$ removes uncertain and vessel/structural annotations from
+    the loss rather than incorrectly treating those pixels as normal tissue.
+  \end{block}
+
+  \begin{block}{What the Network Predicts}
+    For every image location $i$, the model returns two probabilities:
+    \[
+      p_i^{EA}=P(y_i^{EA}=1\mid I), \qquad
+      p_i^{BC}=P(y_i^{BC}=1\mid I).
+    \]
+    Separate heads share anatomical features without sharing a decision boundary.
+
+    \vspace{0.25cm}
+    With phenotype-specific threshold $\tau_k$, the binary prediction is
+    $\hat y_i^k=\mathbb{1}[p_i^k\geq\tau_k]$. Small isolated components can be
+    removed using a minimum-width rule selected only on validation data.
+
+    \vspace{0.35cm}
+    Saved outputs include both probability maps and masks; interval count,
+    width, location, and total burden; phenotype-specific Grad-CAM maps; and an
+    overlay linking predictions to the original B-scan.
+  \end{block}
+
+  \begin{block}{Why Two Segmentation Heads?}
+    EA and barcoding share retinal boundaries, brightness, and hypertransmission,
+    but their spatial criteria differ. A shared decoder learns common context;
+    separate $1\!\times\!1$ convolution heads learn phenotype-specific maps.
+    The masks remain non-exclusive unless clinical labeling establishes another
+    rule. Each task may use distinct class weights, loss weights, thresholds,
+    and calibration curves.
+  \end{block}
+\end{column}
+
+% CENTER COLUMN -------------------------------------------------------------
+\begin{column}{0.405\textwidth}
+  \begin{block}{Proposed ResNet--U-Net Architecture}
+    \centering
+    \scalebox{0.94}{%
+    \begin{tikzpicture}[
+      x=1cm,y=1cm,
+      every node/.style={font=\normalsize,align=center},
+      enc/.style={draw=HopkinsBlue,very thick,rounded corners=4pt,
+        fill=LightBlue,text width=4.6cm,minimum width=5.0cm,minimum height=2.6cm},
+      bottleneck/.style={enc,fill=HopkinsBlue!15,minimum width=5.4cm},
+      dec/.style={enc,draw=NormalGreen,fill=NormalGreen!9},
+      ea/.style={enc,draw=EAOrange,fill=EAOrange!10,minimum width=5.6cm},
+      bc/.style={enc,draw=BarcodeRed,fill=BarcodeRed!10,minimum width=5.6cm},
+      arrow/.style={-{Latex[length=4mm]},very thick,draw=HopkinsNavy},
+      skip/.style={-{Latex[length=3.5mm]},thick,dashed,draw=gray!75}]
+
+      \node[enc] (input) at (0,0) {Input\\B-scan};
+      \node[enc] (e1) at (6.5,0) {Encoder\\E1};
+      \node[enc] (e2) at (13.0,0) {Encoder\\E2};
+      \node[enc] (e3) at (19.5,0) {Encoder\\E3};
+      \node[bottleneck] (bn) at (26.2,0) {Bottleneck\\BN};
+      \node[dec] (d3) at (26.2,-7.3) {Decoder\\D3};
+      \node[dec] (d2) at (19.5,-7.3) {Decoder\\D2};
+      \node[dec] (d1) at (13.0,-7.3) {Decoder\\D1};
+      \node[ea] (eah) at (5.5,-13.0) {EA segmentation\\head};
+      \node[bc] (bch) at (20.5,-13.0) {BC segmentation\\head};
+
+      \draw[arrow] (input)--(e1);
+      \draw[arrow] (e1)--(e2);
+      \draw[arrow] (e2)--(e3);
+      \draw[arrow] (e3)--(bn);
+      \draw[arrow] (bn)--(d3);
+      \draw[arrow] (d3)--(d2);
+      \draw[arrow] (d2)--(d1);
+      \draw[arrow] (d1)--(eah);
+      \draw[arrow] (d1)--(bch);
+      \draw[skip] (e3.south) to[out=-90,in=90] node[right,font=\small]{skip} (d3.north);
+      \draw[skip] (e2.south) to[out=-90,in=90] node[right,font=\small]{skip} (d2.north);
+      \draw[skip] (e1.south) to[out=-90,in=155] node[left,font=\small]{skip} (d1.north west);
+
+      \node[fit=(e1)(e2)(e3)(bn),draw=HopkinsBlue,dotted,very thick,
+        rounded corners=6pt,inner sep=0.35cm,label={[font=\large\bfseries,text=HopkinsBlue]above:ResNet encoder}] {};
+      \node[fit=(d1)(d2)(d3),draw=NormalGreen,dotted,very thick,
+        rounded corners=6pt,inner sep=0.35cm] {};
+      \node[font=\large\bfseries,text=NormalGreen] at (19.5,-4.4)
+        {U-Net decoder};
+    \end{tikzpicture}
+    }
+
+    \vspace{0.45cm}
+    \justifying
+    \textbf{Diagram key.} E1 captures edges and fine texture; E2 captures local
+    retinal anatomy; E3 captures deeper spatial context; BN is the compressed
+    bottleneck representation. D3, D2, and D1 successively upsample and fuse
+    encoder features. BC denotes barcoding. Each segmentation head applies a
+    $1\!\times\!1$ convolution and sigmoid to produce its probability map.
+
+    \vspace{0.3cm}
+    The ResNet encoder compresses the scan into increasingly contextual
+    features. Residual connections make deeper optimization stable. The U-Net
+    decoder restores spatial resolution, while skip connections recover fine
+    retinal boundaries that would otherwise be lost during downsampling.
+  \end{block}
+
+  \begin{block}{Shared Representation, Separate Decisions}
+    Let $f_\theta(I)$ be the shared encoder--decoder representation. The two
+    output heads are
+    \[
+      \hat{Y}_{EA}=\sigma(W_{EA}*f_\theta(I)+b_{EA}),\qquad
+      \hat{Y}_{BC}=\sigma(W_{BC}*f_\theta(I)+b_{BC}).
+    \]
+    Sharing most parameters reduces the amount of data needed relative to two
+    completely independent networks. Separate heads preserve phenotype-specific
+    calibration and allow different probability thresholds after training.
+  \end{block}
+
+  \begin{block}{From Masks to Quantitative Biomarkers}
+    Connected predicted columns are converted into intervals. For phenotype
+    $k\in\{EA,BC\}$:
+    \[
+      N_k=\text{number of intervals},\qquad
+      B_k=\sum_{r=1}^{N_k} w_{k,r},
+    \]
+    where $w_{k,r}$ is interval width and $B_k$ is total horizontal burden.
+    Reporting probability maps alongside these summaries preserves information
+    for later threshold calibration and statistical analysis.
+  \end{block}
+
+  \begin{block}{Training Objective}
+    Each head combines weighted binary cross-entropy, which addresses class
+    imbalance, with Dice loss, which rewards spatial overlap:
+    \[
+      \mathcal{L}_k=\alpha_k\,\mathcal{L}_{WBCE}^{k}
+      +(1-\alpha_k)\,\mathcal{L}_{Dice}^{k}.
+    \]
+    The joint objective is
+    \[
+      \mathcal{L}=\lambda_{EA}\mathcal{L}_{EA}
+      +\lambda_{BC}\mathcal{L}_{BC}.
+    \]
+    The weights are chosen on the validation set so the rarer or more difficult
+    phenotype does not become dominated by the other task.
+  \end{block}
+\end{column}
+
+% RIGHT COLUMN --------------------------------------------------------------
+\begin{column}{0.29\textwidth}
+  \begin{block}{Proposed Training Algorithm}
+    {\normalsize
+    \begin{algorithm}[H]
+      \caption{Patient-level multi-task segmentation training}
+      \begin{algorithmic}[1]
+        \Require Patient dataset
+          $\mathcal D=\{(I_n,Y_n^{EA},Y_n^{BC},V_n)\}_{n=1}^{N}$;
+          epochs $T$; learning rate $\eta$; loss weights
+          $\lambda_{EA},\lambda_{BC}$
+        \Ensure Parameters $\theta^*$ and thresholds
+          $(\tau_{EA}^*,\tau_{BC}^*)$
+        \State Split patient IDs into
+          $\mathcal D_{tr},\mathcal D_{val},\mathcal D_{te}$
+        \State Initialize ResNet encoder $E_{\theta_E}$ from pretrained weights;
+          initialize decoder $D_{\theta_D}$ and heads $h_{EA},h_{BC}$
+        \For{$t=1,\ldots,T$}
+          \For{mini-batch $\mathcal B\subset\mathcal D_{tr}$}
+            \State $(\tilde I,\tilde Y^{EA},\tilde Y^{BC},\tilde V)
+              \gets \operatorname{Augment}(\mathcal B)$
+            \State $F\gets D_{\theta_D}(E_{\theta_E}(\tilde I))$
+            \For{$k\in\{EA,BC\}$}
+              \State $P^k\gets\sigma(h_k(F))$
+              \State $\mathcal L_k\gets
+                \alpha_k\mathcal L_{WBCE}(P^k,\tilde Y^k;\tilde V)
+                +(1-\alpha_k)\mathcal L_{Dice}(P^k,\tilde Y^k;\tilde V)$
+            \EndFor
+            \State $\mathcal L\gets
+              \lambda_{EA}\mathcal L_{EA}+\lambda_{BC}\mathcal L_{BC}$
+            \State $g\gets\nabla_{\theta}\mathcal L$;
+              $\theta\gets\operatorname{AdamW}(\theta,g,\eta)$
+          \EndFor
+          \State Evaluate $\mathcal L_{val}^{EA}$ and
+            $\mathcal L_{val}^{BC}$; update scheduler
+          \If{joint validation loss improves}
+            \State $\theta^*\gets\theta$; save checkpoint
+          \ElsIf{patience is exhausted}
+            \State \textbf{break}
+          \EndIf
+        \EndFor
+        \For{$k\in\{EA,BC\}$}
+          \State $\tau_k^*\gets\arg\max_{\tau\in[0,1]}
+            \operatorname{Dice}(\mathbb 1[P_{val}^{k}\geq\tau],Y_{val}^{k};V_{val})$
+        \EndFor
+        \State Freeze $(\theta^*,\tau_{EA}^*,\tau_{BC}^*)$ and evaluate once
+          on $\mathcal D_{te}$
+      \end{algorithmic}
+    \end{algorithm}
+    }
+
+    \textbf{Implementation safeguards.} Fix random seeds, log every split and
+    hyperparameter, use mixed precision only with gradient scaling, monitor both
+    heads independently, and never optimize against the held-out test set.
+  \end{block}
+
+  \begin{block}{Grad-CAM Explainability}
+    Grad-CAM asks which shared feature-map locations most increased a chosen
+    phenotype score. For feature map $A^q$ and phenotype score $s_k$:
+    \[
+      \alpha_q^k=\frac{1}{Z}\sum_{u,v}
+      \frac{\partial s_k}{\partial A^q_{uv}},\qquad
+      H_k=\operatorname{ReLU}\!\left(\sum_q\alpha_q^k A^q\right).
+    \]
+    $H_{EA}$ and $H_{BC}$ are computed separately and overlaid on the B-scan.
+    A useful explanation should emphasize the predicted lesion and relevant
+    sub-BM signal rather than borders, text, padding, or unrelated anatomy.
+
+    \vspace{0.35cm}
+    Grad-CAM does not prove causality. It is a model-audit tool: disagreement
+    between the segmentation and attention map flags cases for review and may
+    reveal shortcut learning.
+  \end{block}
+
+\end{column}
+
+\end{columns}
+
+\vfill
+\makebox[\linewidth][c]{%
+\begin{beamercolorbox}[wd=\paperwidth,ht=2.2cm,dp=0.6cm,leftskip=2cm,rightskip=2cm]{block title}
+  \strut
+\end{beamercolorbox}}
+
+\end{frame}
+\end{document}
