@@ -51,19 +51,30 @@
     {\includegraphics[width=12.0cm]{jhu_whiting_white.png}};
   \node[inner sep=0pt] at (133.74,7.4)
     {\includegraphics[width=12.0cm]{jhu_whiting_white.png}};
-  \node[text=white,text width=103cm,align=center] at (71.12,9.5)
-    {{\fontsize{58}{64}\selectfont\bfseries
+  \node[text=white,text width=108cm,align=center] at (71.12,10.1)
+    {{\fontsize{52}{58}\selectfont\bfseries
       Quantifying the ``Barcoding'' Artifact in OCT for EA Progression Risk}};
-  \node[text=white,align=center] at (71.12,6.3)
-    {{\fontsize{30}{35}\selectfont\bfseries Jonathan Ma}};
-  \node[text=white,align=center] at (71.12,4.9)
-    {{\fontsize{22}{27}\selectfont
-      Department of Applied Mathematics and Statistics}};
-  \node[text=white,align=center] at (71.12,3.0)
-    {{\fontsize{22}{27}\selectfont
+  \node[text=white,text width=112cm,align=center] at (71.12,7.4)
+    {{\fontsize{20}{24}\selectfont\bfseries
+      Jonathan Ma, Yingjia Wei\textsuperscript{*,1,2},
+      Hussein Morobeid, MD\textsuperscript{*,3,4}, Karen Daynes\textsuperscript{3},
+      Steffen Schmitz-Valckenberg, MD\textsuperscript{3,4},
+      Monika Fleckenstein, MD\textsuperscript{3}}};
+  \node[text=white,text width=112cm,align=center] at (71.12,5.25)
+    {{\fontsize{13}{16}\selectfont
+      \textsuperscript{1}Johns Hopkins University-Whiting School of Engineering, Baltimore, MD, USA $\mid$
+      \textsuperscript{2}Department of Population Health Science, School of
+      Medicine, University of Utah, Salt Lake City, UT, USA}};
+  \node[text=white,text width=112cm,align=center] at (71.12,3.45)
+    {{\fontsize{13}{16}\selectfont
+      \textsuperscript{3}John A. Moran Eye Center, University of Utah,
+      Salt Lake City, UT, USA $\mid$
+      \textsuperscript{4}Department of Ophthalmology, University of Bonn,
+      Bonn, Germany}};
+  \node[text=white,align=center] at (71.12,1.75)
+    {{\fontsize{13}{16}\selectfont
       \href{mailto:jonathanma217@outlook.com}{jonathanma217@outlook.com}
-      $\mid$
-      \href{https://jonathanma03.github.io}{jonathanma03.github.io}}};
+      $\mid$ \href{https://jonathanma03.github.io}{jonathanma03.github.io}}};
 \end{tikzpicture}}
 
 \vspace{1.0cm}
@@ -313,7 +324,7 @@
     independent clinical-validation estimates and cannot establish a biological
     fast-versus-slow difference.
   \end{block}
-
+  \vspace{1.0cm}
   \begin{block}{Results and Future Work}
     \vspace{0.3cm}
     \textbf{Could barcoding be a useful biomarker?} In this ten-scan
@@ -323,29 +334,20 @@
     40.5\% greater mean width per scan). This preliminary pattern suggests that
     \emph{barcoding extent}, rather than interval count alone, may be worth
     testing as a progression biomarker. It is not yet evidence of a clinical
-    association because the sample is small, selected, and used to tune the
-    detector. Next steps to take as soon as we get more annotated scans include: 
-
-    \vspace{0.3cm}
-    \begin{enumerate}
-      \item \textbf{Test correlations with functional measurements.} Evaluate
-        whether barcoding and EA presence, interval count, width, location,
-        texture, and depth persistence are associated with available functional
-        measurements and subsequent progression outcomes.
-      \item \textbf{Develop a hidden Markov model (HMM).} Use spatial context
-        and transitions between neighboring scan columns to improve automated
-        EA and barcoding detection while reducing isolated false-positive
-        regions.
-    \end{enumerate}
+    association because the sample is small, and more scans are being uploaded for the subjects, but confirms the that barcoding is an interesting phenomenon to investigate
   \end{block}
-
-  \begin{block}{Acknowledgments}
-    \vspace{0.3cm}
-    I would like to thank Yingjia Wei and Monika Fleckenstein (University of Utah,
-    Department of Ophthalmology and Visual Sciences) for their contributions.
-    Supported by NIH award
-    \href{https://reporter.nih.gov/search/IkRjh0_6kUCR974YUaREQQ/project-details/10635325}%
-    {\textbf{1R01EY034965-01}}.
+  \vspace{1.0cm}
+  \begin{block}{Funding Support}
+    {% \small
+    NIH Grant \textbf{1R01EY034965-01}; \textbf{UM1TR004409} (Pilot Projects
+    and Services/Resources, Utah Clinical and Translational Science Institute);
+    \textbf{EY014800} (National Institutes of Health Core Grant, Department of
+    Ophthalmology \& Visual Sciences, University of Utah); John A. Moran Award
+    to MF and SS-V (Research Salary Support from John A. Moran Eye Center,
+    University of Utah); and an Unrestricted Grant from Research to Prevent
+    Blindness, New York, NY, to the Department of Ophthalmology \& Visual
+    Sciences, University of Utah.
+    }
   \end{block}
 
 \end{column}
